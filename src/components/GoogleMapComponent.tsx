@@ -138,10 +138,15 @@ const GoogleMapComponent = () => {
   };
 
   useEffect(() => {
-    if (apiKey) {
-      loadMap(apiKey);
-    }
-  }, []);
+    // Delay the map loading to ensure the ref is available
+    const timer = setTimeout(() => {
+      if (apiKey) {
+        loadMap(apiKey);
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [apiKey]);
 
   if (!apiKey || !isMapLoaded) {
     return (
