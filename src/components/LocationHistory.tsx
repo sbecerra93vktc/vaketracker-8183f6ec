@@ -365,9 +365,9 @@ const LocationHistory = () => {
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2">
-                    <Badge className={getVisitTypeColor(location.visit_type)}>
+                    <div className={`inline-flex items-center rounded-full border-0 px-2.5 py-0.5 text-xs font-semibold ${getVisitTypeColor(location.visit_type)}`}>
                       {formatVisitType(location.visit_type)}
-                    </Badge>
+                    </div>
                     {userRole === 'admin' && location.user_name && (
                       <div className="flex items-center gap-1 text-sm text-muted-foreground">
                         <User className="h-4 w-4" />
