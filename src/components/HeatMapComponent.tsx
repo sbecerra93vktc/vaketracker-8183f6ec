@@ -6,6 +6,7 @@ import { Thermometer } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import * as d3 from 'd3';
+import * as topojson from 'topojson-client';
 
 interface HeatMapData {
   region: string;
@@ -87,9 +88,24 @@ const HeatMapComponent = () => {
     ]
   };
 
+  // Improved state boundaries and detection
+  const mexicanStates = {
+    'Quintana Roo': [
+      [[-86.0, 18.5], [-86.0, 22.0], [-88.0, 22.0], [-88.0, 18.5], [-86.0, 18.5]]
+    ],
+    'Yucatán': [
+      [[-88.0, 20.0], [-88.0, 21.6], [-90.5, 21.6], [-90.5, 20.0], [-88.0, 20.0]]
+    ],
+    'Campeche': [
+      [[-90.5, 17.8], [-90.5, 20.8], [-92.5, 20.8], [-92.5, 17.8], [-90.5, 17.8]]
+    ]
+  };
+
   const detectStateFromCoordinates = (lat: number, lng: number, country: string): string => {
     if (country === 'Guatemala') {
-      // More precise Guatemala state detection
+      // Guatemala City area - expanded to include more of the central region
+      if (lat >= 14.5 && lat <= 14.7 && lng >= -90.7 && lng <= -90.4) return 'Guatemala (Capital)';
+      // More precise Guatemala state detection  
       if (lat >= 16.0 && lat <= 17.8 && lng >= -92.3 && lng <= -88.3) return 'Petén';
       if (lat >= 15.5 && lat <= 16.0 && lng >= -91.5 && lng <= -90.5) return 'Alta Verapaz';
       if (lat >= 15.0 && lat <= 15.8 && lng >= -90.8 && lng <= -90.0) return 'Baja Verapaz';
@@ -110,15 +126,14 @@ const HeatMapComponent = () => {
       if (lat >= 14.6 && lat <= 15.0 && lng >= -91.8 && lng <= -91.2) return 'Quetzaltenango';
       if (lat >= 14.7 && lat <= 15.1 && lng >= -91.6 && lng <= -91.1) return 'Totonicapán';
       if (lat >= 14.2 && lat <= 14.6 && lng >= -91.7 && lng <= -91.0) return 'Suchitepéquez';
-      if (lat >= 14.4 && lat <= 14.8 && lng >= -90.8 && lng <= -90.3) return 'Guatemala (Capital)';
-      return 'Guatemala';
+      return 'Guatemala (Capital)'; // Default for Guatemala coordinates
     }
     
-    // Simplified detection for other countries
     if (country === 'México') {
-      if (lat >= 19.0 && lat <= 25.0 && lng >= -89.0 && lng <= -86.0) return 'Quintana Roo';
-      if (lat >= 20.0 && lat <= 22.5 && lng >= -90.5 && lng <= -88.0) return 'Yucatán';
-      if (lat >= 19.0 && lat <= 21.5 && lng >= -91.0 && lng <= -89.0) return 'Campeche';
+      // Cancun/Quintana Roo area
+      if (lat >= 18.5 && lat <= 22.0 && lng >= -88.0 && lng <= -86.0) return 'Quintana Roo';
+      if (lat >= 20.0 && lat <= 21.6 && lng >= -90.5 && lng <= -88.0) return 'Yucatán';
+      if (lat >= 17.8 && lat <= 20.8 && lng >= -92.5 && lng <= -90.5) return 'Campeche';
       if (lat >= 25.0 && lat <= 32.7 && lng >= -115.0 && lng <= -109.0) return 'Baja California';
       return 'Otra región';
     }
@@ -215,6 +230,7 @@ const HeatMapComponent = () => {
     
     svg.attr("width", width).attr("height", height);
 
+    // Create geographic visualizations for countries with state boundaries
     if (selectedCountry === 'Guatemala') {
       // Create a map projection for Guatemala
       const projection = d3.geoMercator()
@@ -222,9 +238,7 @@ const HeatMapComponent = () => {
         .scale(8000)
         .translate([width / 2, height / 2]);
 
-      const path = d3.geoPath().projection(projection);
-
-      // Draw state polygons for Guatemala
+      // Draw all Guatemala states with their boundaries and colors
       Object.entries(guatemalaStates).forEach(([stateName, coordinates]) => {
         const stateData = heatMapData.find(d => d.region === stateName);
         const intensity = stateData ? stateData.intensity : 0;
@@ -238,95 +252,187 @@ const HeatMapComponent = () => {
           }
         });
 
-        svg.append("path")
-          .attr("d", pathData)
-          .attr("fill", getIntensityColor(intensity))
-          .attr("stroke", "#374151")
-          .attr("stroke-width", 1)
-          .attr("opacity", 0.8)
-          .on("mouseover", function(event, d) {
-            d3.select(this).attr("stroke-width", 2);
-            
-            // Create tooltip
-            const tooltip = d3.select("body").append("div")
-              .attr("class", "tooltip")
-              .style("position", "absolute")
-              .style("background", "rgba(0, 0, 0, 0.8)")
-              .style("color", "white")
-              .style("padding", "8px")
-              .style("border-radius", "4px")
-              .style("font-size", "12px")
-              .style("pointer-events", "none")
-              .style("z-index", "1000");
-            
-            tooltip.html(`
-              <strong>${stateName}</strong><br/>
-              Actividades: ${stateData ? stateData.count : 0}
-            `)
-            .style("left", (event.pageX + 10) + "px")
-            .style("top", (event.pageY - 10) + "px");
-          })
-          .on("mouseout", function() {
-            d3.select(this).attr("stroke-width", 1);
-            d3.selectAll(".tooltip").remove();
-          });
+        if (pathData) {
+          svg.append("path")
+            .attr("d", pathData)
+            .attr("fill", getIntensityColor(intensity))
+            .attr("stroke", "#374151")
+            .attr("stroke-width", 1)
+            .attr("opacity", 0.8)
+            .style("cursor", "pointer")
+            .on("mouseover", function(event) {
+              d3.select(this).attr("stroke-width", 2).attr("opacity", 1);
+              
+              // Create tooltip
+              const tooltip = d3.select("body").append("div")
+                .attr("class", "heatmap-tooltip")
+                .style("position", "absolute")
+                .style("background", "rgba(0, 0, 0, 0.9)")
+                .style("color", "white")
+                .style("padding", "8px 12px")
+                .style("border-radius", "6px")
+                .style("font-size", "13px")
+                .style("pointer-events", "none")
+                .style("z-index", "1000")
+                .style("box-shadow", "0 4px 6px rgba(0, 0, 0, 0.1)");
+              
+              tooltip.html(`
+                <div><strong>${stateName}</strong></div>
+                <div>Actividades: ${stateData ? stateData.count : 0}</div>
+                <div>Intensidad: ${intensity.toFixed(0)}%</div>
+              `)
+              .style("left", (event.pageX + 10) + "px")
+              .style("top", (event.pageY - 10) + "px");
+            })
+            .on("mouseout", function() {
+              d3.select(this).attr("stroke-width", 1).attr("opacity", 0.8);
+              d3.selectAll(".heatmap-tooltip").remove();
+            });
+        }
+      });
+
+    } else if (selectedCountry === 'México') {
+      // Create a map projection for Mexico (focused on southern region)
+      const projection = d3.geoMercator()
+        .center([-88.5, 20.0])
+        .scale(4000)
+        .translate([width / 2, height / 2]);
+
+      // Draw Mexican states with their boundaries and colors
+      Object.entries(mexicanStates).forEach(([stateName, coordinates]) => {
+        const stateData = heatMapData.find(d => d.region === stateName);
+        const intensity = stateData ? stateData.intensity : 0;
+        
+        const pathData = d3.geoPath().projection(projection)({
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "Polygon",
+            coordinates: coordinates
+          }
+        });
+
+        if (pathData) {
+          svg.append("path")
+            .attr("d", pathData)
+            .attr("fill", getIntensityColor(intensity))
+            .attr("stroke", "#374151")
+            .attr("stroke-width", 1)
+            .attr("opacity", 0.8)
+            .style("cursor", "pointer")
+            .on("mouseover", function(event) {
+              d3.select(this).attr("stroke-width", 2).attr("opacity", 1);
+              
+              // Create tooltip
+              const tooltip = d3.select("body").append("div")
+                .attr("class", "heatmap-tooltip")
+                .style("position", "absolute")
+                .style("background", "rgba(0, 0, 0, 0.9)")
+                .style("color", "white")
+                .style("padding", "8px 12px")
+                .style("border-radius", "6px")
+                .style("font-size", "13px")
+                .style("pointer-events", "none")
+                .style("z-index", "1000")
+                .style("box-shadow", "0 4px 6px rgba(0, 0, 0, 0.1)");
+              
+              tooltip.html(`
+                <div><strong>${stateName}</strong></div>
+                <div>Actividades: ${stateData ? stateData.count : 0}</div>
+                <div>Intensidad: ${intensity.toFixed(0)}%</div>
+              `)
+              .style("left", (event.pageX + 10) + "px")
+              .style("top", (event.pageY - 10) + "px");
+            })
+            .on("mouseout", function() {
+              d3.select(this).attr("stroke-width", 1).attr("opacity", 0.8);
+              d3.selectAll(".heatmap-tooltip").remove();
+            });
+        }
       });
 
     } else {
-      // For other countries, show the data in a list format since we don't have their geographical boundaries
+      // For other countries, show data as an interactive bar chart
       if (heatMapData.length > 0) {
         const maxCount = Math.max(...heatMapData.map(d => d.count));
         
-        // Show regions as colored rectangles
+        svg.append("text")
+          .attr("x", width / 2)
+          .attr("y", 30)
+          .attr("text-anchor", "middle")
+          .attr("font-size", "18px")
+          .attr("font-weight", "bold")
+          .attr("fill", "#374151")
+          .text(`Actividades por región en ${selectedCountry}`);
+        
+        // Show regions as interactive colored bars
         heatMapData.forEach((data, index) => {
-          const y = 50 + index * 40;
-          const barWidth = (data.count / maxCount) * 400;
+          const y = 70 + index * 50;
+          const barWidth = (data.count / maxCount) * 500;
           
           // Background rectangle
           svg.append("rect")
             .attr("x", 50)
             .attr("y", y)
-            .attr("width", 500)
-            .attr("height", 30)
-            .attr("fill", "#f3f4f6")
+            .attr("width", 600)
+            .attr("height", 40)
+            .attr("fill", "#f9fafb")
             .attr("stroke", "#e5e7eb")
-            .attr("rx", 4);
+            .attr("rx", 6)
+            .style("cursor", "pointer");
           
-          // Data rectangle
+          // Data rectangle with hover effect
           svg.append("rect")
             .attr("x", 50)
             .attr("y", y)
             .attr("width", barWidth)
-            .attr("height", 30)
+            .attr("height", 40)
             .attr("fill", getIntensityColor(data.intensity))
-            .attr("rx", 4);
+            .attr("rx", 6)
+            .style("cursor", "pointer")
+            .on("mouseover", function() {
+              d3.select(this).attr("opacity", 0.8);
+            })
+            .on("mouseout", function() {
+              d3.select(this).attr("opacity", 1);
+            });
           
           // Region name
           svg.append("text")
             .attr("x", 60)
-            .attr("y", y + 20)
+            .attr("y", y + 25)
             .attr("font-size", "14px")
-            .attr("font-weight", "bold")
-            .attr("fill", "black")
+            .attr("font-weight", "600")
+            .attr("fill", "#1f2937")
             .text(data.region);
           
           // Count
           svg.append("text")
-            .attr("x", 560)
-            .attr("y", y + 20)
-            .attr("font-size", "12px")
-            .attr("fill", "#666")
-            .text(`${data.count} actividades`);
+            .attr("x", 660)
+            .attr("y", y + 25)
+            .attr("font-size", "13px")
+            .attr("fill", "#6b7280")
+            .attr("text-anchor", "end")
+            .text(`${data.count} actividades (${data.intensity.toFixed(0)}%)`);
         });
       } else {
-        // No data message
+        // No data message for countries without activities
         svg.append("text")
           .attr("x", width / 2)
-          .attr("y", height / 2)
+          .attr("y", height / 2 - 20)
           .attr("text-anchor", "middle")
-          .attr("class", "text-muted-foreground")
-          .style("font-size", "16px")
-          .text(`No hay actividades registradas en ${selectedCountry}`);
+          .attr("font-size", "18px")
+          .attr("font-weight", "600")
+          .attr("fill", "#6b7280")
+          .text(`Sin actividades en ${selectedCountry}`);
+        
+        svg.append("text")
+          .attr("x", width / 2)
+          .attr("y", height / 2 + 10)
+          .attr("text-anchor", "middle")
+          .attr("font-size", "14px")
+          .attr("fill", "#9ca3af")
+          .text("Cuando se registren actividades aparecerán aquí");
       }
     }
   };
