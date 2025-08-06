@@ -78,8 +78,11 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
     setLoading(true);
 
     try {
-      // Get address from coordinates (reverse geocoding)
+      // Get address and detect country/state from coordinates
       let address = '';
+      let country = '';
+      let state = '';
+      
       try {
         const response = await fetch(
           `https://api.opencagedata.com/geocode/v1/json?q=${currentLocation.latitude}+${currentLocation.longitude}&key=demo&limit=1`
@@ -87,13 +90,36 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
         const data = await response.json();
         if (data.results && data.results[0]) {
           address = data.results[0].formatted;
+          country = data.results[0].components?.country || '';
+          state = data.results[0].components?.state || data.results[0].components?.province || '';
         }
       } catch (geocodeError) {
         console.warn('Geocoding failed:', geocodeError);
         address = `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`;
+        
+        // Fallback region detection for Central America
+        const lat = currentLocation.latitude;
+        const lng = currentLocation.longitude;
+        
+        if (lat >= 13.0 && lat <= 17.5 && lng >= -92.5 && lng <= -88.0) {
+          country = 'Guatemala';
+          if (lat >= 15.5 && lat <= 16.0 && lng >= -91.5 && lng <= -90.5) state = 'Alta Verapaz';
+          else if (lat >= 14.5 && lat <= 15.5 && lng >= -91.0 && lng <= -90.0) state = 'Baja Verapaz';
+          else if (lat >= 14.0 && lat <= 15.0 && lng >= -92.5 && lng <= -91.5) state = 'Quiché';
+          else if (lat >= 14.5 && lat <= 15.5 && lng >= -91.5 && lng <= -90.5) state = 'Guatemala';
+          else state = 'Otra región';
+        } else if (lat >= 12.0 && lat <= 15.0 && lng >= -90.5 && lng <= -87.0) {
+          country = 'El Salvador';
+          state = 'Región detectada';
+        } else if (lat >= 12.5 && lat <= 16.5 && lng >= -89.5 && lng <= -83.0) {
+          country = 'Honduras';
+          state = 'Región detectada';
+        }
       }
 
-      const visitType = activityType;
+      const visitType = activityType === 'Visita programada' && subActivity 
+        ? `${activityType} - ${subActivity}` 
+        : activityType;
       
       const { error } = await supabase
         .from('locations')
@@ -105,6 +131,8 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
           address,
           notes: notes.trim() || null,
           visit_type: visitType,
+          country: country || null,
+          state: state || null,
         });
 
       if (error) {
@@ -156,10 +184,28 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
               <SelectValue placeholder="Selecciona el tipo de actividad" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="Visita en frío">Visita en frío</SelectItem>
+              <SelectItem value="Visita programada">Visita programada</SelectItem>
               <SelectItem value="Visita de cortesía">Visita de cortesía</SelectItem>
             </SelectContent>
           </Select>
         </div>
+
+        {activityType === 'Visita programada' && (
+          <div className="space-y-2">
+            <Label htmlFor="subActivity">Tipo de Visita Programada</Label>
+            <Select value={subActivity} onValueChange={setSubActivity}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona el tipo de visita" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Negociación en curso">Negociación en curso</SelectItem>
+                <SelectItem value="Visita Pre-entrega e instalación">Visita Pre-entrega e instalación</SelectItem>
+                <SelectItem value="Visita técnica">Visita técnica</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         <div className="space-y-2">
           <Label htmlFor="notes">Notas (Opcional)</Label>
@@ -200,7 +246,7 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
             {currentLocation ? 'Actualizar Ubicación' : 'Capturar Ubicación'}
           </Button>
           
-          {currentLocation && activityType && (
+          {currentLocation && activityType && (activityType !== 'Visita programada' || subActivity) && (
             <Button
               onClick={saveLocation}
               disabled={loading}

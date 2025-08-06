@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { MapPin, Clock, User } from 'lucide-react';
+import { MapPin, Clock, User, Filter, Calendar, Globe } from 'lucide-react';
 
 interface Location {
   id: string;
@@ -13,18 +17,31 @@ interface Location {
   notes: string;
   visit_type: string;
   created_at: string;
+  country?: string;
+  state?: string;
   user_name?: string;
   user_email?: string;
+  user_id: string;
 }
 
 const LocationHistory = () => {
   const [locations, setLocations] = useState<Location[]>([]);
+  const [filteredLocations, setFilteredLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedUser, setSelectedUser] = useState<string>('all');
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedCountry, setSelectedCountry] = useState<string>('all');
+  const [selectedState, setSelectedState] = useState<string>('all');
+  const [showFilters, setShowFilters] = useState(false);
   const { userRole } = useAuth();
 
   useEffect(() => {
     fetchLocations();
   }, [userRole]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [locations, selectedUser, selectedDate, selectedCountry, selectedState]);
 
   const fetchLocations = async () => {
     try {
@@ -35,7 +52,7 @@ const LocationHistory = () => {
         .from('locations')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(100);
 
       // If not admin, only show own locations
       if (userRole !== 'admin') {
@@ -80,22 +97,63 @@ const LocationHistory = () => {
     }
   };
 
+  const applyFilters = () => {
+    let filtered = [...locations];
+
+    // User filter
+    if (selectedUser !== 'all') {
+      filtered = filtered.filter(location => location.user_id === selectedUser);
+    }
+
+    // Date filter
+    if (selectedDate) {
+      const filterDate = new Date(selectedDate).toDateString();
+      filtered = filtered.filter(location => 
+        new Date(location.created_at).toDateString() === filterDate
+      );
+    }
+
+    // Country filter
+    if (selectedCountry !== 'all') {
+      filtered = filtered.filter(location => location.country === selectedCountry);
+    }
+
+    // State filter
+    if (selectedState !== 'all') {
+      filtered = filtered.filter(location => location.state === selectedState);
+    }
+
+    setFilteredLocations(filtered);
+  };
+
+  const getUniqueUsers = () => {
+    const users = locations.map(loc => ({
+      id: loc.user_id,
+      name: loc.user_name || 'Unknown User'
+    }));
+    return Array.from(new Map(users.map(user => [user.id, user])).values());
+  };
+
+  const getUniqueCountries = () => {
+    return [...new Set(locations.map(loc => loc.country).filter(Boolean))];
+  };
+
+  const getUniqueStates = () => {
+    const states = locations.filter(loc => 
+      selectedCountry === 'all' || loc.country === selectedCountry
+    ).map(loc => loc.state).filter(Boolean);
+    return [...new Set(states)];
+  };
+
   const getVisitTypeColor = (visitType: string) => {
-    const colors = {
-      check_in: 'bg-green-100 text-green-800',
-      check_out: 'bg-red-100 text-red-800',
-      customer_visit: 'bg-blue-100 text-blue-800',
-      delivery: 'bg-purple-100 text-purple-800',
-      meeting: 'bg-yellow-100 text-yellow-800',
-      break: 'bg-gray-100 text-gray-800',
-    };
-    return colors[visitType as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+    if (visitType.includes('Visita en frío')) return 'bg-blue-100 text-blue-800';
+    if (visitType.includes('Visita programada')) return 'bg-warning/20 text-warning-foreground';
+    if (visitType.includes('Visita de cortesía')) return 'bg-green-100 text-green-800';
+    return 'bg-gray-100 text-gray-800';
   };
 
   const formatVisitType = (visitType: string) => {
-    return visitType.split('_').map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ');
+    return visitType || 'Actividad';
   };
 
   if (loading) {
@@ -111,19 +169,101 @@ const LocationHistory = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <MapPin className="h-5 w-5" />
-          {userRole === 'admin' ? 'All Team Locations' : 'Your Location History'}
+        <CardTitle className="flex items-center gap-2 justify-between">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-warning" />
+            {userRole === 'admin' ? 'Ubicaciones del Equipo' : 'Historial de Ubicaciones'}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFilters(!showFilters)}
+            className="text-warning border-warning/20 hover:bg-warning/10"
+          >
+            <Filter className="h-4 w-4 mr-2" />
+            Filtros
+          </Button>
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {locations.length === 0 ? (
+        {showFilters && (
+          <div className="mb-6 p-4 border rounded-lg bg-warning/5 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {userRole === 'admin' && (
+                <div className="space-y-2">
+                  <Label>Usuario</Label>
+                  <Select value={selectedUser} onValueChange={setSelectedUser}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Todos los usuarios" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los usuarios</SelectItem>
+                      {getUniqueUsers().map(user => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              
+              <div className="space-y-2">
+                <Label>Fecha</Label>
+                <Input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>País</Label>
+                <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos los países" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los países</SelectItem>
+                    {getUniqueCountries().map(country => (
+                      <SelectItem key={country} value={country}>
+                        {country}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Región/Estado</Label>
+                <Select value={selectedState} onValueChange={setSelectedState}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas las regiones" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las regiones</SelectItem>
+                    {getUniqueStates().map(state => (
+                      <SelectItem key={state} value={state}>
+                        {state}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {filteredLocations.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            No locations recorded yet
+            {locations.length === 0 ? 'No hay actividades registradas aún' : 'No se encontraron actividades con los filtros seleccionados'}
           </div>
         ) : (
           <div className="space-y-4">
-            {locations.map((location) => (
+            <div className="text-sm text-muted-foreground mb-4">
+              Mostrando {filteredLocations.length} de {locations.length} actividades
+            </div>
+            {filteredLocations.map((location) => (
               <div
                 key={location.id}
                 className="border rounded-lg p-4 space-y-3"
@@ -148,9 +288,16 @@ const LocationHistory = () => {
 
                 <div className="space-y-1">
                   <p className="text-sm font-medium">{location.address}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
-                  </p>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span>{location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}</span>
+                    {location.country && (
+                      <div className="flex items-center gap-1">
+                        <Globe className="h-3 w-3" />
+                        <span>{location.country}</span>
+                        {location.state && <span>• {location.state}</span>}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {location.notes && (

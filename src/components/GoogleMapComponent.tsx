@@ -34,8 +34,9 @@ const GoogleMapComponent = () => {
   const [teamLocations, setTeamLocations] = useState<TeamLocation[]>([]);
   const [filteredLocations, setFilteredLocations] = useState<TeamLocation[]>([]);
   const [selectedUser, setSelectedUser] = useState<string>('all');
-  const [selectedDate, setSelectedDate] = useState<string>('all');
-  const [selectedRegion, setSelectedRegion] = useState<string>('all');
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedCountry, setSelectedCountry] = useState<string>('all');
+  const [selectedState, setSelectedState] = useState<string>('all');
   const { userRole } = useAuth();
 
   // Guatemala departments mapping
@@ -227,13 +228,28 @@ const GoogleMapComponent = () => {
       }
     }
 
-    // Filter by region
-    if (selectedRegion !== 'all') {
-      filtered = filtered.filter(loc => loc.region === selectedRegion);
+    // Filter by country
+    if (selectedCountry !== 'all') {
+      filtered = filtered.filter(loc => {
+        const lat = loc.latitude;
+        const lng = loc.longitude;
+        let country = '';
+        
+        if (lat >= 13.0 && lat <= 17.5 && lng >= -92.5 && lng <= -88.0) country = 'Guatemala';
+        else if (lat >= 12.0 && lat <= 15.0 && lng >= -90.5 && lng <= -87.0) country = 'El Salvador';
+        else if (lat >= 12.5 && lat <= 16.5 && lng >= -89.5 && lng <= -83.0) country = 'Honduras';
+        
+        return country === selectedCountry;
+      });
+    }
+
+    // Filter by state
+    if (selectedState !== 'all') {
+      filtered = filtered.filter(loc => loc.region === selectedState);
     }
 
     setFilteredLocations(filtered);
-  }, [teamLocations, selectedUser, selectedDate, selectedRegion]);
+  }, [teamLocations, selectedUser, selectedDate, selectedCountry, selectedState]);
 
   // Update markers on the map
   const updateMapMarkers = useCallback(() => {
@@ -436,8 +452,23 @@ const GoogleMapComponent = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              <Label htmlFor="region-filter" className="text-sm">Región:</Label>
-              <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+              <Label htmlFor="country-filter" className="text-sm">País:</Label>
+              <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="Guatemala">Guatemala</SelectItem>
+                  <SelectItem value="El Salvador">El Salvador</SelectItem>
+                  <SelectItem value="Honduras">Honduras</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Label htmlFor="state-filter" className="text-sm">Región:</Label>
+              <Select value={selectedState} onValueChange={setSelectedState}>
                 <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>
