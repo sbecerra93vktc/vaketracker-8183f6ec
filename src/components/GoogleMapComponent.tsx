@@ -208,24 +208,11 @@ const GoogleMapComponent = () => {
     }
 
     // Filter by date
-    if (selectedDate !== 'all') {
-      const today = new Date();
-      const filterDate = new Date();
-      
-      switch (selectedDate) {
-        case 'today':
-          filterDate.setHours(0, 0, 0, 0);
-          filtered = filtered.filter(loc => new Date(loc.created_at) >= filterDate);
-          break;
-        case 'week':
-          filterDate.setDate(today.getDate() - 7);
-          filtered = filtered.filter(loc => new Date(loc.created_at) >= filterDate);
-          break;
-        case 'month':
-          filterDate.setMonth(today.getMonth() - 1);
-          filtered = filtered.filter(loc => new Date(loc.created_at) >= filterDate);
-          break;
-      }
+    if (selectedDate) {
+      const filterDate = new Date(selectedDate).toDateString();
+      filtered = filtered.filter(loc => 
+        new Date(loc.created_at).toDateString() === filterDate
+      );
     }
 
     // Filter by country
@@ -438,17 +425,12 @@ const GoogleMapComponent = () => {
 
             <div className="flex items-center gap-2">
               <Label htmlFor="date-filter" className="text-sm">Fecha:</Label>
-              <Select value={selectedDate} onValueChange={setSelectedDate}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  <SelectItem value="today">Hoy</SelectItem>
-                  <SelectItem value="week">Última semana</SelectItem>
-                  <SelectItem value="month">Último mes</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-40"
+              />
             </div>
 
             <div className="flex items-center gap-2">
