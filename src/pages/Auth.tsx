@@ -174,7 +174,7 @@ const Auth = () => {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Sales Management System</CardTitle>
+          <CardTitle>Vaketracker</CardTitle>
           <CardDescription>
             {isFirstUser 
               ? 'Create your administrator account to get started'

@@ -9,7 +9,7 @@ const Index = () => {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Sales Management System</CardTitle>
+          <CardTitle className="text-2xl">Vaketracker</CardTitle>
           <CardDescription>
             Manage your sales territory and customer relationships
           </CardDescription>

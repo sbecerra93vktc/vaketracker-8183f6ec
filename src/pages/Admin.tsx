@@ -58,7 +58,7 @@ const Admin = () => {
   const { userRole } = useAuth();
 
   const availablePermissions = [
-    { name: 'view_team_locations', label: 'Ver ubicaciones del equipo' },
+    { name: 'view_team_locations', label: 'Ver actividades del equipo' },
     { name: 'view_team_activities', label: 'Ver actividades del equipo' },
     { name: 'access_admin_panel', label: 'Acceder al panel de admin' },
     { name: 'manage_users', label: 'Gestionar usuarios' },

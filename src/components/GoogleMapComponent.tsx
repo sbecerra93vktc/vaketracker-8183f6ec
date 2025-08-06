@@ -449,7 +449,7 @@ const GoogleMapComponent = () => {
         <div className="flex h-16 items-center px-6">
           <div className="flex items-center gap-2">
             <Users className="h-6 w-6 text-warning" />
-            <h1 className="text-xl font-semibold text-warning">Ubicaciones del Equipo</h1>
+            <h1 className="text-xl font-semibold text-warning">Actividades del Equipo</h1>
           </div>
           <div className="ml-auto flex items-center gap-4">
             {isLoadingKey && !isMapLoaded && (

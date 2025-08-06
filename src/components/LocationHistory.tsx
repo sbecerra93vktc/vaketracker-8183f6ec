@@ -267,7 +267,7 @@ const LocationHistory = () => {
         <CardTitle className="flex items-center gap-2 justify-between">
           <div className="flex items-center gap-2">
             <MapPin className="h-5 w-5 text-warning" />
-            {userRole === 'admin' ? 'Ubicaciones del Equipo' : 'Historial de Ubicaciones'}
+            {userRole === 'admin' ? 'Actividades del Equipo' : 'Historial de Ubicaciones'}
           </div>
           <Button
             variant="outline"
