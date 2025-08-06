@@ -43,17 +43,27 @@ const GoogleMapComponent = () => {
   ]);
 
   const loadMap = async (key: string) => {
-    if (!mapRef.current || !key) return;
+    console.log('loadMap called with key:', key ? 'provided' : 'missing');
+    console.log('mapRef.current:', mapRef.current);
+    
+    if (!mapRef.current || !key) {
+      console.log('Early return - missing mapRef or key');
+      return;
+    }
 
     try {
+      console.log('Creating Google Maps loader...');
       const loader = new Loader({
         apiKey: key,
         version: 'weekly',
         libraries: ['places']
       });
 
+      console.log('Loading Google Maps API...');
       await loader.load();
+      console.log('Google Maps API loaded successfully');
 
+      console.log('Creating map instance...');
       const map = new google.maps.Map(mapRef.current, {
         zoom: 12,
         center: { lat: 40.7128, lng: -74.0060 }, // New York City
@@ -68,8 +78,10 @@ const GoogleMapComponent = () => {
       });
 
       mapInstanceRef.current = map;
+      console.log('Map instance created');
 
       // Add markers for each salesperson
+      console.log('Adding markers for', salespeople.length, 'salespeople');
       salespeople.forEach((person) => {
         const marker = new google.maps.Marker({
           position: person.position,
@@ -110,9 +122,11 @@ const GoogleMapComponent = () => {
         });
       });
 
+      console.log('Setting isMapLoaded to true');
       setIsMapLoaded(true);
     } catch (error) {
       console.error('Error loading Google Maps:', error);
+      console.error('Error details:', error);
     }
   };
 
