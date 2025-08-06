@@ -123,9 +123,18 @@ const Admin = () => {
       });
     } else {
       toast({
-        title: 'Invitation sent!',
-        description: `Invitation token: ${token}`,
+        title: 'Invitation created!',
+        description: `Share this token: ${token}`,
       });
+      
+      // Show detailed token info
+      setTimeout(() => {
+        toast({
+          title: 'Invitation Token',
+          description: `Email: ${email}\nToken: ${token}\n\nShare this token with the user to register.`,
+        });
+      }, 1000);
+      
       fetchInvitations();
       (e.target as HTMLFormElement).reset();
     }
@@ -191,6 +200,7 @@ const Admin = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Email</TableHead>
+                  <TableHead>Token</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Expires</TableHead>
                 </TableRow>
@@ -199,6 +209,11 @@ const Admin = () => {
                 {invitations.map((invitation) => (
                   <TableRow key={invitation.id}>
                     <TableCell>{invitation.email}</TableCell>
+                    <TableCell>
+                      <code className="bg-muted px-2 py-1 rounded text-xs font-mono">
+                        {invitation.token}
+                      </code>
+                    </TableCell>
                     <TableCell>
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         invitation.used 
