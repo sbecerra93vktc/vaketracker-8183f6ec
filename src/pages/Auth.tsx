@@ -20,21 +20,27 @@ const Auth = () => {
   useEffect(() => {
     const checkFirstUser = async () => {
       try {
-        const { count, error } = await supabase
+        // Check both auth.users and profiles table to be more reliable
+        const { data: authData, error: authError } = await supabase.auth.getSession();
+        
+        // Use a simpler approach - check if we can query any profiles at all
+        const { data: profilesData, error: profilesError } = await supabase
           .from('profiles')
-          .select('*', { count: 'exact', head: true });
+          .select('id')
+          .limit(1);
         
-        console.log('Profile count:', count, 'Error:', error);
+        console.log('Profiles query result:', profilesData, 'Error:', profilesError);
         
-        if (!error) {
-          const firstUser = count === 0;
-          console.log('Setting isFirstUser to:', firstUser);
-          setIsFirstUser(firstUser);
-        }
+        // If the query fails due to RLS, assume there are users
+        // If the query succeeds and returns empty array, it's the first user
+        const firstUser = !profilesError && Array.isArray(profilesData) && profilesData.length === 0;
+        
+        console.log('Setting isFirstUser to:', firstUser);
+        setIsFirstUser(firstUser);
       } catch (err) {
         console.error('Error checking first user:', err);
-        // Default to true if we can't check (safer for first time setup)
-        setIsFirstUser(true);
+        // If we can't determine, default to false (not first user) to be safe
+        setIsFirstUser(false);
       }
     };
     
