@@ -2,11 +2,18 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import GoogleMapComponent from '@/components/GoogleMapComponent';
+import LocationCapture from '@/components/LocationCapture';
+import LocationHistory from '@/components/LocationHistory';
 import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const { user, userRole, signOut } = useAuth();
   const navigate = useNavigate();
+
+  const refreshData = () => {
+    // This function can be called to refresh location data
+    window.location.reload();
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -77,6 +84,11 @@ const Dashboard = () => {
               </p>
             </CardContent>
           </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <LocationCapture onLocationCaptured={refreshData} />
+          <LocationHistory />
         </div>
 
         <Card>
