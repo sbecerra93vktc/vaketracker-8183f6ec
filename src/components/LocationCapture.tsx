@@ -93,7 +93,7 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
         address = `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`;
       }
 
-      const visitType = activityType === 'Visita en frío' ? activityType : `${activityType}${subActivity ? ` - ${subActivity}` : ''}`;
+      const visitType = activityType;
       
       const { error } = await supabase
         .from('locations')
@@ -151,36 +151,15 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="activityType">Tipo de Actividad</Label>
-          <Select value={activityType} onValueChange={(value) => {
-            setActivityType(value);
-            setSubActivity('');
-          }}>
+          <Select value={activityType} onValueChange={setActivityType}>
             <SelectTrigger>
               <SelectValue placeholder="Selecciona el tipo de actividad" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Visita en frío">Visita en frío</SelectItem>
-              <SelectItem value="Visita programada">Visita programada</SelectItem>
+              <SelectItem value="Visita de cortesía">Visita de cortesía</SelectItem>
             </SelectContent>
           </Select>
         </div>
-
-        {activityType === 'Visita programada' && (
-          <div className="space-y-2">
-            <Label htmlFor="subActivity">Especificar</Label>
-            <Select value={subActivity} onValueChange={setSubActivity}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona una opción" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Negociación en curso">Negociación en curso</SelectItem>
-                <SelectItem value="Visita Pre-entrega e instalación">Visita Pre-entrega e instalación</SelectItem>
-                <SelectItem value="Visita técnica">Visita técnica</SelectItem>
-                <SelectItem value="Visita de cortesía">Visita de cortesía</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
 
         <div className="space-y-2">
           <Label htmlFor="notes">Notas (Opcional)</Label>
@@ -221,7 +200,7 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
             {currentLocation ? 'Actualizar Ubicación' : 'Capturar Ubicación'}
           </Button>
           
-          {currentLocation && activityType && (activityType === 'Visita en frío' || subActivity) && (
+          {currentLocation && activityType && (
             <Button
               onClick={saveLocation}
               disabled={loading}

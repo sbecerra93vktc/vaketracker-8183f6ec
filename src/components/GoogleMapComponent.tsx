@@ -4,7 +4,9 @@ import { Loader } from '@googlemaps/js-api-loader';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { MapPin, Users, Activity } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { MapPin, Users, Activity, Filter, Calendar, MapIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -19,6 +21,7 @@ interface TeamLocation {
   notes: string;
   created_at: string;
   address: string;
+  region?: string;
 }
 
 const GoogleMapComponent = () => {
@@ -29,7 +32,38 @@ const GoogleMapComponent = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingKey, setIsLoadingKey] = useState(true);
   const [teamLocations, setTeamLocations] = useState<TeamLocation[]>([]);
+  const [filteredLocations, setFilteredLocations] = useState<TeamLocation[]>([]);
+  const [selectedUser, setSelectedUser] = useState<string>('all');
+  const [selectedDate, setSelectedDate] = useState<string>('all');
+  const [selectedRegion, setSelectedRegion] = useState<string>('all');
   const { userRole } = useAuth();
+
+  // Guatemala departments mapping
+  const getRegionFromCoordinates = (lat: number, lng: number): string => {
+    // Simple coordinate-based region detection for Guatemala
+    if (lat >= 15.5 && lat <= 16.0 && lng >= -91.5 && lng <= -90.5) return 'Alta Verapaz';
+    if (lat >= 14.5 && lat <= 15.5 && lng >= -91.0 && lng <= -90.0) return 'Baja Verapaz';
+    if (lat >= 14.0 && lat <= 15.0 && lng >= -92.5 && lng <= -91.5) return 'Quiché';
+    if (lat >= 14.5 && lat <= 15.5 && lng >= -91.5 && lng <= -90.5) return 'Guatemala';
+    if (lat >= 14.0 && lat <= 14.5 && lng >= -91.0 && lng <= -90.0) return 'Chimaltenango';
+    if (lat >= 14.0 && lat <= 14.5 && lng >= -91.5 && lng <= -91.0) return 'Sacatepéquez';
+    if (lat >= 13.5 && lat <= 14.0 && lng >= -90.5 && lng <= -89.5) return 'Jalapa';
+    if (lat >= 13.5 && lat <= 14.5 && lng >= -90.0 && lng <= -89.0) return 'Jutiapa';
+    if (lat >= 14.0 && lat <= 15.0 && lng >= -90.5 && lng <= -89.5) return 'El Progreso';
+    if (lat >= 15.0 && lat <= 16.0 && lng >= -90.0 && lng <= -89.0) return 'Zacapa';
+    if (lat >= 15.0 && lat <= 16.0 && lng >= -89.5 && lng <= -88.5) return 'Chiquimula';
+    if (lat >= 15.5 && lat <= 17.5 && lng >= -90.0 && lng <= -88.5) return 'Izabal';
+    if (lat >= 16.0 && lat <= 17.5 && lng >= -90.5 && lng <= -89.0) return 'Petén';
+    if (lat >= 14.5 && lat <= 15.5 && lng >= -92.0 && lng <= -90.5) return 'Huehuetenango';
+    if (lat >= 14.0 && lat <= 15.0 && lng >= -92.5 && lng <= -91.0) return 'Totonicapán';
+    if (lat >= 14.0 && lat <= 15.0 && lng >= -92.0 && lng <= -91.0) return 'Quetzaltenango';
+    if (lat >= 13.5 && lat <= 14.5 && lng >= -92.5 && lng <= -91.5) return 'San Marcos';
+    if (lat >= 14.0 && lat <= 15.0 && lng >= -91.5 && lng <= -90.5) return 'Sololá';
+    if (lat >= 13.5 && lat <= 14.5 && lng >= -91.5 && lng <= -90.5) return 'Suchitepéquez';
+    if (lat >= 13.5 && lat <= 14.5 && lng >= -91.0 && lng <= -90.0) return 'Escuintla';
+    if (lat >= 13.0 && lat <= 14.0 && lng >= -91.0 && lng <= -90.0) return 'Santa Rosa';
+    return 'Región no identificada';
+  };
 
   const loadMap = useCallback(async (key: string) => {
     console.log('loadMap called with key:', key ? 'API key provided' : 'No API key');
@@ -137,6 +171,8 @@ const GoogleMapComponent = () => {
       // Transform data to match our interface
       const transformedLocations: TeamLocation[] = locationsData.map(location => {
         const profile = profilesMap.get(location.user_id);
+        const lat = Number(location.latitude);
+        const lng = Number(location.longitude);
         return {
           id: location.id,
           user_id: location.user_id,
@@ -144,20 +180,60 @@ const GoogleMapComponent = () => {
             ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Unknown User'
             : 'Unknown User',
           email: profile?.email || '',
-          latitude: Number(location.latitude),
-          longitude: Number(location.longitude),
+          latitude: lat,
+          longitude: lng,
           visit_type: location.visit_type || 'check_in',
           notes: location.notes || '',
           created_at: location.created_at,
-          address: location.address || ''
+          address: location.address || '',
+          region: getRegionFromCoordinates(lat, lng)
         };
       });
 
       setTeamLocations(transformedLocations);
+      setFilteredLocations(transformedLocations);
     } catch (error) {
       console.error('Error fetching locations:', error);
     }
   }, [userRole]);
+
+  // Filter locations based on selected criteria
+  const applyFilters = useCallback(() => {
+    let filtered = teamLocations;
+
+    // Filter by user
+    if (selectedUser !== 'all') {
+      filtered = filtered.filter(loc => loc.user_id === selectedUser);
+    }
+
+    // Filter by date
+    if (selectedDate !== 'all') {
+      const today = new Date();
+      const filterDate = new Date();
+      
+      switch (selectedDate) {
+        case 'today':
+          filterDate.setHours(0, 0, 0, 0);
+          filtered = filtered.filter(loc => new Date(loc.created_at) >= filterDate);
+          break;
+        case 'week':
+          filterDate.setDate(today.getDate() - 7);
+          filtered = filtered.filter(loc => new Date(loc.created_at) >= filterDate);
+          break;
+        case 'month':
+          filterDate.setMonth(today.getMonth() - 1);
+          filtered = filtered.filter(loc => new Date(loc.created_at) >= filterDate);
+          break;
+      }
+    }
+
+    // Filter by region
+    if (selectedRegion !== 'all') {
+      filtered = filtered.filter(loc => loc.region === selectedRegion);
+    }
+
+    setFilteredLocations(filtered);
+  }, [teamLocations, selectedUser, selectedDate, selectedRegion]);
 
   // Update markers on the map
   const updateMapMarkers = useCallback(() => {
@@ -167,9 +243,9 @@ const GoogleMapComponent = () => {
     markersRef.current.forEach(marker => marker.setMap(null));
     markersRef.current.clear();
 
-    // Get latest location for each user
+    // Get latest location for each user from filtered locations
     const latestLocations = new Map<string, TeamLocation>();
-    teamLocations.forEach(location => {
+    filteredLocations.forEach(location => {
       const existing = latestLocations.get(location.user_id);
       if (!existing || new Date(location.created_at) > new Date(existing.created_at)) {
         latestLocations.set(location.user_id, location);
@@ -198,10 +274,11 @@ const GoogleMapComponent = () => {
         content: `
           <div class="p-3 min-w-[200px]">
             <h3 class="font-semibold text-base">${location.name}</h3>
-            <p class="text-sm text-gray-600 mb-1">Visit Type: ${location.visit_type.replace('_', ' ')}</p>
-            ${location.notes ? `<p class="text-sm text-gray-600 mb-1">Notes: ${location.notes}</p>` : ''}
-            ${location.address ? `<p class="text-sm text-gray-600 mb-1">Address: ${location.address}</p>` : ''}
-            <p class="text-xs text-gray-500">Last update: ${new Date(location.created_at).toLocaleString()}</p>
+            <p class="text-sm text-gray-600 mb-1">Actividad: ${location.visit_type}</p>
+            ${location.region ? `<p class="text-sm text-gray-600 mb-1">Región: ${location.region}</p>` : ''}
+            ${location.notes ? `<p class="text-sm text-gray-600 mb-1">Notas: ${location.notes}</p>` : ''}
+            ${location.address ? `<p class="text-sm text-gray-600 mb-1">Dirección: ${location.address}</p>` : ''}
+            <p class="text-xs text-gray-500">Fecha: ${new Date(location.created_at).toLocaleString()}</p>
           </div>
         `
       });
@@ -230,7 +307,12 @@ const GoogleMapComponent = () => {
         }, 100);
       }
     }
-  }, [teamLocations, isMapLoaded]);
+  }, [filteredLocations, isMapLoaded]);
+
+  // Apply filters when dependencies change
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters]);
 
 
   // Load the map when component mounts
@@ -275,36 +357,103 @@ const GoogleMapComponent = () => {
     };
   }, [isMapLoaded, fetchLocations]);
 
+  const uniqueUsers = Array.from(new Set(teamLocations.map(l => l.user_id)))
+    .map(userId => teamLocations.find(l => l.user_id === userId)!)
+    .filter(Boolean);
+
+  const uniqueRegions = Array.from(new Set(teamLocations.map(l => l.region).filter(Boolean)));
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="border-b bg-card">
         <div className="flex h-16 items-center px-6">
           <div className="flex items-center gap-2">
-            <Users className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-semibold">Sales Team Tracker</h1>
+            <Users className="h-6 w-6 text-warning" />
+            <h1 className="text-xl font-semibold text-warning">Ubicaciones del Equipo</h1>
           </div>
           <div className="ml-auto flex items-center gap-4">
             {isLoadingKey && !isMapLoaded && (
               <div className="flex items-center gap-2">
-                <span className="text-sm">Loading Google Maps...</span>
+                <span className="text-sm">Cargando Google Maps...</span>
               </div>
             )}
             {isMapLoaded && (
               <div className="flex items-center gap-4 text-sm">
                 <div className="flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-blue-500" />
-                  <span>{new Set(teamLocations.map(l => l.user_id)).size} Team Members</span>
+                  <Activity className="h-4 w-4 text-warning" />
+                  <span>{new Set(filteredLocations.map(l => l.user_id)).size} Miembros del Equipo</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-green-500" />
-                  <span>{teamLocations.length} Locations</span>
+                  <MapPin className="h-4 w-4 text-warning" />
+                  <span>{filteredLocations.length} Actividades</span>
                 </div>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Filters */}
+      {isMapLoaded && teamLocations.length > 0 && (
+        <div className="border-b bg-card">
+          <div className="flex items-center gap-4 px-6 py-4">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-warning" />
+              <span className="text-sm font-medium">Filtros:</span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Label htmlFor="user-filter" className="text-sm">Usuario:</Label>
+              <Select value={selectedUser} onValueChange={setSelectedUser}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {uniqueUsers.map(user => (
+                    <SelectItem key={user.user_id} value={user.user_id}>
+                      {user.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Label htmlFor="date-filter" className="text-sm">Fecha:</Label>
+              <Select value={selectedDate} onValueChange={setSelectedDate}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="today">Hoy</SelectItem>
+                  <SelectItem value="week">Última semana</SelectItem>
+                  <SelectItem value="month">Último mes</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Label htmlFor="region-filter" className="text-sm">Región:</Label>
+              <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {uniqueRegions.map(region => (
+                    <SelectItem key={region} value={region}>
+                      {region}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Map Container - Always rendered */}
       <div className="relative">
@@ -327,26 +476,34 @@ const GoogleMapComponent = () => {
         )}
         
         {/* Team Panel */}
-        {isMapLoaded && teamLocations.length > 0 && (
-          <div className="absolute right-4 top-4 w-80 max-h-[80vh] overflow-y-auto">
+        {isMapLoaded && filteredLocations.length > 0 && (
+          <div className="absolute right-4 top-4 w-80 max-h-[70vh] overflow-y-auto">
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Team Locations</CardTitle>
+                <CardTitle className="text-sm text-warning">Actividades del Equipo</CardTitle>
+                <CardDescription className="text-xs">
+                  {filteredLocations.length} actividades encontradas
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {Array.from(new Map(teamLocations.map(loc => [loc.user_id, loc])).values())
+                {filteredLocations
                   .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                   .map((location) => (
                   <div key={location.id} className="flex items-start justify-between p-3 bg-muted rounded-lg">
                     <div className="flex items-start gap-3 flex-1">
-                      <div className="w-3 h-3 rounded-full bg-blue-500 mt-1" />
+                      <div className="w-3 h-3 rounded-full bg-warning mt-1" />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm truncate">{location.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {location.visit_type.replace('_', ' ')}
+                          {location.visit_type}
                         </p>
+                        {location.region && (
+                          <p className="text-xs text-muted-foreground">
+                            {location.region}
+                          </p>
+                        )}
                         <p className="text-xs text-muted-foreground">
-                          {new Date(location.created_at).toLocaleString()}
+                          {new Date(location.created_at).toLocaleDateString()}
                         </p>
                         {location.notes && (
                           <p className="text-xs text-muted-foreground mt-1 truncate">
