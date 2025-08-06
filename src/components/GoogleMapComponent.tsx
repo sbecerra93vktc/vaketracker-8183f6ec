@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Loader } from '@googlemaps/js-api-loader';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ const GoogleMapComponent = () => {
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const [apiKey, setApiKey] = useState(localStorage.getItem('googleMapsApiKey') || 'AIzaSyAaEryMg0sJr-arokWRfITVg2WHs3jPTSc');
   const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [salespeople, setSalespeople] = useState<SalespersonLocation[]>([
     {
       id: '1',
@@ -42,7 +44,7 @@ const GoogleMapComponent = () => {
     }
   ]);
 
-  const loadMap = async (key: string) => {
+  const loadMap = useCallback(async (key: string) => {
     console.log('loadMap called with key:', key ? 'provided' : 'missing');
     console.log('mapRef.current:', mapRef.current);
     
@@ -50,6 +52,13 @@ const GoogleMapComponent = () => {
       console.log('Early return - missing mapRef or key');
       return;
     }
+
+    if (isLoading) {
+      console.log('Map is already loading, skipping...');
+      return;
+    }
+
+    setIsLoading(true);
 
     try {
       console.log('Creating Google Maps loader...');
@@ -127,26 +136,41 @@ const GoogleMapComponent = () => {
     } catch (error) {
       console.error('Error loading Google Maps:', error);
       console.error('Error details:', error);
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [salespeople, isLoading]);
 
   const handleApiKeySubmit = () => {
+    console.log('handleApiKeySubmit called');
     if (apiKey) {
       localStorage.setItem('googleMapsApiKey', apiKey);
+      setIsMapLoaded(false); // Reset map loaded state
       loadMap(apiKey);
     }
   };
 
   useEffect(() => {
-    // Delay the map loading to ensure the ref is available
-    const timer = setTimeout(() => {
-      if (apiKey) {
-        loadMap(apiKey);
-      }
-    }, 100);
+    console.log('useEffect triggered, apiKey:', apiKey ? 'present' : 'missing');
+    console.log('mapRef.current in useEffect:', mapRef.current);
     
-    return () => clearTimeout(timer);
-  }, [apiKey]);
+    // Only auto-load if we have an API key and haven't loaded the map yet
+    if (apiKey && !isMapLoaded && !isLoading) {
+      // Use a longer delay and also check if the ref is available
+      const checkAndLoad = () => {
+        console.log('checkAndLoad - mapRef.current:', mapRef.current);
+        if (mapRef.current) {
+          loadMap(apiKey);
+        } else {
+          // If ref is still not available, try again in a bit
+          setTimeout(checkAndLoad, 100);
+        }
+      };
+      
+      const timer = setTimeout(checkAndLoad, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [apiKey, isMapLoaded, isLoading, loadMap]);
 
   if (!apiKey || !isMapLoaded) {
     return (
@@ -159,7 +183,7 @@ const GoogleMapComponent = () => {
                 Google Maps Setup
               </CardTitle>
               <CardDescription>
-                Enter your Google Maps API key to start tracking your sales team
+                {isLoading ? 'Loading map...' : 'Enter your Google Maps API key to start tracking your sales team'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -171,8 +195,12 @@ const GoogleMapComponent = () => {
                   onChange={(e) => setApiKey(e.target.value)}
                 />
               </div>
-              <Button onClick={handleApiKeySubmit} className="w-full">
-                Load Map
+              <Button 
+                onClick={handleApiKeySubmit} 
+                className="w-full"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Loading...' : 'Load Map'}
               </Button>
               <p className="text-xs text-muted-foreground">
                 Get your API key from the{' '}
