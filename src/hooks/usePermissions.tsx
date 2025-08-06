@@ -1,20 +1,20 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './useAuth';
 
 interface Permission {
   permission_name: string;
   enabled: boolean;
 }
 
-export const usePermissions = () => {
+export const usePermissions = (user: any, userRole: string | null) => {
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user, userRole } = useAuth();
 
   useEffect(() => {
     if (user) {
       fetchPermissions();
+    } else {
+      setLoading(false);
     }
   }, [user]);
 

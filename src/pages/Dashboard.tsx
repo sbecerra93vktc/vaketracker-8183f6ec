@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const { user, userRole, signOut } = useAuth();
-  const { hasPermission } = usePermissions();
+  const { hasPermission } = usePermissions(user, userRole);
   const navigate = useNavigate();
 
   const refreshData = () => {
