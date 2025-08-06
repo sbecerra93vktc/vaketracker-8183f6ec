@@ -303,17 +303,8 @@ const GoogleMapComponent = () => {
     markersRef.current.forEach(marker => marker.setMap(null));
     markersRef.current.clear();
 
-    // Get latest location for each user from filtered locations
-    const latestLocations = new Map<string, TeamLocation>();
-    filteredLocations.forEach(location => {
-      const existing = latestLocations.get(location.user_id);
-      if (!existing || new Date(location.created_at) > new Date(existing.created_at)) {
-        latestLocations.set(location.user_id, location);
-      }
-    });
-
-    // Add markers for latest locations
-    latestLocations.forEach((location) => {
+    // Add markers for all filtered locations
+    filteredLocations.forEach((location) => {
       const marker = new google.maps.Marker({
         position: { lat: location.latitude, lng: location.longitude },
         map: mapInstanceRef.current,
@@ -351,15 +342,15 @@ const GoogleMapComponent = () => {
     });
 
     // Center map on team locations if available
-    if (latestLocations.size > 0) {
+    if (filteredLocations.length > 0) {
       const bounds = new google.maps.LatLngBounds();
-      latestLocations.forEach(location => {
+      filteredLocations.forEach(location => {
         bounds.extend({ lat: location.latitude, lng: location.longitude });
       });
       mapInstanceRef.current.fitBounds(bounds);
       
       // Don't zoom too much for single location
-      if (latestLocations.size === 1) {
+      if (filteredLocations.length === 1) {
         setTimeout(() => {
           if (mapInstanceRef.current && mapInstanceRef.current.getZoom()! > 15) {
             mapInstanceRef.current.setZoom(15);
@@ -530,22 +521,24 @@ const GoogleMapComponent = () => {
               </Select>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Label htmlFor="state-filter" className="text-sm">Región:</Label>
-              <Select value={selectedState} onValueChange={setSelectedState}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  {getUniqueStatesForMap().map(state => (
-                    <SelectItem key={state} value={state}>
-                      {state}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {selectedCountry !== 'all' && (
+              <div className="flex items-center gap-2">
+                <Label htmlFor="state-filter" className="text-sm">Región:</Label>
+                <Select value={selectedState} onValueChange={setSelectedState}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {getUniqueStatesForMap().map(state => (
+                      <SelectItem key={state} value={state}>
+                        {state}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -241,10 +241,13 @@ const LocationHistory = () => {
   };
 
   const getVisitTypeColor = (visitType: string) => {
-    if (visitType.includes('Visita en frío')) return 'bg-blue-100 text-blue-800';
-    if (visitType.includes('Visita programada')) return 'bg-warning/20 text-warning-foreground';
-    if (visitType.includes('Visita de cortesía')) return 'bg-green-100 text-green-800';
-    return 'bg-gray-100 text-gray-800';
+    if (visitType.includes('Visita en frío')) return 'bg-blue-600 text-white';
+    if (visitType.includes('Visita programada')) return 'bg-yellow-600 text-white';
+    if (visitType.includes('Visita de cortesía')) return 'bg-green-600 text-white';
+    if (visitType.includes('Negociación en curso')) return 'bg-purple-600 text-white';
+    if (visitType.includes('Visita pre-entrega')) return 'bg-orange-600 text-white';
+    if (visitType.includes('Visita técnica')) return 'bg-red-600 text-white';
+    return 'bg-gray-600 text-white';
   };
 
   const formatVisitType = (visitType: string) => {
@@ -329,22 +332,24 @@ const LocationHistory = () => {
                 </Select>
               </div>
               
-              <div className="space-y-2">
-                <Label>Región/Estado</Label>
-                <Select value={selectedState} onValueChange={setSelectedState}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas las regiones" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas las regiones</SelectItem>
-                    {getUniqueStates().map(state => (
-                      <SelectItem key={state} value={state}>
-                        {state}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {selectedCountry !== 'all' && (
+                <div className="space-y-2">
+                  <Label>Región/Estado</Label>
+                  <Select value={selectedState} onValueChange={setSelectedState}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Todas las regiones" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas las regiones</SelectItem>
+                      {getUniqueStates().map(state => (
+                        <SelectItem key={state} value={state}>
+                          {state}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           </div>
         )}

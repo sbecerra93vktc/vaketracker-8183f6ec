@@ -6,6 +6,7 @@ import GoogleMapComponent from '@/components/GoogleMapComponent';
 import LocationCapture from '@/components/LocationCapture';
 import LocationHistory from '@/components/LocationHistory';
 import ActivitySummary from '@/components/ActivitySummary';
+import HeatMapComponent from '@/components/HeatMapComponent';
 import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
@@ -57,22 +58,28 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {hasPermission('view_team_locations') ? 'Mapa del Territorio del Equipo' : 'Mapa de Mi Territorio'}
-            </CardTitle>
-            <CardDescription>
-              {hasPermission('view_team_locations') 
-                ? 'Visualiza el territorio de ventas y ubicaciones de clientes del equipo'
-                : 'Visualiza tu territorio de ventas y ubicaciones de clientes'
-              }
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            <GoogleMapComponent />
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {hasPermission('view_team_locations') ? 'Mapa del Territorio del Equipo' : 'Mapa de Mi Territorio'}
+              </CardTitle>
+              <CardDescription>
+                {hasPermission('view_team_locations') 
+                  ? 'Visualiza el territorio de ventas y ubicaciones de clientes del equipo'
+                  : 'Visualiza tu territorio de ventas y ubicaciones de clientes'
+                }
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <GoogleMapComponent />
+            </CardContent>
+          </Card>
+
+          {hasPermission('view_team_locations') && (
+            <HeatMapComponent />
+          )}
+        </div>
       </main>
     </div>
   );
