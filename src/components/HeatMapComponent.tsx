@@ -156,24 +156,29 @@ const HeatMapComponent = () => {
   const fetchHeatMapData = async () => {
     try {
       setLoading(true);
+      console.log('Fetching heat map data for country:', selectedCountry);
       
       const { data: locations, error } = await supabase
         .from('locations')
         .select('latitude, longitude, country, state');
 
       if (error) throw error;
+      console.log('Fetched locations:', locations);
 
       const regionCounts: Record<string, number> = {};
       
       locations?.forEach(location => {
         const detectedCountry = location.country || detectCountryFromCoordinates(location.latitude, location.longitude);
+        console.log(`Location: ${location.latitude}, ${location.longitude} -> Country: ${detectedCountry}`);
         
         if (detectedCountry === selectedCountry) {
           const region = location.state || detectStateFromCoordinates(location.latitude, location.longitude, detectedCountry);
+          console.log(`Matched location in ${selectedCountry}, region: ${region}`);
           regionCounts[region] = (regionCounts[region] || 0) + 1;
         }
       });
 
+      console.log('Region counts for', selectedCountry, ':', regionCounts);
       const maxCount = Math.max(...Object.values(regionCounts), 1);
       const heatData = Object.entries(regionCounts).map(([region, count]) => ({
         region,
@@ -181,6 +186,7 @@ const HeatMapComponent = () => {
         intensity: maxCount > 0 ? (count / maxCount) * 100 : 0
       }));
 
+      console.log('Heat map data:', heatData);
       setHeatMapData(heatData);
     } catch (error) {
       console.error('Error fetching heat map data:', error);
@@ -267,14 +273,61 @@ const HeatMapComponent = () => {
       });
 
     } else {
-      // For other countries, show a simple message
-      svg.append("text")
-        .attr("x", width / 2)
-        .attr("y", height / 2)
-        .attr("text-anchor", "middle")
-        .attr("class", "text-muted-foreground")
-        .style("font-size", "16px")
-        .text(`Mapa de ${selectedCountry} próximamente disponible`);
+      // For other countries, show the data in a list format since we don't have their geographical boundaries
+      if (heatMapData.length > 0) {
+        const maxCount = Math.max(...heatMapData.map(d => d.count));
+        
+        // Show regions as colored rectangles
+        heatMapData.forEach((data, index) => {
+          const y = 50 + index * 40;
+          const barWidth = (data.count / maxCount) * 400;
+          
+          // Background rectangle
+          svg.append("rect")
+            .attr("x", 50)
+            .attr("y", y)
+            .attr("width", 500)
+            .attr("height", 30)
+            .attr("fill", "#f3f4f6")
+            .attr("stroke", "#e5e7eb")
+            .attr("rx", 4);
+          
+          // Data rectangle
+          svg.append("rect")
+            .attr("x", 50)
+            .attr("y", y)
+            .attr("width", barWidth)
+            .attr("height", 30)
+            .attr("fill", getIntensityColor(data.intensity))
+            .attr("rx", 4);
+          
+          // Region name
+          svg.append("text")
+            .attr("x", 60)
+            .attr("y", y + 20)
+            .attr("font-size", "14px")
+            .attr("font-weight", "bold")
+            .attr("fill", "black")
+            .text(data.region);
+          
+          // Count
+          svg.append("text")
+            .attr("x", 560)
+            .attr("y", y + 20)
+            .attr("font-size", "12px")
+            .attr("fill", "#666")
+            .text(`${data.count} actividades`);
+        });
+      } else {
+        // No data message
+        svg.append("text")
+          .attr("x", width / 2)
+          .attr("y", height / 2)
+          .attr("text-anchor", "middle")
+          .attr("class", "text-muted-foreground")
+          .style("font-size", "16px")
+          .text(`No hay actividades registradas en ${selectedCountry}`);
+      }
     }
   };
 
