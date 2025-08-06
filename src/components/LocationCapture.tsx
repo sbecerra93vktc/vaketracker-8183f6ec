@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { MapPin, Loader2 } from 'lucide-react';
+import { CheckSquare, Loader2 } from 'lucide-react';
 
 interface LocationCaptureProps {
   onLocationCaptured?: () => void;
@@ -20,7 +20,8 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
     longitude: number;
     accuracy?: number;
   } | null>(null);
-  const [visitType, setVisitType] = useState('check_in');
+  const [activityType, setActivityType] = useState('');
+  const [subActivity, setSubActivity] = useState('');
   const [notes, setNotes] = useState('');
   const { toast } = useToast();
 
@@ -30,8 +31,8 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
     if (!navigator.geolocation) {
       toast({
         variant: 'destructive',
-        title: 'Location not supported',
-        description: 'Your browser does not support location services.',
+        title: 'Ubicación no compatible',
+        description: 'Tu navegador no soporta servicios de ubicación.',
       });
       setLoading(false);
       return;
@@ -42,8 +43,8 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
         const { latitude, longitude, accuracy } = position.coords;
         setCurrentLocation({ latitude, longitude, accuracy });
         toast({
-          title: 'Location captured!',
-          description: `Accuracy: ${Math.round(accuracy || 0)}m`,
+          title: '¡Ubicación capturada!',
+          description: `Precisión: ${Math.round(accuracy || 0)}m`,
         });
         setLoading(false);
       },
@@ -51,8 +52,8 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
         console.error('Location error:', error);
         toast({
           variant: 'destructive',
-          title: 'Location access denied',
-          description: 'Please enable location services and try again.',
+          title: 'Acceso a ubicación denegado',
+          description: 'Por favor habilita los servicios de ubicación e intenta de nuevo.',
         });
         setLoading(false);
       },
@@ -68,8 +69,8 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
     if (!currentLocation) {
       toast({
         variant: 'destructive',
-        title: 'No location captured',
-        description: 'Please capture your location first.',
+        title: 'Sin ubicación capturada',
+        description: 'Por favor captura tu ubicación primero.',
       });
       return;
     }
@@ -92,6 +93,8 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
         address = `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`;
       }
 
+      const visitType = `${activityType}${subActivity ? ` - ${subActivity}` : ''}`;
+      
       const { error } = await supabase
         .from('locations')
         .insert({
@@ -109,14 +112,15 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
       }
 
       toast({
-        title: 'Location saved!',
-        description: 'Your location has been recorded successfully.',
+        title: '¡Actividad guardada!',
+        description: 'Tu actividad ha sido registrada exitosamente.',
       });
 
       // Reset form
       setCurrentLocation(null);
       setNotes('');
-      setVisitType('check_in');
+      setActivityType('');
+      setSubActivity('');
       
       if (onLocationCaptured) {
         onLocationCaptured();
@@ -125,8 +129,8 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
       console.error('Error saving location:', error);
       toast({
         variant: 'destructive',
-        title: 'Error saving location',
-        description: 'Please try again.',
+        title: 'Error al guardar actividad',
+        description: 'Por favor intenta de nuevo.',
       });
     } finally {
       setLoading(false);
@@ -137,36 +141,61 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <MapPin className="h-5 w-5" />
-          Share Your Location
+          <CheckSquare className="h-5 w-5 text-warning" />
+          Nueva Actividad
         </CardTitle>
         <CardDescription>
-          Capture and share your current location for territory tracking
+          Captura tu ubicación y registra una nueva actividad comercial
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="visitType">Visit Type</Label>
-          <Select value={visitType} onValueChange={setVisitType}>
+          <Label htmlFor="activityType">Tipo de Actividad</Label>
+          <Select value={activityType} onValueChange={(value) => {
+            setActivityType(value);
+            setSubActivity('');
+          }}>
             <SelectTrigger>
-              <SelectValue placeholder="Select visit type" />
+              <SelectValue placeholder="Selecciona el tipo de actividad" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="check_in">Check In</SelectItem>
-              <SelectItem value="customer_visit">Customer Visit</SelectItem>
-              <SelectItem value="delivery">Delivery</SelectItem>
-              <SelectItem value="meeting">Meeting</SelectItem>
-              <SelectItem value="break">Break</SelectItem>
-              <SelectItem value="check_out">Check Out</SelectItem>
+              <SelectItem value="Visita en frío">Visita en frío</SelectItem>
+              <SelectItem value="Visita programada">Visita programada</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
+        {activityType && (
+          <div className="space-y-2">
+            <Label htmlFor="subActivity">Especificar</Label>
+            <Select value={subActivity} onValueChange={setSubActivity}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona una opción" />
+              </SelectTrigger>
+              <SelectContent>
+                {activityType === 'Visita en frío' ? (
+                  <>
+                    <SelectItem value="Cliente nuevo">Cliente nuevo</SelectItem>
+                    <SelectItem value="Cliente actual">Cliente actual</SelectItem>
+                  </>
+                ) : activityType === 'Visita programada' ? (
+                  <>
+                    <SelectItem value="Negociación en curso">Negociación en curso</SelectItem>
+                    <SelectItem value="Visita Pre-entrega e instalación">Visita Pre-entrega e instalación</SelectItem>
+                    <SelectItem value="Visita técnica">Visita técnica</SelectItem>
+                    <SelectItem value="Visita de cortesía">Visita de cortesía</SelectItem>
+                  </>
+                ) : null}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <div className="space-y-2">
-          <Label htmlFor="notes">Notes (Optional)</Label>
+          <Label htmlFor="notes">Notas (Opcional)</Label>
           <Textarea
             id="notes"
-            placeholder="Add any notes about this location..."
+            placeholder="Agrega notas sobre esta actividad..."
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
@@ -174,13 +203,13 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
         </div>
 
         {currentLocation && (
-          <div className="p-4 bg-muted rounded-lg">
-            <h4 className="font-medium mb-2">Location Captured</h4>
+          <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg">
+            <h4 className="font-medium mb-2 text-warning-foreground">Ubicación Capturada</h4>
             <p className="text-sm text-muted-foreground">
               Lat: {currentLocation.latitude.toFixed(6)}<br />
               Lng: {currentLocation.longitude.toFixed(6)}<br />
               {currentLocation.accuracy && (
-                <>Accuracy: {Math.round(currentLocation.accuracy)}m</>
+                <>Precisión: {Math.round(currentLocation.accuracy)}m</>
               )}
             </p>
           </div>
@@ -196,21 +225,21 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
             ) : (
-              <MapPin className="h-4 w-4 mr-2" />
+              <CheckSquare className="h-4 w-4 mr-2" />
             )}
-            {currentLocation ? 'Update Location' : 'Capture Location'}
+            {currentLocation ? 'Actualizar Ubicación' : 'Capturar Ubicación'}
           </Button>
           
-          {currentLocation && (
+          {currentLocation && activityType && subActivity && (
             <Button
               onClick={saveLocation}
               disabled={loading}
-              className="flex-1"
+              className="flex-1 bg-warning hover:bg-warning/90 text-warning-foreground"
             >
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : null}
-              Save Location
+              Guardar Actividad
             </Button>
           )}
         </div>
