@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,10 +10,26 @@ import { supabase } from '@/integrations/supabase/client';
 
 const Auth = () => {
   const [loading, setLoading] = useState(false);
+  const [isFirstUser, setIsFirstUser] = useState(false);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const token = searchParams.get('token');
+
+  // Check if this is the first user on component mount
+  useEffect(() => {
+    const checkFirstUser = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id', { count: 'exact', head: true });
+      
+      if (!error && data !== null) {
+        setIsFirstUser((data as any) === 0);
+      }
+    };
+    
+    checkFirstUser();
+  }, []);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -51,43 +67,46 @@ const Auth = () => {
     const lastName = formData.get('lastName') as string;
     const invitationToken = formData.get('token') as string || token;
 
-    if (!invitationToken) {
-      toast({
-        variant: 'destructive',
-        title: 'Invalid invitation',
-        description: 'You need a valid invitation to register.',
-      });
-      setLoading(false);
-      return;
-    }
+    // If this is not the first user, validate invitation token
+    if (!isFirstUser) {
+      if (!invitationToken) {
+        toast({
+          variant: 'destructive',
+          title: 'Invalid invitation',
+          description: 'You need a valid invitation to register.',
+        });
+        setLoading(false);
+        return;
+      }
 
-    // Verify invitation token
-    const { data: invitation, error: invitationError } = await supabase
-      .from('invitations')
-      .select('*')
-      .eq('token', invitationToken)
-      .eq('used', false)
-      .single();
+      // Verify invitation token
+      const { data: invitation, error: invitationError } = await supabase
+        .from('invitations')
+        .select('*')
+        .eq('token', invitationToken)
+        .eq('used', false)
+        .single();
 
-    if (invitationError || !invitation || invitation.email !== email) {
-      toast({
-        variant: 'destructive',
-        title: 'Invalid invitation',
-        description: 'This invitation is invalid or has already been used.',
-      });
-      setLoading(false);
-      return;
-    }
+      if (invitationError || !invitation || invitation.email !== email) {
+        toast({
+          variant: 'destructive',
+          title: 'Invalid invitation',
+          description: 'This invitation is invalid or has already been used.',
+        });
+        setLoading(false);
+        return;
+      }
 
-    // Check if invitation is expired
-    if (new Date(invitation.expires_at) < new Date()) {
-      toast({
-        variant: 'destructive',
-        title: 'Invitation expired',
-        description: 'This invitation has expired.',
-      });
-      setLoading(false);
-      return;
+      // Check if invitation is expired
+      if (new Date(invitation.expires_at) < new Date()) {
+        toast({
+          variant: 'destructive',
+          title: 'Invitation expired',
+          description: 'This invitation has expired.',
+        });
+        setLoading(false);
+        return;
+      }
     }
 
     const redirectUrl = `${window.location.origin}/`;
@@ -111,15 +130,19 @@ const Auth = () => {
         description: error.message,
       });
     } else {
-      // Mark invitation as used
-      await supabase
-        .from('invitations')
-        .update({ used: true })
-        .eq('token', invitationToken);
+      // Mark invitation as used (only if not first user)
+      if (!isFirstUser && invitationToken) {
+        await supabase
+          .from('invitations')
+          .update({ used: true })
+          .eq('token', invitationToken);
+      }
 
       toast({
         title: 'Account created!',
-        description: 'Please check your email to confirm your account.',
+        description: isFirstUser 
+          ? 'Welcome! You are now the administrator of this system.'
+          : 'Please check your email to confirm your account.',
       });
     }
     setLoading(false);
@@ -131,14 +154,19 @@ const Auth = () => {
         <CardHeader>
           <CardTitle>Sales Management System</CardTitle>
           <CardDescription>
-            Sign in to your account or register with an invitation
+            {isFirstUser 
+              ? 'Create your administrator account to get started'
+              : 'Sign in to your account or register with an invitation'
+            }
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue={token ? 'signup' : 'signin'} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Register</TabsTrigger>
+              <TabsTrigger value="signup">
+                {isFirstUser ? 'Create Admin Account' : 'Register'}
+              </TabsTrigger>
             </TabsList>
             
             <TabsContent value="signin">
@@ -171,16 +199,18 @@ const Auth = () => {
             
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-token">Invitation Token</Label>
-                  <Input
-                    id="signup-token"
-                    name="token"
-                    defaultValue={token || ''}
-                    required
-                    placeholder="Enter invitation token"
-                  />
-                </div>
+                {!isFirstUser && (
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-token">Invitation Token</Label>
+                    <Input
+                      id="signup-token"
+                      name="token"
+                      defaultValue={token || ''}
+                      required={!isFirstUser}
+                      placeholder="Enter invitation token"
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">Email</Label>
                   <Input
@@ -222,7 +252,12 @@ const Auth = () => {
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? 'Creating account...' : 'Create Account'}
+                  {loading 
+                    ? 'Creating account...' 
+                    : isFirstUser 
+                      ? 'Create Admin Account' 
+                      : 'Create Account'
+                  }
                 </Button>
               </form>
             </TabsContent>
