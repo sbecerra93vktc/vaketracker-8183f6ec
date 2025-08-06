@@ -172,54 +172,6 @@ const GoogleMapComponent = () => {
     }
   }, [apiKey, isMapLoaded, isLoading, loadMap]);
 
-  if (!apiKey || !isMapLoaded) {
-    return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-md mx-auto mt-20">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
-                Google Maps Setup
-              </CardTitle>
-              <CardDescription>
-                {isLoading ? 'Loading map...' : 'Enter your Google Maps API key to start tracking your sales team'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Input
-                  type="password"
-                  placeholder="Enter Google Maps API Key"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                />
-              </div>
-              <Button 
-                onClick={handleApiKeySubmit} 
-                className="w-full"
-                disabled={isLoading}
-              >
-                {isLoading ? 'Loading...' : 'Load Map'}
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                Get your API key from the{' '}
-                <a 
-                  href="https://console.cloud.google.com/google/maps-apis" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline"
-                >
-                  Google Cloud Console
-                </a>
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -230,59 +182,111 @@ const GoogleMapComponent = () => {
             <h1 className="text-xl font-semibold">Sales Team Tracker</h1>
           </div>
           <div className="ml-auto flex items-center gap-4">
-            <div className="flex items-center gap-2 text-sm">
-              <Activity className="h-4 w-4 text-green-500" />
-              <span>{salespeople.filter(p => p.status === 'active').length} Active</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <Activity className="h-4 w-4 text-red-500" />
-              <span>{salespeople.filter(p => p.status === 'inactive').length} Inactive</span>
-            </div>
+            {!isMapLoaded && (
+              <div className="flex items-center gap-2">
+                <Input
+                  type="password"
+                  placeholder="Enter Google Maps API Key"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className="w-64"
+                />
+                <Button 
+                  onClick={handleApiKeySubmit} 
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Loading...' : 'Load Map'}
+                </Button>
+              </div>
+            )}
+            {isMapLoaded && (
+              <>
+                <div className="flex items-center gap-2 text-sm">
+                  <Activity className="h-4 w-4 text-green-500" />
+                  <span>{salespeople.filter(p => p.status === 'active').length} Active</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Activity className="h-4 w-4 text-red-500" />
+                  <span>{salespeople.filter(p => p.status === 'inactive').length} Inactive</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Map Container */}
+      {/* Map Container - Always rendered */}
       <div className="relative">
-        <div ref={mapRef} className="h-[calc(100vh-4rem)] w-full" />
+        <div ref={mapRef} className="h-[calc(100vh-4rem)] w-full bg-muted" />
+        
+        {!isMapLoaded && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/80">
+            <Card className="w-96">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  Google Maps Setup
+                </CardTitle>
+                <CardDescription>
+                  {isLoading ? 'Loading map...' : 'Enter your Google Maps API key to start tracking your sales team'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-xs text-muted-foreground">
+                  Get your API key from the{' '}
+                  <a 
+                    href="https://console.cloud.google.com/google/maps-apis" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    Google Cloud Console
+                  </a>
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
         
         {/* Team Panel */}
-        <div className="absolute right-4 top-4 w-80">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Team Status</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {salespeople.map((person) => (
-                <div key={person.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${
-                      person.status === 'active' ? 'bg-green-500' : 'bg-red-500'
-                    }`} />
-                    <div>
-                      <p className="font-medium text-sm">{person.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {person.lastUpdate.toLocaleTimeString()}
-                      </p>
+        {isMapLoaded && (
+          <div className="absolute right-4 top-4 w-80">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Team Status</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {salespeople.map((person) => (
+                  <div key={person.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${
+                        person.status === 'active' ? 'bg-green-500' : 'bg-red-500'
+                      }`} />
+                      <div>
+                        <p className="font-medium text-sm">{person.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {person.lastUpdate.toLocaleTimeString()}
+                        </p>
+                      </div>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        if (mapInstanceRef.current) {
+                          mapInstanceRef.current.setCenter(person.position);
+                          mapInstanceRef.current.setZoom(15);
+                        }
+                      }}
+                    >
+                      <MapPin className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      if (mapInstanceRef.current) {
-                        mapInstanceRef.current.setCenter(person.position);
-                        mapInstanceRef.current.setZoom(15);
-                      }
-                    }}
-                  >
-                    <MapPin className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );
