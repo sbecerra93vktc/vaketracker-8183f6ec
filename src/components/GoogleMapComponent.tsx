@@ -31,6 +31,47 @@ const GoogleMapComponent = () => {
   const [teamLocations, setTeamLocations] = useState<TeamLocation[]>([]);
   const { userRole } = useAuth();
 
+  const loadMap = useCallback(async (key: string) => {
+    console.log('loadMap called with key:', key ? 'API key provided' : 'No API key');
+    if (!mapRef.current || !key || isLoading) {
+      console.log('loadMap early return:', { mapRef: !!mapRef.current, key: !!key, isLoading });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const loader = new Loader({
+        apiKey: key,
+        version: 'weekly',
+        libraries: ['places']
+      });
+
+      await loader.load();
+
+      const map = new google.maps.Map(mapRef.current, {
+        zoom: 2,
+        center: { lat: 20, lng: 0 }, // World view initially
+        mapTypeId: google.maps.MapTypeId.ROADMAP,
+        styles: [
+          {
+            featureType: 'poi',
+            elementType: 'labels',
+            stylers: [{ visibility: 'off' }]
+          }
+        ]
+      });
+
+      mapInstanceRef.current = map;
+      setIsMapLoaded(true);
+      console.log('Map loaded successfully');
+    } catch (error) {
+      console.error('Error loading Google Maps:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isLoading]);
+
   // Fetch Google Maps API key from Supabase edge function
   const fetchGoogleMapsKey = useCallback(async () => {
     try {
@@ -50,7 +91,7 @@ const GoogleMapComponent = () => {
     } finally {
       setIsLoadingKey(false);
     }
-  }, []);
+  }, [loadMap]);
 
   // Fetch team locations from database
   const fetchLocations = useCallback(async () => {
@@ -191,41 +232,6 @@ const GoogleMapComponent = () => {
     }
   }, [teamLocations, isMapLoaded]);
 
-  const loadMap = useCallback(async (key: string) => {
-    if (!mapRef.current || !key || isLoading) return;
-
-    setIsLoading(true);
-
-    try {
-      const loader = new Loader({
-        apiKey: key,
-        version: 'weekly',
-        libraries: ['places']
-      });
-
-      await loader.load();
-
-      const map = new google.maps.Map(mapRef.current, {
-        zoom: 2,
-        center: { lat: 20, lng: 0 }, // World view initially
-        mapTypeId: google.maps.MapTypeId.ROADMAP,
-        styles: [
-          {
-            featureType: 'poi',
-            elementType: 'labels',
-            stylers: [{ visibility: 'off' }]
-          }
-        ]
-      });
-
-      mapInstanceRef.current = map;
-      setIsMapLoaded(true);
-    } catch (error) {
-      console.error('Error loading Google Maps:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isLoading]);
 
   // Load the map when component mounts
   useEffect(() => {
