@@ -25,11 +25,32 @@ const GoogleMapComponent = () => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<Map<string, google.maps.Marker>>(new Map());
-  const [apiKey, setApiKey] = useState(localStorage.getItem('googleMapsApiKey') || '');
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingKey, setIsLoadingKey] = useState(true);
   const [teamLocations, setTeamLocations] = useState<TeamLocation[]>([]);
   const { userRole } = useAuth();
+
+  // Fetch Google Maps API key from Supabase edge function
+  const fetchGoogleMapsKey = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('get-google-maps-key');
+      
+      if (error) {
+        console.error('Error fetching Google Maps API key:', error);
+        setIsLoadingKey(false);
+        return;
+      }
+
+      if (data?.apiKey) {
+        loadMap(data.apiKey);
+      }
+    } catch (error) {
+      console.error('Error fetching Google Maps API key:', error);
+    } finally {
+      setIsLoadingKey(false);
+    }
+  }, []);
 
   // Fetch team locations from database
   const fetchLocations = useCallback(async () => {
@@ -206,30 +227,10 @@ const GoogleMapComponent = () => {
     }
   }, [isLoading]);
 
-  const handleApiKeySubmit = () => {
-    console.log('handleApiKeySubmit called');
-    if (apiKey) {
-      localStorage.setItem('googleMapsApiKey', apiKey);
-      setIsMapLoaded(false); // Reset map loaded state
-      loadMap(apiKey);
-    }
-  };
-
-  // Initial data fetch and map loading
+  // Load the map when component mounts
   useEffect(() => {
-    if (apiKey && !isMapLoaded && !isLoading) {
-      const checkAndLoad = () => {
-        if (mapRef.current) {
-          loadMap(apiKey);
-        } else {
-          setTimeout(checkAndLoad, 100);
-        }
-      };
-      
-      const timer = setTimeout(checkAndLoad, 200);
-      return () => clearTimeout(timer);
-    }
-  }, [apiKey, isMapLoaded, isLoading, loadMap]);
+    fetchGoogleMapsKey();
+  }, [fetchGoogleMapsKey]);
 
   // Fetch locations when map is loaded
   useEffect(() => {
@@ -278,21 +279,9 @@ const GoogleMapComponent = () => {
             <h1 className="text-xl font-semibold">Sales Team Tracker</h1>
           </div>
           <div className="ml-auto flex items-center gap-4">
-            {!isMapLoaded && (
+            {isLoadingKey && !isMapLoaded && (
               <div className="flex items-center gap-2">
-                <Input
-                  type="password"
-                  placeholder="Enter Google Maps API Key"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  className="w-64"
-                />
-                <Button 
-                  onClick={handleApiKeySubmit} 
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Loading...' : 'Load Map'}
-                </Button>
+                <span className="text-sm">Loading Google Maps...</span>
               </div>
             )}
             {isMapLoaded && (
@@ -315,31 +304,18 @@ const GoogleMapComponent = () => {
       <div className="relative">
         <div ref={mapRef} className="h-[calc(100vh-4rem)] w-full bg-muted" />
         
-        {!isMapLoaded && (
+        {(isLoadingKey || (!isMapLoaded && !isLoadingKey)) && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/80">
             <Card className="w-96">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MapPin className="h-5 w-5" />
-                  Google Maps Setup
+                  Google Maps
                 </CardTitle>
                 <CardDescription>
-                  {isLoading ? 'Loading map...' : 'Enter your Google Maps API key to start tracking your sales team'}
+                  {isLoadingKey ? 'Loading map configuration...' : isLoading ? 'Loading map...' : 'Setting up your sales team map'}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-xs text-muted-foreground">
-                  Get your API key from the{' '}
-                  <a 
-                    href="https://console.cloud.google.com/google/maps-apis" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline"
-                  >
-                    Google Cloud Console
-                  </a>
-                </p>
-              </CardContent>
             </Card>
           </div>
         )}
