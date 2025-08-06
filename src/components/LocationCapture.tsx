@@ -101,40 +101,48 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
         const lat = currentLocation.latitude;
         const lng = currentLocation.longitude;
         
-        // Mexico
-        if (lat >= 14.5 && lat <= 32.7 && lng >= -118.4 && lng <= -86.7) {
+        // More specific ranges first to avoid overlaps - Guatemala checked before Mexico
+        if (lat >= 13.0 && lat <= 17.8 && lng >= -92.5 && lng <= -88.0) {
+          country = 'Guatemala';
+          // Guatemala City and surrounding metropolitan area (zones 1-25)
+          if (lat >= 14.4 && lat <= 14.8 && lng >= -90.8 && lng <= -90.3) state = 'Guatemala (Capital)';
+          // Mixco, Villa Nueva, San José Pinula (metropolitan area)
+          else if (lat >= 14.4 && lat <= 14.8 && lng >= -90.8 && lng <= -90.2) state = 'Guatemala (Metropolitana)';
+          // Other regions
+          else if (lat >= 15.5 && lat <= 16.0 && lng >= -91.5 && lng <= -90.5) state = 'Alta Verapaz';
+          else if (lat >= 15.0 && lat <= 15.8 && lng >= -90.8 && lng <= -90.0) state = 'Baja Verapaz';
+          else if (lat >= 14.8 && lat <= 15.8 && lng >= -92.0 && lng <= -91.0) state = 'Quiché';
+          else if (lat >= 14.2 && lat <= 15.0 && lng >= -91.8 && lng <= -90.8) state = 'Chimaltenango';
+          else if (lat >= 14.3 && lat <= 14.8 && lng >= -91.0 && lng <= -90.5) state = 'Sacatepéquez';
+          else if (lat >= 13.8 && lat <= 14.5 && lng >= -90.5 && lng <= -89.5) state = 'Jalapa';
+          else if (lat >= 13.5 && lat <= 14.3 && lng >= -90.2 && lng <= -89.2) state = 'Jutiapa';
+          else state = 'Guatemala';
+        } 
+        // El Salvador
+        else if (lat >= 12.0 && lat <= 14.5 && lng >= -90.5 && lng <= -87.0) {
+          country = 'El Salvador';
+          if (lat >= 13.5 && lat <= 14.5 && lng >= -89.5 && lng <= -88.8) state = 'San Salvador';
+          else if (lat >= 13.8 && lat <= 14.2 && lng >= -89.8 && lng <= -89.2) state = 'Santa Ana';
+          else if (lat >= 13.0 && lat <= 13.8 && lng >= -89.5 && lng <= -88.8) state = 'La Libertad';
+          else state = 'El Salvador';
+        } 
+        // Honduras
+        else if (lat >= 12.5 && lat <= 16.5 && lng >= -89.5 && lng <= -83.0) {
+          country = 'Honduras';
+          if (lat >= 14.0 && lat <= 14.3 && lng >= -87.5 && lng <= -86.8) state = 'Francisco Morazán';
+          else if (lat >= 15.3 && lat <= 15.8 && lng >= -88.2 && lng <= -87.5) state = 'Cortés';
+          else if (lat >= 15.0 && lat <= 15.5 && lng >= -87.8 && lng <= -87.0) state = 'Atlántida';
+          else state = 'Honduras';
+        }
+        // Mexico (checked after Central American countries to avoid overlap)
+        else if (lat >= 14.5 && lat <= 32.7 && lng >= -118.4 && lng <= -86.7) {
           country = 'México';
           if (lat >= 19.0 && lat <= 25.0 && lng >= -89.0 && lng <= -86.0) state = 'Quintana Roo';
           else if (lat >= 20.0 && lat <= 22.5 && lng >= -90.5 && lng <= -88.0) state = 'Yucatán';
           else if (lat >= 19.0 && lat <= 21.5 && lng >= -91.0 && lng <= -89.0) state = 'Campeche';
           else if (lat >= 25.0 && lat <= 32.7 && lng >= -115.0 && lng <= -109.0) state = 'Baja California';
-          else if (lat >= 26.0 && lat <= 29.0 && lng >= -106.0 && lng <= -103.0) state = 'Chihuahua';
-          else if (lat >= 22.0 && lat <= 26.0 && lng >= -108.0 && lng <= -104.0) state = 'Sinaloa';
           else state = 'Otra región';
         } 
-        // Guatemala
-        else if (lat >= 13.0 && lat <= 17.5 && lng >= -92.5 && lng <= -88.0) {
-          country = 'Guatemala';
-          if (lat >= 15.5 && lat <= 16.0 && lng >= -91.5 && lng <= -90.5) state = 'Alta Verapaz';
-          else if (lat >= 14.5 && lat <= 15.5 && lng >= -91.0 && lng <= -90.0) state = 'Baja Verapaz';
-          else if (lat >= 14.0 && lat <= 15.0 && lng >= -92.5 && lng <= -91.5) state = 'Quiché';
-          else if (lat >= 14.5 && lat <= 15.5 && lng >= -91.5 && lng <= -90.5) state = 'Guatemala';
-          else state = 'Otra región';
-        } 
-        // El Salvador
-        else if (lat >= 12.0 && lat <= 15.0 && lng >= -90.5 && lng <= -87.0) {
-          country = 'El Salvador';
-          if (lat >= 13.5 && lat <= 14.5 && lng >= -89.5 && lng <= -88.0) state = 'San Salvador';
-          else if (lat >= 13.0 && lat <= 14.0 && lng >= -90.0 && lng <= -88.5) state = 'Santa Ana';
-          else state = 'Otra región';
-        } 
-        // Honduras
-        else if (lat >= 12.5 && lat <= 16.5 && lng >= -89.5 && lng <= -83.0) {
-          country = 'Honduras';
-          if (lat >= 14.0 && lat <= 15.5 && lng >= -88.5 && lng <= -86.5) state = 'Francisco Morazán';
-          else if (lat >= 15.0 && lat <= 16.0 && lng >= -89.0 && lng <= -87.0) state = 'Cortés';
-          else state = 'Otra región';
-        }
         // Costa Rica
         else if (lat >= 8.0 && lat <= 11.5 && lng >= -86.0 && lng <= -82.5) {
           country = 'Costa Rica';

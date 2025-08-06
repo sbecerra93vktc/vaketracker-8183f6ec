@@ -243,13 +243,15 @@ const GoogleMapComponent = () => {
   }, [teamLocations, selectedUser, selectedDate, selectedCountry, selectedState]);
 
   const detectCountryFromCoordinates = (lat: number, lng: number): string => {
-    if (lat >= 14.5 && lat <= 32.7 && lng >= -118.4 && lng <= -86.7) return 'México';
-    if (lat >= 13.0 && lat <= 17.5 && lng >= -92.5 && lng <= -88.0) return 'Guatemala';
-    if (lat >= 12.0 && lat <= 15.0 && lng >= -90.5 && lng <= -87.0) return 'El Salvador';
+    // More specific ranges first to avoid overlaps
+    if (lat >= 13.0 && lat <= 17.8 && lng >= -92.5 && lng <= -88.0) return 'Guatemala';
+    if (lat >= 12.0 && lat <= 14.5 && lng >= -90.5 && lng <= -87.0) return 'El Salvador';
     if (lat >= 12.5 && lat <= 16.5 && lng >= -89.5 && lng <= -83.0) return 'Honduras';
     if (lat >= 8.0 && lat <= 11.5 && lng >= -86.0 && lng <= -82.5) return 'Costa Rica';
     if (lat >= 7.0 && lat <= 9.7 && lng >= -83.0 && lng <= -77.0) return 'Panamá';
     if (lat >= -4.5 && lat <= 13.5 && lng >= -82.0 && lng <= -66.0) return 'Colombia';
+    // Mexico should be checked after Central American countries
+    if (lat >= 14.5 && lat <= 32.7 && lng >= -118.4 && lng <= -86.7) return 'México';
     if (lat >= 24.0 && lat <= 50.0 && lng >= -130.0 && lng <= -65.0) return 'Estados Unidos';
     if (lat >= 42.0 && lat <= 70.0 && lng >= -140.0 && lng <= -52.0) return 'Canadá';
     return '';
@@ -264,23 +266,33 @@ const GoogleMapComponent = () => {
       return 'Otra región';
     }
     if (country === 'Guatemala') {
+      // Guatemala City and surrounding metropolitan area (zones 1-25)
+      if (lat >= 14.4 && lat <= 14.8 && lng >= -90.8 && lng <= -90.3) return 'Guatemala (Capital)';
+      // Mixco, Villa Nueva, San José Pinula (metropolitan area)
+      if (lat >= 14.4 && lat <= 14.8 && lng >= -90.8 && lng <= -90.2) return 'Guatemala (Metropolitana)';
+      // Other regions
       if (lat >= 15.5 && lat <= 16.0 && lng >= -91.5 && lng <= -90.5) return 'Alta Verapaz';
-      if (lat >= 14.5 && lat <= 15.5 && lng >= -91.0 && lng <= -90.0) return 'Baja Verapaz';
-      if (lat >= 14.0 && lat <= 15.0 && lng >= -92.5 && lng <= -91.5) return 'Quiché';
-      if (lat >= 14.5 && lat <= 15.5 && lng >= -91.5 && lng <= -90.5) return 'Guatemala';
-      return 'Otra región';
+      if (lat >= 15.0 && lat <= 15.8 && lng >= -90.8 && lng <= -90.0) return 'Baja Verapaz';
+      if (lat >= 14.8 && lat <= 15.8 && lng >= -92.0 && lng <= -91.0) return 'Quiché';
+      if (lat >= 14.2 && lat <= 15.0 && lng >= -91.8 && lng <= -90.8) return 'Chimaltenango';
+      if (lat >= 14.3 && lat <= 14.8 && lng >= -91.0 && lng <= -90.5) return 'Sacatepéquez';
+      if (lat >= 13.8 && lat <= 14.5 && lng >= -90.5 && lng <= -89.5) return 'Jalapa';
+      if (lat >= 13.5 && lat <= 14.3 && lng >= -90.2 && lng <= -89.2) return 'Jutiapa';
+      return 'Guatemala';
     }
     if (country === 'El Salvador') {
-      if (lat >= 13.5 && lat <= 14.5 && lng >= -89.5 && lng <= -88.0) return 'San Salvador';
-      if (lat >= 13.0 && lat <= 14.0 && lng >= -90.0 && lng <= -88.5) return 'Santa Ana';
-      return 'Otra región';
+      if (lat >= 13.5 && lat <= 14.5 && lng >= -89.5 && lng <= -88.8) return 'San Salvador';
+      if (lat >= 13.8 && lat <= 14.2 && lng >= -89.8 && lng <= -89.2) return 'Santa Ana';
+      if (lat >= 13.0 && lat <= 13.8 && lng >= -89.5 && lng <= -88.8) return 'La Libertad';
+      return 'El Salvador';
     }
     if (country === 'Honduras') {
-      if (lat >= 14.0 && lat <= 15.5 && lng >= -88.5 && lng <= -86.5) return 'Francisco Morazán';
-      if (lat >= 15.0 && lat <= 16.0 && lng >= -89.0 && lng <= -87.0) return 'Cortés';
-      return 'Otra región';
+      if (lat >= 14.0 && lat <= 14.3 && lng >= -87.5 && lng <= -86.8) return 'Francisco Morazán';
+      if (lat >= 15.3 && lat <= 15.8 && lng >= -88.2 && lng <= -87.5) return 'Cortés';
+      if (lat >= 15.0 && lat <= 15.5 && lng >= -87.8 && lng <= -87.0) return 'Atlántida';
+      return 'Honduras';
     }
-    return 'Región detectada';
+    return country || 'Región detectada';
   };
 
   // Update markers on the map
