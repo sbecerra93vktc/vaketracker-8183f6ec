@@ -1,4 +1,5 @@
 import { useAuth } from '@/hooks/useAuth';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import GoogleMapComponent from '@/components/GoogleMapComponent';
@@ -9,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const { user, userRole, signOut } = useAuth();
+  const { hasPermission } = usePermissions();
   const navigate = useNavigate();
 
   const refreshData = () => {
@@ -57,9 +59,14 @@ const Dashboard = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Territory Map</CardTitle>
+            <CardTitle>
+              {hasPermission('view_team_locations') ? 'Mapa del Territorio del Equipo' : 'Mapa de Mi Territorio'}
+            </CardTitle>
             <CardDescription>
-              Visualize your sales territory and customer locations
+              {hasPermission('view_team_locations') 
+                ? 'Visualiza el territorio de ventas y ubicaciones de clientes del equipo'
+                : 'Visualiza tu territorio de ventas y ubicaciones de clientes'
+              }
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
