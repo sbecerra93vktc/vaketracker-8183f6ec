@@ -39,6 +39,13 @@ const GoogleMapComponent = () => {
   const [selectedState, setSelectedState] = useState<string>('all');
   const { userRole } = useAuth();
 
+  // Reset state filter when country changes
+  useEffect(() => {
+    if (selectedCountry !== 'all') {
+      setSelectedState('all');
+    }
+  }, [selectedCountry]);
+
   // Guatemala departments mapping
   const getRegionFromCoordinates = (lat: number, lng: number): string => {
     // Simple coordinate-based region detection for Guatemala
@@ -218,25 +225,63 @@ const GoogleMapComponent = () => {
     // Filter by country
     if (selectedCountry !== 'all') {
       filtered = filtered.filter(loc => {
-        const lat = loc.latitude;
-        const lng = loc.longitude;
-        let country = '';
-        
-        if (lat >= 13.0 && lat <= 17.5 && lng >= -92.5 && lng <= -88.0) country = 'Guatemala';
-        else if (lat >= 12.0 && lat <= 15.0 && lng >= -90.5 && lng <= -87.0) country = 'El Salvador';
-        else if (lat >= 12.5 && lat <= 16.5 && lng >= -89.5 && lng <= -83.0) country = 'Honduras';
-        
-        return country === selectedCountry;
+        const detectedCountry = detectCountryFromCoordinates(loc.latitude, loc.longitude);
+        return detectedCountry === selectedCountry;
       });
     }
 
     // Filter by state
     if (selectedState !== 'all') {
-      filtered = filtered.filter(loc => loc.region === selectedState);
+      filtered = filtered.filter(loc => {
+        const detectedCountry = detectCountryFromCoordinates(loc.latitude, loc.longitude);
+        const detectedState = detectStateFromCoordinates(loc.latitude, loc.longitude, detectedCountry);
+        return detectedState === selectedState;
+      });
     }
 
     setFilteredLocations(filtered);
   }, [teamLocations, selectedUser, selectedDate, selectedCountry, selectedState]);
+
+  const detectCountryFromCoordinates = (lat: number, lng: number): string => {
+    if (lat >= 14.5 && lat <= 32.7 && lng >= -118.4 && lng <= -86.7) return 'México';
+    if (lat >= 13.0 && lat <= 17.5 && lng >= -92.5 && lng <= -88.0) return 'Guatemala';
+    if (lat >= 12.0 && lat <= 15.0 && lng >= -90.5 && lng <= -87.0) return 'El Salvador';
+    if (lat >= 12.5 && lat <= 16.5 && lng >= -89.5 && lng <= -83.0) return 'Honduras';
+    if (lat >= 8.0 && lat <= 11.5 && lng >= -86.0 && lng <= -82.5) return 'Costa Rica';
+    if (lat >= 7.0 && lat <= 9.7 && lng >= -83.0 && lng <= -77.0) return 'Panamá';
+    if (lat >= -4.5 && lat <= 13.5 && lng >= -82.0 && lng <= -66.0) return 'Colombia';
+    if (lat >= 24.0 && lat <= 50.0 && lng >= -130.0 && lng <= -65.0) return 'Estados Unidos';
+    if (lat >= 42.0 && lat <= 70.0 && lng >= -140.0 && lng <= -52.0) return 'Canadá';
+    return '';
+  };
+
+  const detectStateFromCoordinates = (lat: number, lng: number, country: string): string => {
+    if (country === 'México') {
+      if (lat >= 19.0 && lat <= 25.0 && lng >= -89.0 && lng <= -86.0) return 'Quintana Roo';
+      if (lat >= 20.0 && lat <= 22.5 && lng >= -90.5 && lng <= -88.0) return 'Yucatán';
+      if (lat >= 19.0 && lat <= 21.5 && lng >= -91.0 && lng <= -89.0) return 'Campeche';
+      if (lat >= 25.0 && lat <= 32.7 && lng >= -115.0 && lng <= -109.0) return 'Baja California';
+      return 'Otra región';
+    }
+    if (country === 'Guatemala') {
+      if (lat >= 15.5 && lat <= 16.0 && lng >= -91.5 && lng <= -90.5) return 'Alta Verapaz';
+      if (lat >= 14.5 && lat <= 15.5 && lng >= -91.0 && lng <= -90.0) return 'Baja Verapaz';
+      if (lat >= 14.0 && lat <= 15.0 && lng >= -92.5 && lng <= -91.5) return 'Quiché';
+      if (lat >= 14.5 && lat <= 15.5 && lng >= -91.5 && lng <= -90.5) return 'Guatemala';
+      return 'Otra región';
+    }
+    if (country === 'El Salvador') {
+      if (lat >= 13.5 && lat <= 14.5 && lng >= -89.5 && lng <= -88.0) return 'San Salvador';
+      if (lat >= 13.0 && lat <= 14.0 && lng >= -90.0 && lng <= -88.5) return 'Santa Ana';
+      return 'Otra región';
+    }
+    if (country === 'Honduras') {
+      if (lat >= 14.0 && lat <= 15.5 && lng >= -88.5 && lng <= -86.5) return 'Francisco Morazán';
+      if (lat >= 15.0 && lat <= 16.0 && lng >= -89.0 && lng <= -87.0) return 'Cortés';
+      return 'Otra región';
+    }
+    return 'Región detectada';
+  };
 
   // Update markers on the map
   const updateMapMarkers = useCallback(() => {
@@ -366,6 +411,25 @@ const GoogleMapComponent = () => {
 
   const uniqueRegions = Array.from(new Set(teamLocations.map(l => l.region).filter(Boolean)));
 
+  const getUniqueStatesForMap = () => {
+    let filteredLocations = teamLocations;
+    
+    // If a country is selected, only show states from that country
+    if (selectedCountry !== 'all') {
+      filteredLocations = teamLocations.filter(loc => {
+        const detectedCountry = detectCountryFromCoordinates(loc.latitude, loc.longitude);
+        return detectedCountry === selectedCountry;
+      });
+    }
+    
+    const states = filteredLocations.map(loc => {
+      const detectedCountry = detectCountryFromCoordinates(loc.latitude, loc.longitude);
+      return detectStateFromCoordinates(loc.latitude, loc.longitude, detectedCountry);
+    }).filter(Boolean);
+    
+    return [...new Set(states)];
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -441,9 +505,15 @@ const GoogleMapComponent = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="México">México</SelectItem>
                   <SelectItem value="Guatemala">Guatemala</SelectItem>
                   <SelectItem value="El Salvador">El Salvador</SelectItem>
                   <SelectItem value="Honduras">Honduras</SelectItem>
+                  <SelectItem value="Costa Rica">Costa Rica</SelectItem>
+                  <SelectItem value="Panamá">Panamá</SelectItem>
+                  <SelectItem value="Colombia">Colombia</SelectItem>
+                  <SelectItem value="Estados Unidos">Estados Unidos</SelectItem>
+                  <SelectItem value="Canadá">Canadá</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -456,9 +526,9 @@ const GoogleMapComponent = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
-                  {uniqueRegions.map(region => (
-                    <SelectItem key={region} value={region}>
-                      {region}
+                  {getUniqueStatesForMap().map(state => (
+                    <SelectItem key={state} value={state}>
+                      {state}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -97,22 +97,67 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
         console.warn('Geocoding failed:', geocodeError);
         address = `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`;
         
-        // Fallback region detection for Central America
+        // Fallback region detection for the Americas
         const lat = currentLocation.latitude;
         const lng = currentLocation.longitude;
         
-        if (lat >= 13.0 && lat <= 17.5 && lng >= -92.5 && lng <= -88.0) {
+        // Mexico
+        if (lat >= 14.5 && lat <= 32.7 && lng >= -118.4 && lng <= -86.7) {
+          country = 'México';
+          if (lat >= 19.0 && lat <= 25.0 && lng >= -89.0 && lng <= -86.0) state = 'Quintana Roo';
+          else if (lat >= 20.0 && lat <= 22.5 && lng >= -90.5 && lng <= -88.0) state = 'Yucatán';
+          else if (lat >= 19.0 && lat <= 21.5 && lng >= -91.0 && lng <= -89.0) state = 'Campeche';
+          else if (lat >= 25.0 && lat <= 32.7 && lng >= -115.0 && lng <= -109.0) state = 'Baja California';
+          else if (lat >= 26.0 && lat <= 29.0 && lng >= -106.0 && lng <= -103.0) state = 'Chihuahua';
+          else if (lat >= 22.0 && lat <= 26.0 && lng >= -108.0 && lng <= -104.0) state = 'Sinaloa';
+          else state = 'Otra región';
+        } 
+        // Guatemala
+        else if (lat >= 13.0 && lat <= 17.5 && lng >= -92.5 && lng <= -88.0) {
           country = 'Guatemala';
           if (lat >= 15.5 && lat <= 16.0 && lng >= -91.5 && lng <= -90.5) state = 'Alta Verapaz';
           else if (lat >= 14.5 && lat <= 15.5 && lng >= -91.0 && lng <= -90.0) state = 'Baja Verapaz';
           else if (lat >= 14.0 && lat <= 15.0 && lng >= -92.5 && lng <= -91.5) state = 'Quiché';
           else if (lat >= 14.5 && lat <= 15.5 && lng >= -91.5 && lng <= -90.5) state = 'Guatemala';
           else state = 'Otra región';
-        } else if (lat >= 12.0 && lat <= 15.0 && lng >= -90.5 && lng <= -87.0) {
+        } 
+        // El Salvador
+        else if (lat >= 12.0 && lat <= 15.0 && lng >= -90.5 && lng <= -87.0) {
           country = 'El Salvador';
-          state = 'Región detectada';
-        } else if (lat >= 12.5 && lat <= 16.5 && lng >= -89.5 && lng <= -83.0) {
+          if (lat >= 13.5 && lat <= 14.5 && lng >= -89.5 && lng <= -88.0) state = 'San Salvador';
+          else if (lat >= 13.0 && lat <= 14.0 && lng >= -90.0 && lng <= -88.5) state = 'Santa Ana';
+          else state = 'Otra región';
+        } 
+        // Honduras
+        else if (lat >= 12.5 && lat <= 16.5 && lng >= -89.5 && lng <= -83.0) {
           country = 'Honduras';
+          if (lat >= 14.0 && lat <= 15.5 && lng >= -88.5 && lng <= -86.5) state = 'Francisco Morazán';
+          else if (lat >= 15.0 && lat <= 16.0 && lng >= -89.0 && lng <= -87.0) state = 'Cortés';
+          else state = 'Otra región';
+        }
+        // Costa Rica
+        else if (lat >= 8.0 && lat <= 11.5 && lng >= -86.0 && lng <= -82.5) {
+          country = 'Costa Rica';
+          state = 'Región detectada';
+        }
+        // Panama
+        else if (lat >= 7.0 && lat <= 9.7 && lng >= -83.0 && lng <= -77.0) {
+          country = 'Panamá';
+          state = 'Región detectada';
+        }
+        // Colombia
+        else if (lat >= -4.5 && lat <= 13.5 && lng >= -82.0 && lng <= -66.0) {
+          country = 'Colombia';
+          state = 'Región detectada';
+        }
+        // USA
+        else if (lat >= 24.0 && lat <= 50.0 && lng >= -130.0 && lng <= -65.0) {
+          country = 'Estados Unidos';
+          state = 'Región detectada';
+        }
+        // Canada
+        else if (lat >= 42.0 && lat <= 70.0 && lng >= -140.0 && lng <= -52.0) {
+          country = 'Canadá';
           state = 'Región detectada';
         }
       }

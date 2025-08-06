@@ -43,6 +43,13 @@ const LocationHistory = () => {
     applyFilters();
   }, [locations, selectedUser, selectedDate, selectedCountry, selectedState]);
 
+  // Reset state filter when country changes
+  useEffect(() => {
+    if (selectedCountry !== 'all') {
+      setSelectedState('all');
+    }
+  }, [selectedCountry]);
+
   const fetchLocations = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -115,12 +122,24 @@ const LocationHistory = () => {
 
     // Country filter
     if (selectedCountry !== 'all') {
-      filtered = filtered.filter(location => location.country === selectedCountry);
+      filtered = filtered.filter(location => {
+        // For existing records without country data, detect from coordinates
+        const locationCountry = location.country || detectCountryFromCoordinates(location.latitude, location.longitude);
+        return locationCountry === selectedCountry;
+      });
     }
 
     // State filter
     if (selectedState !== 'all') {
-      filtered = filtered.filter(location => location.state === selectedState);
+      filtered = filtered.filter(location => {
+        // For existing records without state data, detect from coordinates
+        const locationState = location.state || detectStateFromCoordinates(
+          location.latitude, 
+          location.longitude, 
+          location.country || detectCountryFromCoordinates(location.latitude, location.longitude)
+        );
+        return locationState === selectedState;
+      });
     }
 
     setFilteredLocations(filtered);
@@ -135,14 +154,78 @@ const LocationHistory = () => {
   };
 
   const getUniqueCountries = () => {
-    return [...new Set(locations.map(loc => loc.country).filter(Boolean))];
+    const countries = locations.map(loc => {
+      // For existing records without country data, detect from coordinates
+      return loc.country || detectCountryFromCoordinates(loc.latitude, loc.longitude);
+    }).filter(Boolean);
+    return [...new Set(countries)];
   };
 
   const getUniqueStates = () => {
-    const states = locations.filter(loc => 
-      selectedCountry === 'all' || loc.country === selectedCountry
-    ).map(loc => loc.state).filter(Boolean);
+    let filteredLocations = locations;
+    
+    // If a country is selected, only show states from that country
+    if (selectedCountry !== 'all') {
+      filteredLocations = locations.filter(loc => {
+        // For existing records without country data, detect from coordinates
+        if (!loc.country) {
+          const detectedCountry = detectCountryFromCoordinates(loc.latitude, loc.longitude);
+          return detectedCountry === selectedCountry;
+        }
+        return loc.country === selectedCountry;
+      });
+    }
+    
+    const states = filteredLocations.map(loc => {
+      // For existing records without state data, detect from coordinates  
+      if (!loc.state) {
+        return detectStateFromCoordinates(loc.latitude, loc.longitude, loc.country || detectCountryFromCoordinates(loc.latitude, loc.longitude));
+      }
+      return loc.state;
+    }).filter(Boolean);
+    
     return [...new Set(states)];
+  };
+
+  const detectCountryFromCoordinates = (lat: number, lng: number): string => {
+    if (lat >= 14.5 && lat <= 32.7 && lng >= -118.4 && lng <= -86.7) return 'México';
+    if (lat >= 13.0 && lat <= 17.5 && lng >= -92.5 && lng <= -88.0) return 'Guatemala';
+    if (lat >= 12.0 && lat <= 15.0 && lng >= -90.5 && lng <= -87.0) return 'El Salvador';
+    if (lat >= 12.5 && lat <= 16.5 && lng >= -89.5 && lng <= -83.0) return 'Honduras';
+    if (lat >= 8.0 && lat <= 11.5 && lng >= -86.0 && lng <= -82.5) return 'Costa Rica';
+    if (lat >= 7.0 && lat <= 9.7 && lng >= -83.0 && lng <= -77.0) return 'Panamá';
+    if (lat >= -4.5 && lat <= 13.5 && lng >= -82.0 && lng <= -66.0) return 'Colombia';
+    if (lat >= 24.0 && lat <= 50.0 && lng >= -130.0 && lng <= -65.0) return 'Estados Unidos';
+    if (lat >= 42.0 && lat <= 70.0 && lng >= -140.0 && lng <= -52.0) return 'Canadá';
+    return '';
+  };
+
+  const detectStateFromCoordinates = (lat: number, lng: number, country: string): string => {
+    if (country === 'México') {
+      if (lat >= 19.0 && lat <= 25.0 && lng >= -89.0 && lng <= -86.0) return 'Quintana Roo';
+      if (lat >= 20.0 && lat <= 22.5 && lng >= -90.5 && lng <= -88.0) return 'Yucatán';
+      if (lat >= 19.0 && lat <= 21.5 && lng >= -91.0 && lng <= -89.0) return 'Campeche';
+      if (lat >= 25.0 && lat <= 32.7 && lng >= -115.0 && lng <= -109.0) return 'Baja California';
+      return 'Otra región';
+    }
+    if (country === 'Guatemala') {
+      if (lat >= 15.5 && lat <= 16.0 && lng >= -91.5 && lng <= -90.5) return 'Alta Verapaz';
+      if (lat >= 14.5 && lat <= 15.5 && lng >= -91.0 && lng <= -90.0) return 'Baja Verapaz';
+      if (lat >= 14.0 && lat <= 15.0 && lng >= -92.5 && lng <= -91.5) return 'Quiché';
+      if (lat >= 14.5 && lat <= 15.5 && lng >= -91.5 && lng <= -90.5) return 'Guatemala';
+      return 'Otra región';
+    }
+    if (country === 'El Salvador') {
+      if (lat >= 13.5 && lat <= 14.5 && lng >= -89.5 && lng <= -88.0) return 'San Salvador';
+      if (lat >= 13.0 && lat <= 14.0 && lng >= -90.0 && lng <= -88.5) return 'Santa Ana';
+      return 'Otra región';
+    }
+    if (country === 'Honduras') {
+      if (lat >= 14.0 && lat <= 15.5 && lng >= -88.5 && lng <= -86.5) return 'Francisco Morazán';
+      if (lat >= 15.0 && lat <= 16.0 && lng >= -89.0 && lng <= -87.0) return 'Cortés';
+      return 'Otra región';
+    }
+    return 'Región detectada';
   };
 
   const getVisitTypeColor = (visitType: string) => {
@@ -290,13 +373,20 @@ const LocationHistory = () => {
                   <p className="text-sm font-medium">{location.address}</p>
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <span>{location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}</span>
-                    {location.country && (
-                      <div className="flex items-center gap-1">
-                        <Globe className="h-3 w-3" />
-                        <span>{location.country}</span>
-                        {location.state && <span>• {location.state}</span>}
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1">
+                      <Globe className="h-3 w-3" />
+                      <span>
+                        {location.country || detectCountryFromCoordinates(location.latitude, location.longitude)}
+                      </span>
+                      <span>•</span>
+                      <span>
+                        {location.state || detectStateFromCoordinates(
+                          location.latitude, 
+                          location.longitude,
+                          location.country || detectCountryFromCoordinates(location.latitude, location.longitude)
+                        )}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
