@@ -283,7 +283,7 @@ const HeatMapComponent = () => {
   }, [selectedCountry]);
 
   useEffect(() => {
-    if (!loading && heatMapData.length > 0) {
+    if (!loading) {
       drawHeatMap();
     }
   }, [heatMapData, loading, selectedCountry]);

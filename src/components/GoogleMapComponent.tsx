@@ -335,8 +335,24 @@ const GoogleMapComponent = () => {
       });
 
       marker.addListener('click', () => {
+        // Close other info windows first
+        markersRef.current.forEach((otherMarker, otherKey) => {
+          if (otherKey !== location.id) {
+            const otherInfoWindow = (otherMarker as any).infoWindow;
+            if (otherInfoWindow) {
+              otherInfoWindow.close();
+            }
+          }
+        });
+        
         infoWindow.open(mapInstanceRef.current, marker);
+        
+        // Center map on clicked marker
+        mapInstanceRef.current?.panTo({ lat: location.latitude, lng: location.longitude });
       });
+
+      // Store info window reference on marker for later access
+      (marker as any).infoWindow = infoWindow;
 
       markersRef.current.set(location.id, marker);
     });
