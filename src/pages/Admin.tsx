@@ -50,8 +50,10 @@ const Admin = () => {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [userPermissions, setUserPermissions] = useState<UserPermissions[]>([]);
+  const [validatedInvitations, setValidatedInvitations] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [permissionsLoading, setPermissionsLoading] = useState(false);
+  const [validatedLoading, setValidatedLoading] = useState(false);
   const { toast } = useToast();
   const { userRole } = useAuth();
 
@@ -68,6 +70,7 @@ const Admin = () => {
       fetchInvitations();
       fetchProfiles();
       fetchUserPermissions();
+      fetchValidatedInvitations();
     }
   }, [userRole]);
 
@@ -222,6 +225,69 @@ const Admin = () => {
     }
   };
 
+  const fetchValidatedInvitations = async () => {
+    setValidatedLoading(true);
+    try {
+      // Fetch used invitations
+      const { data: usedInvitations, error: invitationsError } = await supabase
+        .from('invitations')
+        .select('*')
+        .eq('used', true)
+        .order('created_at', { ascending: false });
+
+      if (invitationsError) {
+        toast({
+          variant: 'destructive',
+          title: 'Error fetching validated invitations',
+          description: invitationsError.message,
+        });
+        return;
+      }
+
+      // For each used invitation, try to find the corresponding user profile
+      const validatedData = [];
+      
+      if (usedInvitations && usedInvitations.length > 0) {
+        for (const invitation of usedInvitations) {
+          // Find user profile by email
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', invitation.email)
+            .maybeSingle();
+
+          let userRole = 'Sin rol';
+          
+          if (profileData) {
+            // Fetch the user's role separately
+            const { data: roleData } = await supabase
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', profileData.user_id)
+              .maybeSingle();
+            
+            userRole = roleData?.role || 'Sin rol';
+          }
+
+          validatedData.push({
+            ...invitation,
+            user_profile: profileData,
+            user_name: profileData 
+              ? `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || 'Sin nombre'
+              : 'Usuario no encontrado',
+            user_role: userRole
+          });
+        }
+      }
+
+      setValidatedInvitations(validatedData);
+    } catch (error) {
+      console.error('Error fetching validated invitations:', error);
+    } finally {
+      setValidatedLoading(false);
+    }
+  };
+
   const handleInviteUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
@@ -287,8 +353,9 @@ const Admin = () => {
       </div>
 
       <Tabs defaultValue="invitations" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="invitations">Invitaciones</TabsTrigger>
+          <TabsTrigger value="validated">Validadas</TabsTrigger>
           <TabsTrigger value="users">Usuarios</TabsTrigger>
           <TabsTrigger value="permissions">Permisos</TabsTrigger>
         </TabsList>
@@ -373,6 +440,76 @@ const Admin = () => {
           </CardContent>
         </Card>
 
+        </TabsContent>
+
+        <TabsContent value="validated" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Invitaciones Validadas</CardTitle>
+              <CardDescription>
+                Usuarios que han usado exitosamente su invitación y están registrados
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {validatedLoading ? (
+                <div className="text-center py-8">Cargando invitaciones validadas...</div>
+              ) : validatedInvitations.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No hay invitaciones validadas aún
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Nombre del Usuario</TableHead>
+                      <TableHead>Rol</TableHead>
+                      <TableHead>Fecha de Invitación</TableHead>
+                      <TableHead>Estado</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {validatedInvitations.map((invitation) => (
+                      <TableRow key={invitation.id}>
+                        <TableCell>{invitation.email}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{invitation.user_name}</span>
+                            {invitation.user_profile && (
+                              <span className="text-xs text-muted-foreground">
+                                {invitation.user_profile.company && `${invitation.user_profile.company} • `}
+                                {invitation.user_profile.territory || 'Sin territorio'}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            {invitation.user_role}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {new Date(invitation.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              ✓ Activo
+                            </span>
+                            {invitation.user_profile && (
+                              <span className="text-xs text-muted-foreground">
+                                Registrado
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="users" className="space-y-6">
