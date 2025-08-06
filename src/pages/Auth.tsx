@@ -20,22 +20,28 @@ const Auth = () => {
   useEffect(() => {
     const checkFirstUser = async () => {
       try {
-        // Check both auth.users and profiles table to be more reliable
-        const { data: authData, error: authError } = await supabase.auth.getSession();
+        // Simple approach: if someone is accessing /auth without being logged in,
+        // and there's no token in URL, check if we can access any public data
+        // If we can't, it likely means there are existing users with RLS blocking us
         
-        // Use a simpler approach - check if we can query any profiles at all
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
+        // Try to access invitations table (which has public read policies)
+        const { data: invitationsData, error: invitationsError } = await supabase
+          .from('invitations')
           .select('id')
           .limit(1);
         
-        console.log('Profiles query result:', profilesData, 'Error:', profilesError);
+        console.log('Invitations check:', invitationsData, 'Error:', invitationsError);
         
-        // If the query fails due to RLS, assume there are users
-        // If the query succeeds and returns empty array, it's the first user
-        const firstUser = !profilesError && Array.isArray(profilesData) && profilesData.length === 0;
+        // If we can query invitations, it means there's a user system in place
+        // Only consider it "first user" if we get a specific error or if explicitly no data exists
+        const hasInvitationSystem = !invitationsError && Array.isArray(invitationsData);
         
-        console.log('Setting isFirstUser to:', firstUser);
+        // Also check if there's a token in the URL (means someone is trying to register with invitation)
+        const hasToken = token !== null;
+        
+        const firstUser = !hasInvitationSystem && !hasToken;
+        
+        console.log('Has invitation system:', hasInvitationSystem, 'Has token:', hasToken, 'First user:', firstUser);
         setIsFirstUser(firstUser);
       } catch (err) {
         console.error('Error checking first user:', err);
@@ -45,7 +51,7 @@ const Auth = () => {
     };
     
     checkFirstUser();
-  }, []);
+  }, [token]);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
