@@ -19,12 +19,22 @@ const Auth = () => {
   // Check if this is the first user on component mount
   useEffect(() => {
     const checkFirstUser = async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id', { count: 'exact', head: true });
-      
-      if (!error && data !== null) {
-        setIsFirstUser((data as any) === 0);
+      try {
+        const { count, error } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true });
+        
+        console.log('Profile count:', count, 'Error:', error);
+        
+        if (!error) {
+          const firstUser = count === 0;
+          console.log('Setting isFirstUser to:', firstUser);
+          setIsFirstUser(firstUser);
+        }
+      } catch (err) {
+        console.error('Error checking first user:', err);
+        // Default to true if we can't check (safer for first time setup)
+        setIsFirstUser(true);
       }
     };
     
