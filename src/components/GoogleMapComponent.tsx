@@ -16,7 +16,7 @@ interface SalespersonLocation {
 const GoogleMapComponent = () => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const [apiKey, setApiKey] = useState(localStorage.getItem('googleMapsApiKey') || '');
+  const [apiKey, setApiKey] = useState(localStorage.getItem('googleMapsApiKey') || 'AIzaSyAaEryMg0sJr-arokWRfITVg2WHs3jPTSc');
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const [salespeople, setSalespeople] = useState<SalespersonLocation[]>([
     {
