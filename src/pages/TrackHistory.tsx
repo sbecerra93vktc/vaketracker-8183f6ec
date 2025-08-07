@@ -37,24 +37,36 @@ const TrackHistory = () => {
 
   const fetchUsers = async () => {
     try {
-      const { data: usersData, error } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .neq('user_id', user?.id);
+      // For admin users, fetch all users except themselves
+      // For regular users, just get their own info
+      if (userRole === 'admin') {
+        const { data: usersData, error } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .neq('user_id', user?.id);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      const userIds = usersData?.map(u => u.user_id) || [];
-      
-      // Get user emails from auth metadata
-      const userEmails = await Promise.all(
-        userIds.map(async (userId) => {
-          const { data: { user: userInfo } } = await supabase.auth.admin.getUserById(userId);
-          return { id: userId, email: userInfo?.email || 'Unknown' };
-        })
-      );
+        const userIds = usersData?.map(u => u.user_id) || [];
+        
+        // Get user emails from profiles table
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, email')
+          .in('user_id', userIds);
 
-      setUsers(userEmails);
+        // Map user_id to id to match expected interface
+        const mappedUsers = (profilesData || []).map(profile => ({
+          id: profile.user_id,
+          email: profile.email
+        }));
+
+        setUsers(mappedUsers);
+      } else {
+        // For regular users, just show their own info
+        setUsers([]);
+        setSelectedUserId(user?.id || 'all');
+      }
     } catch (error) {
       console.error('Error fetching users:', error);
     }
@@ -110,22 +122,11 @@ const TrackHistory = () => {
     navigate('/auth');
   };
 
-  // Redirect non-admin users
-  if (userRole !== 'admin') {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-destructive mb-4">Acceso Denegado</h1>
-          <p className="text-muted-foreground mb-4">
-            Solo los administradores pueden acceder a esta sección.
-          </p>
-          <Button onClick={() => navigate('/dashboard')}>
-            Volver al Dashboard
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  // Show appropriate content based on user role
+  const shouldShowAllUsers = userRole === 'admin';
+  const filteredTrackingData = shouldShowAllUsers 
+    ? trackingData 
+    : trackingData.filter(location => location.user_id === user?.id);
 
   return (
     <div className="min-h-screen bg-background">
@@ -157,30 +158,32 @@ const TrackHistory = () => {
           {/* Location Tracker Component */}
           <LocationTracker />
 
-          {/* User Filter */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5 text-warning" />
-                Filtrar por Usuario
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Seleccionar usuario" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los usuarios</SelectItem>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
+          {/* User Filter - only show for admins */}
+          {userRole === 'admin' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5 text-warning" />
+                  Filtrar por Usuario
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Seleccionar usuario" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los usuarios</SelectItem>
+                    {users.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Tracking Map */}
           <Card>
@@ -194,7 +197,7 @@ const TrackHistory = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <TrackingMapComponent trackingData={trackingData} />
+              <TrackingMapComponent trackingData={filteredTrackingData} />
             </CardContent>
           </Card>
 
@@ -215,14 +218,14 @@ const TrackHistory = () => {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-warning mx-auto"></div>
                   <p className="mt-2 text-muted-foreground">Cargando datos...</p>
                 </div>
-              ) : trackingData.length === 0 ? (
+              ) : filteredTrackingData.length === 0 ? (
                 <div className="text-center py-8">
                   <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">No hay datos de seguimiento disponibles</p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {trackingData.map((item) => (
+                  {filteredTrackingData.map((item) => (
                     <div
                       key={item.id}
                       className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
