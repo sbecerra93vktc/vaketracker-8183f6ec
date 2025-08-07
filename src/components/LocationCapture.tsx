@@ -23,7 +23,19 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
   const [activityType, setActivityType] = useState('');
   const [subActivity, setSubActivity] = useState('');
   const [notes, setNotes] = useState('');
+  const [businessName, setBusinessName] = useState('');
+  const [contactPerson, setContactPerson] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const { toast } = useToast();
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPhotoFile(file);
+    }
+  };
 
   const getCurrentLocation = () => {
     setLoading(true);
@@ -202,6 +214,11 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
       setNotes('');
       setActivityType('');
       setSubActivity('');
+      setBusinessName('');
+      setContactPerson('');
+      setEmail('');
+      setPhone('');
+      setPhotoFile(null);
       
       if (onLocationCaptured) {
         onLocationCaptured();
@@ -255,8 +272,75 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
                 <SelectItem value="Negociación en curso">Negociación en curso</SelectItem>
                 <SelectItem value="Visita Pre-entrega e instalación">Visita Pre-entrega e instalación</SelectItem>
                 <SelectItem value="Visita técnica">Visita técnica</SelectItem>
+                <SelectItem value="Visita de cortesía">Visita de cortesía</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+        )}
+
+        {activityType === 'Visita en frío' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="businessName">Nombre del negocio</Label>
+                <Input
+                  id="businessName"
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  placeholder="Nombre del negocio"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contactPerson">Contacto/s de quien nos recibe</Label>
+                <Input
+                  id="contactPerson"
+                  value={contactPerson}
+                  onChange={(e) => setContactPerson(e.target.value)}
+                  placeholder="Nombre del contacto"
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="email@ejemplo.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Teléfono</Label>
+                <Input
+                  id="phone"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="Número de teléfono"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="photo">Foto del lugar</Label>
+              <Input
+                id="photo"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handlePhotoUpload}
+                className="cursor-pointer"
+              />
+              {photoFile && (
+                <div className="mt-2 p-2 bg-secondary rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    Foto seleccionada: {photoFile.name}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

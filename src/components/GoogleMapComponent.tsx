@@ -194,7 +194,7 @@ const GoogleMapComponent = () => {
           notes: location.notes || '',
           created_at: location.created_at,
           address: location.address || '',
-          region: getRegionFromCoordinates(lat, lng)
+          region: location.state || location.country || getRegionFromCoordinates(lat, lng)
         };
       });
 
