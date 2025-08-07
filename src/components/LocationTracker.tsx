@@ -198,19 +198,7 @@ const LocationTracker = () => {
           </Button>
         </div>
 
-        {lastLocation && (
-          <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg">
-            <h4 className="font-medium mb-2 text-warning-foreground flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              Última Ubicación Capturada
-            </h4>
-            <div className="text-sm text-muted-foreground space-y-1">
-              <p>Lat: {lastLocation.latitude.toFixed(6)}</p>
-              <p>Lng: {lastLocation.longitude.toFixed(6)}</p>
-              <p>Hora: {new Date(lastLocation.timestamp).toLocaleString('es-ES')}</p>
-            </div>
-          </div>
-        )}
+        {/* Location info hidden from regular users for privacy */}
 
         <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg">
           <p className="font-medium mb-1">ℹ️ Información importante:</p>

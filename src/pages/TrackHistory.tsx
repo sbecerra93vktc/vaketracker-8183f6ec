@@ -110,6 +110,23 @@ const TrackHistory = () => {
     navigate('/auth');
   };
 
+  // Redirect non-admin users
+  if (userRole !== 'admin') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-destructive mb-4">Acceso Denegado</h1>
+          <p className="text-muted-foreground mb-4">
+            Solo los administradores pueden acceder a esta sección.
+          </p>
+          <Button onClick={() => navigate('/dashboard')}>
+            Volver al Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">

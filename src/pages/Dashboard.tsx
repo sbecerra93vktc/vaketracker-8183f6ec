@@ -36,9 +36,11 @@ const Dashboard = () => {
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary text-primary-foreground">
               {userRole}
             </span>
-            <Button variant="outline" onClick={() => navigate('/track-history')}>
-              Track History
-            </Button>
+            {userRole === 'admin' && (
+              <Button variant="outline" onClick={() => navigate('/track-history')}>
+                Track History
+              </Button>
+            )}
             {userRole === 'admin' && (
               <Button variant="outline" onClick={() => navigate('/admin')}>
                 Admin Panel
