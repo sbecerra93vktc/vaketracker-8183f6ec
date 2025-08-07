@@ -1,0 +1,243 @@
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { MapPin, Clock, User, ArrowLeft } from 'lucide-react';
+import TrackingMapComponent from '@/components/TrackingMapComponent';
+import LocationTracker from '@/components/LocationTracker';
+
+interface TrackingData {
+  id: string;
+  user_id: string;
+  latitude: number;
+  longitude: number;
+  address: string;
+  country: string;
+  state: string;
+  created_at: string;
+  user_email?: string;
+}
+
+const TrackHistory = () => {
+  const { user, userRole, signOut } = useAuth();
+  const navigate = useNavigate();
+  const [trackingData, setTrackingData] = useState<TrackingData[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string>('all');
+  const [users, setUsers] = useState<Array<{id: string, email: string}>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchUsers();
+    fetchTrackingData();
+  }, [selectedUserId]);
+
+  const fetchUsers = async () => {
+    try {
+      const { data: usersData, error } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .neq('user_id', user?.id);
+
+      if (error) throw error;
+
+      const userIds = usersData?.map(u => u.user_id) || [];
+      
+      // Get user emails from auth metadata
+      const userEmails = await Promise.all(
+        userIds.map(async (userId) => {
+          const { data: { user: userInfo } } = await supabase.auth.admin.getUserById(userId);
+          return { id: userId, email: userInfo?.email || 'Unknown' };
+        })
+      );
+
+      setUsers(userEmails);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
+  const fetchTrackingData = async () => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from('location_tracking')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (selectedUserId !== 'all') {
+        query = query.eq('user_id', selectedUserId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      // Add user email to tracking data
+      const dataWithEmails = await Promise.all(
+        (data || []).map(async (item) => {
+          const user = users.find(u => u.id === item.user_id);
+          return {
+            ...item,
+            user_email: user?.email || 'Unknown User'
+          };
+        })
+      );
+
+      setTrackingData(dataWithEmails);
+    } catch (error) {
+      console.error('Error fetching tracking data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString('es-ES', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/auth');
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b bg-card">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <Button variant="outline" size="sm" onClick={() => navigate('/dashboard')}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Dashboard
+            </Button>
+            <h1 className="text-2xl font-bold text-warning">Track History</h1>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground">
+              Welcome, {user?.email}
+            </span>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary text-primary-foreground">
+              {userRole}
+            </span>
+            <Button variant="outline" onClick={handleSignOut}>
+              Sign Out
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto p-6">
+        <div className="space-y-6">
+          {/* Location Tracker Component */}
+          <LocationTracker />
+
+          {/* User Filter */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5 text-warning" />
+                Filtrar por Usuario
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Seleccionar usuario" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los usuarios</SelectItem>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+
+          {/* Tracking Map */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-warning" />
+                Mapa de Seguimiento
+              </CardTitle>
+              <CardDescription>
+                Visualiza las ubicaciones rastreadas de los usuarios en tiempo real
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <TrackingMapComponent trackingData={trackingData} />
+            </CardContent>
+          </Card>
+
+          {/* Tracking History List */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-warning" />
+                Historial de Ubicaciones
+              </CardTitle>
+              <CardDescription>
+                Lista cronológica de todas las ubicaciones rastreadas
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-warning mx-auto"></div>
+                  <p className="mt-2 text-muted-foreground">Cargando datos...</p>
+                </div>
+              ) : trackingData.length === 0 ? (
+                <div className="text-center py-8">
+                  <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No hay datos de seguimiento disponibles</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {trackingData.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant="outline">{item.user_email}</Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {formatDate(item.created_at)}
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium">{item.address}</p>
+                        {(item.country || item.state) && (
+                          <p className="text-xs text-muted-foreground">
+                            {item.country}{item.state ? ` - ${item.state}` : ''}
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {item.latitude.toFixed(6)}, {item.longitude.toFixed(6)}
+                        </p>
+                      </div>
+                      <MapPin className="h-5 w-5 text-warning" />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default TrackHistory;

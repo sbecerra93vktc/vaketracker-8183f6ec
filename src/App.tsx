@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "./hooks/useAuth";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import TrackHistory from "./pages/TrackHistory";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
@@ -58,6 +59,11 @@ const App = () => (
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/track-history" element={
+              <ProtectedRoute>
+                <TrackHistory />
               </ProtectedRoute>
             } />
             <Route path="/admin" element={
