@@ -37,34 +37,40 @@ const TrackHistory = () => {
 
   const fetchUsers = async () => {
     try {
-      // For admin users, fetch all users except themselves
-      // For regular users, just get their own info
-      if (userRole === 'admin') {
-        const { data: usersData, error } = await supabase
-          .from('user_roles')
-          .select('user_id')
-          .neq('user_id', user?.id);
+      // Get all unique user IDs from location tracking
+      const { data: trackingUsers, error: trackingError } = await supabase
+        .from('location_tracking')
+        .select('user_id');
 
-        if (error) throw error;
+      if (trackingError) throw trackingError;
 
-        const userIds = usersData?.map(u => u.user_id) || [];
-        
-        // Get user emails from profiles table
-        const { data: profilesData } = await supabase
-          .from('profiles')
-          .select('user_id, email')
-          .in('user_id', userIds);
+      const uniqueUserIds = [...new Set(trackingUsers?.map(u => u.user_id) || [])];
+      
+      // Get user emails from auth.users via profiles or construct from tracking data
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('user_id, email')
+        .in('user_id', uniqueUserIds);
 
-        // Map user_id to id to match expected interface
-        const mappedUsers = (profilesData || []).map(profile => ({
-          id: profile.user_id,
-          email: profile.email
-        }));
+      const mappedUsers = (profilesData || []).map(profile => ({
+        id: profile.user_id,
+        email: profile.email || `User ${profile.user_id.slice(0, 8)}`
+      }));
 
-        setUsers(mappedUsers);
-      } else {
-        // For regular users, just show their own info
-        setUsers([]);
+      // For any users not in profiles, add them with a fallback email
+      uniqueUserIds.forEach(userId => {
+        if (!mappedUsers.find(u => u.id === userId)) {
+          mappedUsers.push({
+            id: userId,
+            email: `User ${userId.slice(0, 8)}`
+          });
+        }
+      });
+
+      setUsers(mappedUsers);
+
+      // Set current user as selected if not admin
+      if (userRole !== 'admin') {
         setSelectedUserId(user?.id || 'all');
       }
     } catch (error) {
@@ -89,15 +95,13 @@ const TrackHistory = () => {
       if (error) throw error;
 
       // Add user email to tracking data
-      const dataWithEmails = await Promise.all(
-        (data || []).map(async (item) => {
-          const user = users.find(u => u.id === item.user_id);
-          return {
-            ...item,
-            user_email: user?.email || 'Unknown User'
-          };
-        })
-      );
+      const dataWithEmails = (data || []).map((item) => {
+        const user = users.find(u => u.id === item.user_id);
+        return {
+          ...item,
+          user_email: user?.email || `User ${item.user_id.slice(0, 8)}`
+        };
+      });
 
       setTrackingData(dataWithEmails);
     } catch (error) {
