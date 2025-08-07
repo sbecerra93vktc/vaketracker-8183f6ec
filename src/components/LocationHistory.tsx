@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { MapPin, Clock, User, Filter, Calendar, Globe } from 'lucide-react';
+import { MapPin, Clock, User, Filter, Calendar, Globe, List, Grid3X3 } from 'lucide-react';
 
 interface Location {
   id: string;
@@ -33,6 +33,7 @@ const LocationHistory = () => {
   const [selectedCountry, setSelectedCountry] = useState<string>('all');
   const [selectedState, setSelectedState] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const { userRole } = useAuth();
 
   useEffect(() => {
@@ -272,15 +273,35 @@ const LocationHistory = () => {
             <MapPin className="h-5 w-5 text-warning" />
             {userRole === 'admin' ? 'Actividades del Equipo' : 'Historial de Ubicaciones'}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowFilters(!showFilters)}
-            className="text-warning border-warning/20 hover:bg-warning/10"
-          >
-            <Filter className="h-4 w-4 mr-2" />
-            Filtros
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex border rounded-lg p-1">
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className="h-8 px-2"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+                className="h-8 px-2"
+              >
+                <Grid3X3 className="h-4 w-4" />
+              </Button>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className="text-warning border-warning/20 hover:bg-warning/10"
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              Filtros
+            </Button>
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -359,61 +380,102 @@ const LocationHistory = () => {
             {locations.length === 0 ? 'No hay actividades registradas aún' : 'No se encontraron actividades con los filtros seleccionados'}
           </div>
         ) : (
-          <div className="space-y-4">
+          <div>
             <div className="text-sm text-muted-foreground mb-4">
               Mostrando {filteredLocations.length} de {locations.length} actividades
             </div>
-            {filteredLocations.map((location) => (
-              <div
-                key={location.id}
-                className="border rounded-lg p-4 space-y-3"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`inline-flex items-center rounded-full border-0 px-2.5 py-0.5 text-xs font-semibold ${getVisitTypeColor(location.visit_type)}`}>
-                      {formatVisitType(location.visit_type)}
+            {viewMode === 'list' ? (
+              <div className="space-y-4">
+                {filteredLocations.map((location) => (
+                  <div
+                    key={location.id}
+                    className="border rounded-lg p-4 space-y-3"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={`inline-flex items-center rounded-full border-0 px-2.5 py-0.5 text-xs font-semibold ${getVisitTypeColor(location.visit_type)}`}>
+                          {formatVisitType(location.visit_type)}
+                        </div>
+                        {userRole === 'admin' && location.user_name && (
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <User className="h-4 w-4" />
+                            {location.user_name}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        {new Date(location.created_at).toLocaleString()}
+                      </div>
                     </div>
+
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">{location.address}</p>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>{location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}</span>
+                        <div className="flex items-center gap-1">
+                          <Globe className="h-3 w-3" />
+                          <span>
+                            {location.country || detectCountryFromCoordinates(location.latitude, location.longitude)}
+                          </span>
+                          <span>•</span>
+                          <span>
+                            {location.state || detectStateFromCoordinates(
+                              location.latitude, 
+                              location.longitude,
+                              location.country || detectCountryFromCoordinates(location.latitude, location.longitude)
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {location.notes && (
+                      <p className="text-sm text-muted-foreground bg-muted p-2 rounded">
+                        {location.notes}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredLocations.map((location) => (
+                  <div
+                    key={location.id}
+                    className="border rounded-lg p-3 space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className={`inline-flex items-center rounded-full border-0 px-2 py-1 text-xs font-semibold ${getVisitTypeColor(location.visit_type)}`}>
+                        {formatVisitType(location.visit_type)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(location.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium line-clamp-2">{location.address}</p>
+                      <div className="text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Globe className="h-3 w-3" />
+                          <span>
+                            {location.country || detectCountryFromCoordinates(location.latitude, location.longitude)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
                     {userRole === 'admin' && location.user_name && (
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <User className="h-4 w-4" />
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground pt-1 border-t">
+                        <User className="h-3 w-3" />
                         {location.user_name}
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    {new Date(location.created_at).toLocaleString()}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">{location.address}</p>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span>{location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}</span>
-                    <div className="flex items-center gap-1">
-                      <Globe className="h-3 w-3" />
-                      <span>
-                        {location.country || detectCountryFromCoordinates(location.latitude, location.longitude)}
-                      </span>
-                      <span>•</span>
-                      <span>
-                        {location.state || detectStateFromCoordinates(
-                          location.latitude, 
-                          location.longitude,
-                          location.country || detectCountryFromCoordinates(location.latitude, location.longitude)
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {location.notes && (
-                  <p className="text-sm text-muted-foreground bg-muted p-2 rounded">
-                    {location.notes}
-                  </p>
-                )}
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
       </CardContent>

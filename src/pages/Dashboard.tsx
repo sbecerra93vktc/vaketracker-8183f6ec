@@ -50,15 +50,12 @@ const Dashboard = () => {
 
       <main className="container mx-auto p-6">
         <div className="space-y-6 mb-6">
+          <LocationCapture onLocationCaptured={refreshData} />
           <ActivitySummary />
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <LocationCapture onLocationCaptured={refreshData} />
-            <LocationHistory />
-          </div>
+          <LocationHistory />
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
           <Card>
             <CardHeader>
               <CardTitle>
