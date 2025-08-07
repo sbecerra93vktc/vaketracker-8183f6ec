@@ -131,15 +131,15 @@ const LocationTracker = () => {
     // Initial location capture
     trackLocation();
     
-    // Set up interval for every 30 minutes (30 * 60 * 1000 ms)
-    const id = setInterval(trackLocation, 30 * 60 * 1000);
+    // Set up interval for every 2 minutes (2 * 60 * 1000 ms)
+    const id = setInterval(trackLocation, 2 * 60 * 1000);
     setIntervalId(id);
     setIsTracking(true);
     localStorage.setItem('locationTracking', 'active');
     
     toast({
       title: 'Seguimiento iniciado',
-      description: 'La ubicación se capturará cada 30 minutos automáticamente.',
+      description: 'La ubicación se capturará cada 2 minutos automáticamente.',
     });
   };
 
@@ -165,7 +165,7 @@ const LocationTracker = () => {
           Seguimiento Automático de Ubicación
         </CardTitle>
         <CardDescription>
-          Captura automáticamente tu ubicación cada 30 minutos para seguimiento del equipo
+          Captura automáticamente tu ubicación cada 2 minutos para seguimiento del equipo
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -203,7 +203,7 @@ const LocationTracker = () => {
         <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg">
           <p className="font-medium mb-1">ℹ️ Información importante:</p>
           <ul className="space-y-1">
-            <li>• El seguimiento captura la ubicación cada 30 minutos</li>
+            <li>• El seguimiento captura la ubicación cada 2 minutos</li>
             <li>• Mantén la aplicación abierta para un seguimiento óptimo</li>
             <li>• Los datos se almacenan de forma segura en el servidor</li>
             <li>• Puedes detener el seguimiento en cualquier momento</li>
