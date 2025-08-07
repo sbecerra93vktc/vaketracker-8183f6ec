@@ -52,7 +52,7 @@ const TrackingMapComponent = ({ trackingData }: TrackingMapComponentProps) => {
       const loader = new Loader({
         apiKey: keyData.apiKey,
         version: 'weekly',
-        libraries: ['marker']
+        libraries: ['places']
       });
 
       await loader.load();
