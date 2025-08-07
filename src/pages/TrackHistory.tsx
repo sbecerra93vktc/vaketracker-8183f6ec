@@ -237,15 +237,17 @@ const TrackHistory = () => {
                             {formatDate(item.created_at)}
                           </span>
                         </div>
-                        <p className="text-sm font-medium">{item.address}</p>
+                        <p className="text-sm font-medium">{item.address || 'Ubicación automática'}</p>
                         {(item.country || item.state) && (
                           <p className="text-xs text-muted-foreground">
                             {item.country}{item.state ? ` - ${item.state}` : ''}
                           </p>
                         )}
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {item.latitude.toFixed(6)}, {item.longitude.toFixed(6)}
-                        </p>
+                        {!item.country && !item.state && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {item.latitude.toFixed(6)}, {item.longitude.toFixed(6)}
+                          </p>
+                        )}
                       </div>
                       <MapPin className="h-5 w-5 text-warning" />
                     </div>
