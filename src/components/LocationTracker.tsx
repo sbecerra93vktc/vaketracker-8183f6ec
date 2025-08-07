@@ -58,40 +58,9 @@ const LocationTracker = () => {
 
   const saveTrackingLocation = async (location: {latitude: number, longitude: number}) => {
     try {
-      // Get address from coordinates
-      let address = '';
-      let country = '';
-      let state = '';
-      
-      try {
-        const response = await fetch(
-          `https://api.opencagedata.com/geocode/v1/json?q=${location.latitude}+${location.longitude}&key=demo&limit=1`
-        );
-        const data = await response.json();
-        if (data.results && data.results[0]) {
-          address = data.results[0].formatted;
-          country = data.results[0].components?.country || '';
-          state = data.results[0].components?.state || data.results[0].components?.province || '';
-        }
-      } catch (geocodeError) {
-        console.warn('Geocoding failed:', geocodeError);
-        address = `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`;
-        
-        // Fallback region detection
-        const lat = location.latitude;
-        const lng = location.longitude;
-        
-        if (lat >= 13.0 && lat <= 17.8 && lng >= -92.5 && lng <= -88.0) {
-          country = 'Guatemala';
-          if (lat >= 14.4 && lat <= 14.8 && lng >= -90.8 && lng <= -90.3) state = 'Guatemala (Capital)';
-          else state = 'Guatemala';
-        } else if (lat >= 14.5 && lat <= 32.7 && lng >= -118.4 && lng <= -86.7) {
-          country = 'México';
-          if (lat >= 19.0 && lat <= 25.0 && lng >= -89.0 && lng <= -86.0) state = 'Quintana Roo';
-          else if (lat >= 20.0 && lat <= 22.5 && lng >= -90.5 && lng <= -88.0) state = 'Yucatán';
-          else state = 'Otra región';
-        }
-      }
+      // Use Google's geocoding service
+      const { geocodeLocation } = await import('@/lib/googleMapsLoader');
+      const geocodingResult = await geocodeLocation(location.latitude, location.longitude);
 
       const { error } = await supabase
         .from('location_tracking')
@@ -99,22 +68,42 @@ const LocationTracker = () => {
           user_id: (await supabase.auth.getUser()).data.user?.id,
           latitude: location.latitude,
           longitude: location.longitude,
-          address,
-          country: country || null,
-          state: state || null,
+          address: geocodingResult.address || '',
+          country: geocodingResult.country || null,
+          state: geocodingResult.state || null,
         });
 
       if (error) {
         throw error;
       }
 
-      setLastLocation({
-        ...location,
-        timestamp: new Date().toISOString()
-      });
-
+      console.log('Location tracking saved successfully with geocoding');
     } catch (error) {
-      console.error('Error saving tracking location:', error);
+      console.error('Error in saveTrackingLocation:', error);
+      
+      // Fallback: save location without geocoding
+      try {
+        const { error: fallbackError } = await supabase
+          .from('location_tracking')
+          .insert({
+            user_id: (await supabase.auth.getUser()).data.user?.id,
+            latitude: location.latitude,
+            longitude: location.longitude,
+            address: '',
+            country: null,
+            state: null,
+          });
+        
+        if (fallbackError) throw fallbackError;
+        console.log('Location saved without geocoding');
+      } catch (fallbackError) {
+        console.error('Failed to save location:', fallbackError);
+        toast({
+          title: "Error",
+          description: "No se pudo guardar la ubicación",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -122,6 +111,11 @@ const LocationTracker = () => {
     try {
       const location = await getCurrentLocation();
       await saveTrackingLocation(location);
+      
+      setLastLocation({
+        ...location,
+        timestamp: new Date().toISOString()
+      });
     } catch (error) {
       console.error('Error tracking location:', error);
     }

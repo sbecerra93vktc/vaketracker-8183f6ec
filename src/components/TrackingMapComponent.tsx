@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { loadGoogleMaps } from '@/lib/googleMapsLoader';
 
 interface TrackingData {
   id: string;
@@ -40,22 +40,8 @@ const TrackingMapComponent = ({ trackingData }: TrackingMapComponentProps) => {
       setLoading(true);
       setError(null);
 
-      // Get Google Maps API key from Supabase Edge Function
-      const { data: keyData, error: keyError } = await supabase.functions.invoke('get-google-maps-key');
-      
-      if (keyError || !keyData?.apiKey) {
-        throw new Error('Failed to get Google Maps API key');
-      }
-
-      // Load Google Maps API
-      const { Loader } = await import('@googlemaps/js-api-loader');
-      const loader = new Loader({
-        apiKey: keyData.apiKey,
-        version: 'weekly',
-        libraries: ['places']
-      });
-
-      await loader.load();
+      // Load Google Maps API using shared loader
+      await loadGoogleMaps();
 
       if (!mapRef.current) return;
 

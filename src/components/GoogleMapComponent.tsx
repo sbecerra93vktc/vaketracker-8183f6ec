@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Loader } from '@googlemaps/js-api-loader';
+import { loadGoogleMaps } from '@/lib/googleMapsLoader';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -120,13 +120,8 @@ const GoogleMapComponent = () => {
     setIsLoading(true);
 
     try {
-      const loader = new Loader({
-        apiKey: key,
-        version: 'weekly',
-        libraries: ['places']
-      });
-
-      await loader.load();
+      // Load Google Maps API using shared loader
+      await loadGoogleMaps();
 
       const map = new google.maps.Map(mapRef.current, {
         zoom: 2,
