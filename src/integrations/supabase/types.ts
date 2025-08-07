@@ -44,6 +44,39 @@ export type Database = {
         }
         Relationships: []
       }
+      location_tracking: {
+        Row: {
+          address: string | null
+          country: string | null
+          created_at: string
+          id: string
+          latitude: number
+          longitude: number
+          state: string | null
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          latitude: number
+          longitude: number
+          state?: string | null
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          latitude?: number
+          longitude?: number
+          state?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       locations: {
         Row: {
           accuracy: number | null
