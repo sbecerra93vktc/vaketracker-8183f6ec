@@ -70,94 +70,128 @@ const TrackingMapComponent = ({ trackingData }: TrackingMapComponentProps) => {
   };
 
   const updateMarkers = () => {
-    if (!map) return;
+    if (!map) {
+      console.log('Map not available for marker update');
+      return;
+    }
+
+    console.log('Updating markers with', trackingData.length, 'locations');
 
     // Clear existing markers
     markersRef.current.forEach(marker => marker.setMap(null));
     markersRef.current = [];
 
-    if (trackingData.length === 0) return;
+    if (trackingData.length === 0) {
+      console.log('No tracking data available');
+      return;
+    }
 
     const bounds = new google.maps.LatLngBounds();
     const userColors: { [key: string]: string } = {};
     const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#FF9FF3', '#54A0FF'];
     let colorIndex = 0;
 
-    trackingData.forEach((location) => {
-      // Assign a unique color to each user
-      if (!userColors[location.user_id]) {
-        userColors[location.user_id] = colors[colorIndex % colors.length];
-        colorIndex++;
-      }
+    trackingData.forEach((location, index) => {
+      try {
+        console.log(`Creating marker ${index + 1}:`, {
+          lat: location.latitude,
+          lng: location.longitude,
+          address: location.address
+        });
 
-      const position = {
-        lat: location.latitude,
-        lng: location.longitude
-      };
+        // Assign a unique color to each user
+        if (!userColors[location.user_id]) {
+          userColors[location.user_id] = colors[colorIndex % colors.length];
+          colorIndex++;
+        }
 
-      // Create custom marker icon with user color
-      const markerIcon = {
-        path: google.maps.SymbolPath.CIRCLE,
-        fillColor: userColors[location.user_id],
-        fillOpacity: 0.8,
-        strokeColor: '#FFFFFF',
-        strokeWeight: 2,
-        scale: 8
-      };
+        const position = {
+          lat: Number(location.latitude),
+          lng: Number(location.longitude)
+        };
 
-      const marker = new google.maps.Marker({
-        position,
-        map,
-        icon: markerIcon,
-        title: `${location.user_email} - ${new Date(location.created_at).toLocaleString('es-ES')}`
-      });
+        // Validate coordinates
+        if (isNaN(position.lat) || isNaN(position.lng)) {
+          console.error('Invalid coordinates for location:', location);
+          return;
+        }
 
-      // Create info window
-      const infoWindow = new google.maps.InfoWindow({
-        content: `
-          <div style="max-width: 250px;">
-            <h3 style="margin: 0 0 8px 0; color: #333; font-size: 14px; font-weight: bold;">
-              📍 ${location.user_email}
-            </h3>
-            <p style="margin: 4px 0; font-size: 12px; color: #666;">
-              <strong>Fecha:</strong> ${new Date(location.created_at).toLocaleString('es-ES')}
-            </p>
-            <p style="margin: 4px 0; font-size: 12px; color: #666;">
-              <strong>Dirección:</strong> ${location.address}
-            </p>
-            ${location.country || location.state ? `
+        // Create custom marker icon with user color
+        const markerIcon = {
+          path: google.maps.SymbolPath.CIRCLE,
+          fillColor: userColors[location.user_id],
+          fillOpacity: 0.8,
+          strokeColor: '#FFFFFF',
+          strokeWeight: 2,
+          scale: 8
+        };
+
+        const marker = new google.maps.Marker({
+          position,
+          map,
+          icon: markerIcon,
+          title: `${location.user_email} - ${new Date(location.created_at).toLocaleString('es-ES')}`
+        });
+
+        console.log('Marker created successfully at:', position);
+
+        // Create info window
+        const infoWindow = new google.maps.InfoWindow({
+          content: `
+            <div style="max-width: 250px;">
+              <h3 style="margin: 0 0 8px 0; color: #333; font-size: 14px; font-weight: bold;">
+                📍 ${location.user_email}
+              </h3>
               <p style="margin: 4px 0; font-size: 12px; color: #666;">
-                <strong>Región:</strong> ${location.country}${location.state ? ` - ${location.state}` : ''}
+                <strong>Fecha:</strong> ${new Date(location.created_at).toLocaleString('es-ES')}
               </p>
-            ` : ''}
-            <p style="margin: 4px 0; font-size: 11px; color: #888;">
-              ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}
-            </p>
-          </div>
-        `
-      });
+              <p style="margin: 4px 0; font-size: 12px; color: #666;">
+                <strong>Dirección:</strong> ${location.address}
+              </p>
+              ${location.country || location.state ? `
+                <p style="margin: 4px 0; font-size: 12px; color: #666;">
+                  <strong>Región:</strong> ${location.country}${location.state ? ` - ${location.state}` : ''}
+                </p>
+              ` : ''}
+              <p style="margin: 4px 0; font-size: 11px; color: #888;">
+                ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}
+              </p>
+            </div>
+          `
+        });
 
-      marker.addListener('click', () => {
-        infoWindow.open(map, marker);
-      });
+        marker.addListener('click', () => {
+          infoWindow.open(map, marker);
+        });
 
-      markersRef.current.push(marker);
-      bounds.extend(position);
+        markersRef.current.push(marker);
+        bounds.extend(position);
+      } catch (error) {
+        console.error('Error creating marker for location:', location, error);
+      }
     });
 
+    console.log('Created', markersRef.current.length, 'markers total');
+
     // Fit map to show all markers
-    if (trackingData.length > 1) {
-      map.fitBounds(bounds);
-      const listener = google.maps.event.addListener(map, 'idle', () => {
-        if (map.getZoom()! > 15) map.setZoom(15);
-        google.maps.event.removeListener(listener);
-      });
-    } else if (trackingData.length === 1) {
-      map.setCenter({
-        lat: trackingData[0].latitude,
-        lng: trackingData[0].longitude
-      });
-      map.setZoom(14);
+    if (markersRef.current.length > 0) {
+      if (trackingData.length > 1) {
+        console.log('Fitting bounds for multiple markers');
+        map.fitBounds(bounds);
+        const listener = google.maps.event.addListener(map, 'idle', () => {
+          if (map.getZoom()! > 15) map.setZoom(15);
+          google.maps.event.removeListener(listener);
+        });
+      } else if (trackingData.length === 1) {
+        console.log('Centering on single marker');
+        map.setCenter({
+          lat: Number(trackingData[0].latitude),
+          lng: Number(trackingData[0].longitude)
+        });
+        map.setZoom(14);
+      }
+    } else {
+      console.warn('No markers were created successfully');
     }
   };
 
