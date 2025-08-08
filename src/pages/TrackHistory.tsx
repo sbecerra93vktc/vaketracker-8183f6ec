@@ -251,10 +251,6 @@ const TrackHistory = () => {
                 <div className="h-96 flex items-center justify-center bg-muted/50 rounded-lg">
                   <p className="text-muted-foreground">No hay ubicaciones disponibles</p>
                 </div>
-              ) : !selectedLocationId ? (
-                <div className="h-96 flex items-center justify-center bg-muted/50 rounded-lg">
-                  <p className="text-muted-foreground">Selecciona una ubicación para mostrar en el mapa</p>
-                </div>
               ) : (
                 <TrackingMapComponent trackingData={filteredTrackingData} selectedLocationId={selectedLocationId} />
               )}
