@@ -30,6 +30,7 @@ const TrackingMapComponent = ({ trackingData }: TrackingMapComponentProps) => {
   }, []);
 
   useEffect(() => {
+    console.log('TrackingMapComponent received data:', trackingData);
     if (map && trackingData.length > 0) {
       updateMarkers();
     }

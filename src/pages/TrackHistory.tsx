@@ -29,11 +29,17 @@ const TrackHistory = () => {
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
   const [users, setUsers] = useState<Array<{id: string, email: string}>>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUsers();
-    fetchTrackingData();
-  }, [selectedUserId]);
+  }, [userRole, user?.id]);
+
+  useEffect(() => {
+    if (users.length > 0) {
+      fetchTrackingData();
+    }
+  }, [selectedUserId, users]);
 
   const fetchUsers = async () => {
     try {
@@ -124,6 +130,10 @@ const TrackHistory = () => {
   const handleSignOut = async () => {
     await signOut();
     navigate('/auth');
+  };
+
+  const handleLocationClick = (locationId: string) => {
+    setSelectedLocationId(selectedLocationId === locationId ? null : locationId);
   };
 
   // Show appropriate content based on user role
@@ -230,10 +240,13 @@ const TrackHistory = () => {
               ) : (
                 <div className="space-y-4">
                   {filteredTrackingData.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                    >
+                     <div
+                       key={item.id}
+                       className={`flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer ${
+                         selectedLocationId === item.id ? 'bg-primary/10 border-primary' : ''
+                       }`}
+                       onClick={() => handleLocationClick(item.id)}
+                     >
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
                           <Badge variant="outline">{item.user_email}</Badge>
