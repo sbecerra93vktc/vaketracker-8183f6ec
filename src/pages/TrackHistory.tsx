@@ -160,6 +160,12 @@ const TrackHistory = () => {
   };
 
   const handleLocationClick = (location: TrackingData) => {
+    console.log('[TrackHistory] Location clicked:', location);
+    console.log('[TrackHistory] Setting map center to:', {
+      lat: location.latitude,
+      lng: location.longitude,
+      id: location.id
+    });
     setMapCenter({
       lat: location.latitude,
       lng: location.longitude,
@@ -243,54 +249,6 @@ const TrackHistory = () => {
             </Card>
           )}
 
-          {/* Date Filter */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CalendarIcon className="h-5 w-5 text-warning" />
-                Filtrar por Fecha
-              </CardTitle>
-              <CardDescription>
-                Selecciona una fecha específica para filtrar las ubicaciones
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex gap-4 items-end">
-              <div className="flex-1">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !selectedDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {selectedDate ? format(selectedDate, "PPP") : "Seleccionar fecha"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate || undefined}
-                      onSelect={(date) => setSelectedDate(date || null)}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              {selectedDate && (
-                <Button 
-                  variant="outline" 
-                  onClick={() => setSelectedDate(null)}
-                  className="shrink-0"
-                >
-                  Limpiar
-                </Button>
-              )}
-            </CardContent>
-          </Card>
 
           {/* Tracking Map */}
           <Card>
@@ -336,6 +294,44 @@ const TrackHistory = () => {
                 Haz clic en una ubicación para centrarla en el mapa
                 {selectedDate && ` - Filtrando por ${format(selectedDate, 'dd/MM/yyyy')}`}
               </CardDescription>
+              
+              {/* Date Filter within Location History */}
+              <div className="flex gap-4 items-end mt-4 pt-4 border-t">
+                <div className="flex-1">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !selectedDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {selectedDate ? format(selectedDate, "PPP") : "Seleccionar fecha"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate || undefined}
+                        onSelect={(date) => setSelectedDate(date || null)}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                {selectedDate && (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setSelectedDate(null)}
+                    className="shrink-0"
+                  >
+                    Limpiar
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               {loading ? (
