@@ -26,6 +26,7 @@ const TrackingMapComponent = ({ trackingData, selectedLocationId }: TrackingMapC
   const [error, setError] = useState<string | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const markersByIdRef = useRef<Map<string, google.maps.Marker>>(new Map());
+  const [markersVersion, setMarkersVersion] = useState(0);
 
   useEffect(() => {
     initializeMap();
@@ -53,7 +54,7 @@ const TrackingMapComponent = ({ trackingData, selectedLocationId }: TrackingMapC
     } else {
       console.warn('Selected marker not found for id', selectedLocationId);
     }
-  }, [map, selectedLocationId, trackingData]);
+  }, [map, selectedLocationId, trackingData, markersVersion]);
 
   const initializeMap = async () => {
     try {
@@ -214,6 +215,8 @@ const TrackingMapComponent = ({ trackingData, selectedLocationId }: TrackingMapC
     } else {
       console.warn('No markers were created successfully');
     }
+    // Notify that markers have been updated
+    setMarkersVersion((v) => v + 1);
   };
 
   if (loading) {
