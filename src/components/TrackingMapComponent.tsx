@@ -16,14 +16,16 @@ interface TrackingData {
 
 interface TrackingMapComponentProps {
   trackingData: TrackingData[];
+  selectedLocationId?: string | null;
 }
 
-const TrackingMapComponent = ({ trackingData }: TrackingMapComponentProps) => {
+const TrackingMapComponent = ({ trackingData, selectedLocationId }: TrackingMapComponentProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
+  const markersByIdRef = useRef<Map<string, google.maps.Marker>>(new Map());
 
   useEffect(() => {
     initializeMap();
@@ -35,6 +37,23 @@ const TrackingMapComponent = ({ trackingData }: TrackingMapComponentProps) => {
       updateMarkers();
     }
   }, [map, trackingData]);
+
+  useEffect(() => {
+    if (!map || !selectedLocationId) return;
+    const marker = markersByIdRef.current.get(selectedLocationId);
+    if (marker) {
+      const pos = marker.getPosition();
+      if (pos) {
+        map.panTo(pos);
+        if ((map.getZoom() || 0) < 15) {
+          map.setZoom(15);
+        }
+        google.maps.event.trigger(marker, 'click');
+      }
+    } else {
+      console.warn('Selected marker not found for id', selectedLocationId);
+    }
+  }, [map, selectedLocationId, trackingData]);
 
   const initializeMap = async () => {
     try {
@@ -80,6 +99,7 @@ const TrackingMapComponent = ({ trackingData }: TrackingMapComponentProps) => {
     // Clear existing markers
     markersRef.current.forEach(marker => marker.setMap(null));
     markersRef.current = [];
+    markersByIdRef.current.clear();
 
     if (trackingData.length === 0) {
       console.log('No tracking data available');
@@ -165,6 +185,7 @@ const TrackingMapComponent = ({ trackingData }: TrackingMapComponentProps) => {
         });
 
         markersRef.current.push(marker);
+        markersByIdRef.current.set(location.id, marker);
         bounds.extend(position);
       } catch (error) {
         console.error('Error creating marker for location:', location, error);

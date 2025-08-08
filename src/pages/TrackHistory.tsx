@@ -211,7 +211,7 @@ const TrackHistory = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <TrackingMapComponent trackingData={filteredTrackingData} />
+              <TrackingMapComponent trackingData={filteredTrackingData} selectedLocationId={selectedLocationId} />
             </CardContent>
           </Card>
 
