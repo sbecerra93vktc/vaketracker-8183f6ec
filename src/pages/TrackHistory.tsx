@@ -199,6 +199,39 @@ const TrackHistory = () => {
             </Card>
           )}
 
+          {/* Location Selection Dropdown */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-warning" />
+                Seleccionar Ubicación
+              </CardTitle>
+              <CardDescription>
+                Elige una ubicación específica para visualizar en el mapa
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Select value={selectedLocationId || ""} onValueChange={(value) => setSelectedLocationId(value || null)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Seleccionar una ubicación..." />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border z-50">
+                  <SelectItem value="">Ninguna ubicación seleccionada</SelectItem>
+                  {filteredTrackingData.map((location) => (
+                    <SelectItem key={location.id} value={location.id}>
+                      <div className="flex flex-col items-start">
+                        <span className="font-medium">{location.address || 'Ubicación automática'}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {location.user_email} - {formatDate(location.created_at)}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+
           {/* Tracking Map */}
           <Card>
             <CardHeader>
@@ -207,11 +240,24 @@ const TrackHistory = () => {
                 Mapa de Seguimiento
               </CardTitle>
               <CardDescription>
-                Visualiza las ubicaciones rastreadas de los usuarios en tiempo real
+                {selectedLocationId 
+                  ? "Ubicación seleccionada mostrada en el mapa" 
+                  : "Selecciona una ubicación arriba para centrar el mapa"
+                }
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <TrackingMapComponent trackingData={filteredTrackingData} selectedLocationId={selectedLocationId} />
+              {filteredTrackingData.length === 0 ? (
+                <div className="h-96 flex items-center justify-center bg-muted/50 rounded-lg">
+                  <p className="text-muted-foreground">No hay ubicaciones disponibles</p>
+                </div>
+              ) : !selectedLocationId ? (
+                <div className="h-96 flex items-center justify-center bg-muted/50 rounded-lg">
+                  <p className="text-muted-foreground">Selecciona una ubicación para mostrar en el mapa</p>
+                </div>
+              ) : (
+                <TrackingMapComponent trackingData={filteredTrackingData} selectedLocationId={selectedLocationId} />
+              )}
             </CardContent>
           </Card>
 
