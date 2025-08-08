@@ -100,13 +100,35 @@ const TrackHistory = () => {
 
       if (error) throw error;
 
+      console.log(`[TrackHistory] Raw data from database:`, data?.length || 0, 'locations');
+
+      // Filter out locations with invalid coordinates or missing essential data
+      const validData = (data || []).filter(item => {
+        const hasValidCoords = item.latitude && item.longitude && 
+                              !isNaN(Number(item.latitude)) && !isNaN(Number(item.longitude));
+        if (!hasValidCoords) {
+          console.warn('[TrackHistory] Filtering out invalid location:', item);
+        }
+        return hasValidCoords;
+      });
+
+      console.log(`[TrackHistory] Valid locations after filtering:`, validData.length);
+
       // Add user email to tracking data
-      const dataWithEmails = (data || []).map((item) => {
+      const dataWithEmails = validData.map((item) => {
         const user = users.find(u => u.id === item.user_id);
         return {
           ...item,
-          user_email: user?.email || `User ${item.user_id.slice(0, 8)}`
+          user_email: user?.email || `User ${item.user_id.slice(0, 8)}`,
+          // Provide fallback for empty addresses
+          address: item.address || 'Ubicación automática'
         };
+      });
+
+      console.log(`[TrackHistory] Final processed data:`, dataWithEmails.length, 'locations');
+      console.log(`[TrackHistory] Data breakdown by address type:`, {
+        withAddress: dataWithEmails.filter(d => d.address && d.address !== 'Ubicación automática').length,
+        autoLocation: dataWithEmails.filter(d => !d.address || d.address === 'Ubicación automática').length
       });
 
       setTrackingData(dataWithEmails);
@@ -141,6 +163,9 @@ const TrackHistory = () => {
   const filteredTrackingData = shouldShowAllUsers 
     ? trackingData 
     : trackingData.filter(location => location.user_id === user?.id);
+
+  console.log(`[TrackHistory] Filtered data for display:`, filteredTrackingData.length, 'locations');
+  console.log(`[TrackHistory] User role: ${userRole}, showing all users: ${shouldShowAllUsers}`);
 
   return (
     <div className="min-h-screen bg-background">

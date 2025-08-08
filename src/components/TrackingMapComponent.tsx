@@ -33,9 +33,22 @@ const TrackingMapComponent = ({ trackingData, selectedLocationId }: TrackingMapC
   }, []);
 
   useEffect(() => {
-    console.log('TrackingMapComponent received data:', trackingData);
+    console.log('[TrackingMap] Component received data:', trackingData.length, 'locations');
+    console.log('[TrackingMap] Data breakdown:', {
+      total: trackingData.length,
+      withAddress: trackingData.filter(d => d.address && d.address !== 'Ubicación automática').length,
+      autoLocation: trackingData.filter(d => !d.address || d.address === 'Ubicación automática').length,
+      countries: [...new Set(trackingData.map(d => d.country).filter(Boolean))],
+      users: [...new Set(trackingData.map(d => d.user_email).filter(Boolean))]
+    });
+
     if (map && trackingData.length > 0) {
       updateMarkers();
+    } else if (map && trackingData.length === 0) {
+      console.log('[TrackingMap] No data to display, clearing markers');
+      markersRef.current.forEach(marker => marker.setMap(null));
+      markersRef.current = [];
+      markersByIdRef.current.clear();
     }
   }, [map, trackingData]);
 
@@ -61,15 +74,25 @@ const TrackingMapComponent = ({ trackingData, selectedLocationId }: TrackingMapC
       setLoading(true);
       setError(null);
 
+      console.log('[TrackingMap] Initializing Google Maps...');
+
       // Load Google Maps API using shared loader
       await loadGoogleMaps();
+      console.log('[TrackingMap] Google Maps API loaded successfully');
 
-      if (!mapRef.current) return;
+      if (!mapRef.current) {
+        console.error('[TrackingMap] Map container not found');
+        return;
+      }
+
+      // Multi-country center for Central America + Mexico region
+      // Positioned to show Mexico, Guatemala, El Salvador, Honduras optimally
+      const regionalCenter = { lat: 18.5, lng: -88.0 };
 
       // Initialize map
       const mapInstance = new google.maps.Map(mapRef.current, {
-        zoom: 6,
-        center: { lat: 15.783471, lng: -90.230759 }, // Guatemala center
+        zoom: 5,
+        center: regionalCenter,
         mapTypeId: google.maps.MapTypeId.ROADMAP,
         styles: [
           {
@@ -80,6 +103,7 @@ const TrackingMapComponent = ({ trackingData, selectedLocationId }: TrackingMapC
         ]
       });
 
+      console.log('[TrackingMap] Map initialized with regional center:', regionalCenter);
       setMap(mapInstance);
       setLoading(false);
     } catch (err) {
@@ -91,11 +115,11 @@ const TrackingMapComponent = ({ trackingData, selectedLocationId }: TrackingMapC
 
   const updateMarkers = () => {
     if (!map) {
-      console.log('Map not available for marker update');
+      console.log('[TrackingMap] Map not available for marker update');
       return;
     }
 
-    console.log('Updating markers with', trackingData.length, 'locations');
+    console.log('[TrackingMap] Updating markers with', trackingData.length, 'locations');
 
     // Clear existing markers
     markersRef.current.forEach(marker => marker.setMap(null));
@@ -103,7 +127,7 @@ const TrackingMapComponent = ({ trackingData, selectedLocationId }: TrackingMapC
     markersByIdRef.current.clear();
 
     if (trackingData.length === 0) {
-      console.log('No tracking data available');
+      console.log('[TrackingMap] No tracking data available');
       return;
     }
 
@@ -111,13 +135,17 @@ const TrackingMapComponent = ({ trackingData, selectedLocationId }: TrackingMapC
     const userColors: { [key: string]: string } = {};
     const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#FF9FF3', '#54A0FF'];
     let colorIndex = 0;
+    let successfulMarkers = 0;
+    let failedMarkers = 0;
 
     trackingData.forEach((location, index) => {
       try {
-        console.log(`Creating marker ${index + 1}:`, {
+        console.log(`[TrackingMap] Creating marker ${index + 1}/${trackingData.length}:`, {
+          id: location.id,
           lat: location.latitude,
           lng: location.longitude,
-          address: location.address
+          address: location.address || 'Ubicación automática',
+          user: location.user_email
         });
 
         // Assign a unique color to each user
@@ -133,8 +161,17 @@ const TrackingMapComponent = ({ trackingData, selectedLocationId }: TrackingMapC
 
         // Validate coordinates
         if (isNaN(position.lat) || isNaN(position.lng)) {
-          console.error('Invalid coordinates for location:', location);
+          console.error('[TrackingMap] Invalid coordinates for location:', location);
+          failedMarkers++;
           return;
+        }
+
+        // Validate coordinate ranges for the region
+        const isValidRegion = position.lat >= 10 && position.lat <= 35 && 
+                             position.lng >= -120 && position.lng <= -75;
+        
+        if (!isValidRegion) {
+          console.warn('[TrackingMap] Coordinates outside expected region:', position);
         }
 
         // Create custom marker icon with user color
@@ -154,24 +191,26 @@ const TrackingMapComponent = ({ trackingData, selectedLocationId }: TrackingMapC
           title: `${location.user_email} - ${new Date(location.created_at).toLocaleString('es-ES')}`
         });
 
-        console.log('Marker created successfully at:', position);
+        console.log(`[TrackingMap] Marker ${index + 1} created successfully at:`, position);
+        successfulMarkers++;
 
-        // Create info window
+        // Create info window with better handling of empty data
+        const displayAddress = location.address || 'Ubicación automática';
         const infoWindow = new google.maps.InfoWindow({
           content: `
             <div style="max-width: 250px;">
               <h3 style="margin: 0 0 8px 0; color: #333; font-size: 14px; font-weight: bold;">
-                📍 ${location.user_email}
+                📍 ${location.user_email || 'Usuario'}
               </h3>
               <p style="margin: 4px 0; font-size: 12px; color: #666;">
                 <strong>Fecha:</strong> ${new Date(location.created_at).toLocaleString('es-ES')}
               </p>
               <p style="margin: 4px 0; font-size: 12px; color: #666;">
-                <strong>Dirección:</strong> ${location.address}
+                <strong>Dirección:</strong> ${displayAddress}
               </p>
               ${location.country || location.state ? `
                 <p style="margin: 4px 0; font-size: 12px; color: #666;">
-                  <strong>Región:</strong> ${location.country}${location.state ? ` - ${location.state}` : ''}
+                  <strong>Región:</strong> ${location.country || 'No disponible'}${location.state ? ` - ${location.state}` : ''}
                 </p>
               ` : ''}
               <p style="margin: 4px 0; font-size: 11px; color: #888;">
@@ -189,23 +228,32 @@ const TrackingMapComponent = ({ trackingData, selectedLocationId }: TrackingMapC
         markersByIdRef.current.set(location.id, marker);
         bounds.extend(position);
       } catch (error) {
-        console.error('Error creating marker for location:', location, error);
+        console.error('[TrackingMap] Error creating marker for location:', location, error);
+        failedMarkers++;
       }
     });
 
-    console.log('Created', markersRef.current.length, 'markers total');
+    console.log(`[TrackingMap] Marker creation complete - Success: ${successfulMarkers}, Failed: ${failedMarkers}, Total: ${markersRef.current.length}`);
 
-    // Fit map to show all markers
+    // Fit map to show all markers with intelligent zoom
     if (markersRef.current.length > 0) {
       if (trackingData.length > 1) {
-        console.log('Fitting bounds for multiple markers');
+        console.log('[TrackingMap] Fitting bounds for multiple markers');
         map.fitBounds(bounds);
         const listener = google.maps.event.addListener(map, 'idle', () => {
-          if (map.getZoom()! > 15) map.setZoom(15);
+          const currentZoom = map.getZoom() || 0;
+          // Limit max zoom for better overview when showing multiple locations
+          if (currentZoom > 15) {
+            map.setZoom(15);
+          }
+          // Ensure minimum zoom for readability
+          if (currentZoom < 4) {
+            map.setZoom(6);
+          }
           google.maps.event.removeListener(listener);
         });
       } else if (trackingData.length === 1) {
-        console.log('Centering on single marker');
+        console.log('[TrackingMap] Centering on single marker');
         map.setCenter({
           lat: Number(trackingData[0].latitude),
           lng: Number(trackingData[0].longitude)
@@ -213,8 +261,9 @@ const TrackingMapComponent = ({ trackingData, selectedLocationId }: TrackingMapC
         map.setZoom(14);
       }
     } else {
-      console.warn('No markers were created successfully');
+      console.warn('[TrackingMap] No markers were created successfully');
     }
+    
     // Notify that markers have been updated
     setMarkersVersion((v) => v + 1);
   };
@@ -246,6 +295,13 @@ const TrackingMapComponent = ({ trackingData, selectedLocationId }: TrackingMapC
       {trackingData.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-lg">
           <p className="text-muted-foreground">No hay datos de seguimiento para mostrar</p>
+        </div>
+      )}
+      {/* Debug info overlay - only visible in development */}
+      {process.env.NODE_ENV === 'development' && trackingData.length > 0 && (
+        <div className="absolute top-2 left-2 bg-background/90 text-xs p-2 rounded border z-10">
+          <div>📍 {markersRef.current.length} marcadores activos</div>
+          <div>📊 {trackingData.length} ubicaciones recibidas</div>
         </div>
       )}
     </div>
