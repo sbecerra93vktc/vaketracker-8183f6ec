@@ -19,12 +19,28 @@ export const loadGoogleMaps = async (): Promise<void> => {
   // Start loading
   loadPromise = (async () => {
     try {
-      // Get Google Maps API key
+      console.log('[GoogleMapsLoader] Starting Google Maps API load...');
+      
+      // Get Google Maps API key with better error handling
       const { data: keyData, error: keyError } = await supabase.functions.invoke('get-google-maps-key');
       
-      if (keyError || !keyData?.apiKey) {
-        throw new Error('Failed to get Google Maps API key');
+      console.log('[GoogleMapsLoader] API key response:', { 
+        hasData: !!keyData, 
+        hasApiKey: !!keyData?.apiKey, 
+        error: keyError 
+      });
+      
+      if (keyError) {
+        console.error('[GoogleMapsLoader] Error from edge function:', keyError);
+        throw new Error(`Failed to get Google Maps API key: ${keyError.message}`);
       }
+      
+      if (!keyData?.apiKey) {
+        console.error('[GoogleMapsLoader] No API key in response:', keyData);
+        throw new Error('Google Maps API key not found in response');
+      }
+
+      console.log('[GoogleMapsLoader] API key retrieved successfully, initializing loader...');
 
       // Create loader instance only once
       if (!loaderInstance) {
@@ -35,9 +51,12 @@ export const loadGoogleMaps = async (): Promise<void> => {
         });
       }
 
+      console.log('[GoogleMapsLoader] Loading Google Maps API...');
       await loaderInstance.load();
       isLoaded = true;
+      console.log('[GoogleMapsLoader] Google Maps API loaded successfully');
     } catch (error) {
+      console.error('[GoogleMapsLoader] Failed to load Google Maps API:', error);
       loadPromise = null; // Reset so it can be retried
       throw error;
     }
