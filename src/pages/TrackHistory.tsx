@@ -211,12 +211,12 @@ const TrackHistory = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Select value={selectedLocationId || ""} onValueChange={(value) => setSelectedLocationId(value || null)}>
+              <Select value={selectedLocationId || "none"} onValueChange={(value) => setSelectedLocationId(value === "none" ? null : value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Seleccionar una ubicación..." />
                 </SelectTrigger>
                 <SelectContent className="bg-popover border z-50">
-                  <SelectItem value="">Ninguna ubicación seleccionada</SelectItem>
+                  <SelectItem value="none">Ninguna ubicación seleccionada</SelectItem>
                   {filteredTrackingData.map((location) => (
                     <SelectItem key={location.id} value={location.id}>
                       <div className="flex flex-col items-start">
