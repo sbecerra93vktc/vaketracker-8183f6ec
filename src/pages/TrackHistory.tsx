@@ -3,10 +3,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { MapPin, Clock, User, ArrowLeft } from 'lucide-react';
+import { MapPin, Clock, User, ArrowLeft, CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import TrackingMapComponent from '@/components/TrackingMapComponent';
 import LocationTracker from '@/components/LocationTracker';
 
@@ -29,7 +33,8 @@ const TrackHistory = () => {
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
   const [users, setUsers] = useState<Array<{id: string, email: string}>>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [mapCenter, setMapCenter] = useState<{lat: number, lng: number, id: string} | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -154,17 +159,31 @@ const TrackHistory = () => {
     navigate('/auth');
   };
 
-  const handleLocationClick = (locationId: string) => {
-    setSelectedLocationId(selectedLocationId === locationId ? null : locationId);
+  const handleLocationClick = (location: TrackingData) => {
+    setMapCenter({
+      lat: location.latitude,
+      lng: location.longitude,
+      id: location.id
+    });
   };
 
-  // Show appropriate content based on user role
+  // Show appropriate content based on user role and date filter
   const shouldShowAllUsers = userRole === 'admin';
-  const filteredTrackingData = shouldShowAllUsers 
+  let filteredTrackingData = shouldShowAllUsers 
     ? trackingData 
     : trackingData.filter(location => location.user_id === user?.id);
 
+  // Apply date filter if selected
+  if (selectedDate) {
+    const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+    filteredTrackingData = filteredTrackingData.filter(location => {
+      const locationDateStr = format(new Date(location.created_at), 'yyyy-MM-dd');
+      return locationDateStr === selectedDateStr;
+    });
+  }
+
   console.log(`[TrackHistory] Filtered data for display:`, filteredTrackingData.length, 'locations');
+  console.log(`[TrackHistory] Date filter:`, selectedDate ? format(selectedDate, 'yyyy-MM-dd') : 'All dates');
   console.log(`[TrackHistory] User role: ${userRole}, showing all users: ${shouldShowAllUsers}`);
 
   return (
@@ -224,36 +243,52 @@ const TrackHistory = () => {
             </Card>
           )}
 
-          {/* Location Selection Dropdown */}
+          {/* Date Filter */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5 text-warning" />
-                Seleccionar Ubicación
+                <CalendarIcon className="h-5 w-5 text-warning" />
+                Filtrar por Fecha
               </CardTitle>
               <CardDescription>
-                Elige una ubicación específica para visualizar en el mapa
+                Selecciona una fecha específica para filtrar las ubicaciones
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Select value={selectedLocationId || "none"} onValueChange={(value) => setSelectedLocationId(value === "none" ? null : value)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Seleccionar una ubicación..." />
-                </SelectTrigger>
-                <SelectContent className="bg-popover border z-50">
-                  <SelectItem value="none">Ninguna ubicación seleccionada</SelectItem>
-                  {filteredTrackingData.map((location) => (
-                    <SelectItem key={location.id} value={location.id}>
-                      <div className="flex flex-col items-start">
-                        <span className="font-medium">{location.address || 'Ubicación automática'}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {location.user_email} - {formatDate(location.created_at)}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <CardContent className="flex gap-4 items-end">
+              <div className="flex-1">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !selectedDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDate ? format(selectedDate, "PPP") : "Seleccionar fecha"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate || undefined}
+                      onSelect={(date) => setSelectedDate(date || null)}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              {selectedDate && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => setSelectedDate(null)}
+                  className="shrink-0"
+                >
+                  Limpiar
+                </Button>
+              )}
             </CardContent>
           </Card>
 
@@ -265,32 +300,41 @@ const TrackHistory = () => {
                 Mapa de Seguimiento
               </CardTitle>
               <CardDescription>
-                {selectedLocationId 
-                  ? "Ubicación seleccionada mostrada en el mapa" 
-                  : "Selecciona una ubicación arriba para centrar el mapa"
+                {filteredTrackingData.length > 0 
+                  ? `Mostrando ${filteredTrackingData.length} ubicaciones${selectedDate ? ` del ${format(selectedDate, 'dd/MM/yyyy')}` : ''}`
+                  : "No hay ubicaciones para mostrar"
                 }
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               {filteredTrackingData.length === 0 ? (
                 <div className="h-96 flex items-center justify-center bg-muted/50 rounded-lg">
-                  <p className="text-muted-foreground">No hay ubicaciones disponibles</p>
+                  <p className="text-muted-foreground">
+                    {selectedDate 
+                      ? `No hay ubicaciones para el ${format(selectedDate, 'dd/MM/yyyy')}`
+                      : "No hay ubicaciones disponibles"
+                    }
+                  </p>
                 </div>
               ) : (
-                <TrackingMapComponent trackingData={filteredTrackingData} selectedLocationId={selectedLocationId} />
+                <TrackingMapComponent trackingData={filteredTrackingData} mapCenter={mapCenter} />
               )}
             </CardContent>
           </Card>
 
-          {/* Tracking History List */}
+              {/* Tracking History List */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5 text-warning" />
                 Historial de Ubicaciones
+                <Badge variant="secondary" className="ml-auto">
+                  {filteredTrackingData.length}
+                </Badge>
               </CardTitle>
               <CardDescription>
-                Lista cronológica de todas las ubicaciones rastreadas
+                Haz clic en una ubicación para centrarla en el mapa
+                {selectedDate && ` - Filtrando por ${format(selectedDate, 'dd/MM/yyyy')}`}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -310,9 +354,9 @@ const TrackHistory = () => {
                      <div
                        key={item.id}
                        className={`flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer ${
-                         selectedLocationId === item.id ? 'bg-primary/10 border-primary' : ''
+                         mapCenter?.id === item.id ? 'bg-primary/10 border-primary' : ''
                        }`}
-                       onClick={() => handleLocationClick(item.id)}
+                       onClick={() => handleLocationClick(item)}
                      >
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">

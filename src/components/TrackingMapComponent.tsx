@@ -16,10 +16,10 @@ interface TrackingData {
 
 interface TrackingMapComponentProps {
   trackingData: TrackingData[];
-  selectedLocationId?: string | null;
+  mapCenter?: {lat: number, lng: number, id: string} | null;
 }
 
-const TrackingMapComponent = ({ trackingData, selectedLocationId }: TrackingMapComponentProps) => {
+const TrackingMapComponent = ({ trackingData, mapCenter }: TrackingMapComponentProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,21 +53,24 @@ const TrackingMapComponent = ({ trackingData, selectedLocationId }: TrackingMapC
   }, [map, trackingData]);
 
   useEffect(() => {
-    if (!map || !selectedLocationId) return;
-    const marker = markersByIdRef.current.get(selectedLocationId);
-    if (marker) {
-      const pos = marker.getPosition();
-      if (pos) {
-        map.panTo(pos);
-        if ((map.getZoom() || 0) < 15) {
-          map.setZoom(15);
-        }
-        google.maps.event.trigger(marker, 'click');
-      }
-    } else {
-      console.warn('Selected marker not found for id', selectedLocationId);
+    if (!map || !mapCenter) return;
+    
+    console.log('[TrackingMap] Centering map on location:', mapCenter);
+    
+    const position = { lat: mapCenter.lat, lng: mapCenter.lng };
+    map.panTo(position);
+    
+    // Set appropriate zoom level
+    if ((map.getZoom() || 0) < 15) {
+      map.setZoom(15);
     }
-  }, [map, selectedLocationId, trackingData, markersVersion]);
+    
+    // Find and trigger click on the corresponding marker
+    const marker = markersByIdRef.current.get(mapCenter.id);
+    if (marker) {
+      google.maps.event.trigger(marker, 'click');
+    }
+  }, [map, mapCenter, markersVersion]);
 
   const initializeMap = async () => {
     try {
