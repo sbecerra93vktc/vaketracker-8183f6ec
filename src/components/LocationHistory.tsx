@@ -115,10 +115,16 @@ const LocationHistory = () => {
 
     // Date filter
     if (selectedDate) {
-      const filterDate = new Date(selectedDate + 'T00:00:00.000Z');
+      // Parse the selected date in local timezone
+      const [year, month, day] = selectedDate.split('-').map(Number);
+      const filterDate = new Date(year, month - 1, day); // month is 0-indexed
+      
       filtered = filtered.filter(location => {
         const locationDate = new Date(location.created_at);
-        return locationDate.toDateString() === filterDate.toDateString();
+        // Compare year, month, and day directly to avoid timezone issues
+        return locationDate.getFullYear() === filterDate.getFullYear() &&
+               locationDate.getMonth() === filterDate.getMonth() &&
+               locationDate.getDate() === filterDate.getDate();
       });
     }
 
