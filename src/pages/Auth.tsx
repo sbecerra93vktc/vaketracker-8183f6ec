@@ -24,24 +24,24 @@ const Auth = () => {
         // and there's no token in URL, check if we can access any public data
         // If we can't, it likely means there are existing users with RLS blocking us
         
-        // Try to access invitations table (which has public read policies)
-        const { data: invitationsData, error: invitationsError } = await supabase
-          .from('invitations')
+        // Try to check if invitation system exists by querying user roles
+        const { data: rolesData, error: rolesError } = await supabase
+          .from('user_roles')
           .select('id')
           .limit(1);
         
-        console.log('Invitations check:', invitationsData, 'Error:', invitationsError);
+        console.log('Roles check:', rolesData, 'Error:', rolesError);
         
-        // If we can query invitations, it means there's a user system in place
+        // If we can query user roles, it means there's a user system in place
         // Only consider it "first user" if we get a specific error or if explicitly no data exists
-        const hasInvitationSystem = !invitationsError && Array.isArray(invitationsData);
+        const hasUserSystem = !rolesError && Array.isArray(rolesData);
         
         // Also check if there's a token in the URL (means someone is trying to register with invitation)
         const hasToken = token !== null;
         
-        const firstUser = !hasInvitationSystem && !hasToken;
+        const firstUser = !hasUserSystem && !hasToken;
         
-        console.log('Has invitation system:', hasInvitationSystem, 'Has token:', hasToken, 'First user:', firstUser);
+        console.log('Has user system:', hasUserSystem, 'Has token:', hasToken, 'First user:', firstUser);
         setIsFirstUser(firstUser);
       } catch (err) {
         console.error('Error checking first user:', err);
@@ -101,19 +101,28 @@ const Auth = () => {
         return;
       }
 
-      // Verify invitation token
-      const { data: invitation, error: invitationError } = await supabase
-        .from('invitations')
-        .select('*')
-        .eq('token', invitationToken)
-        .eq('used', false)
-        .single();
+      // Verify invitation token using secure function
+      const { data: validation, error: validationError } = await supabase
+        .rpc('validate_invitation_token', { _token: invitationToken });
 
-      if (invitationError || !invitation || invitation.email !== email) {
+      if (validationError || !validation || validation.length === 0 || !validation[0].is_valid) {
         toast({
           variant: 'destructive',
           title: 'Invalid invitation',
           description: 'This invitation is invalid or has already been used.',
+        });
+        setLoading(false);
+        return;
+      }
+
+      const invitation = validation[0];
+      
+      // Verify email matches
+      if (invitation.email !== email) {
+        toast({
+          variant: 'destructive',
+          title: 'Invalid invitation',
+          description: 'This invitation is not valid for this email address.',
         });
         setLoading(false);
         return;

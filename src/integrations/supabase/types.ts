@@ -222,6 +222,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      validate_invitation_token: {
+        Args: { _token: string }
+        Returns: {
+          is_valid: boolean
+          email: string
+          expires_at: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "salesman"
