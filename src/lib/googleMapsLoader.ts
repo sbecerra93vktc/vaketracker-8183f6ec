@@ -6,6 +6,7 @@ let isLoaded = false;
 let loadPromise: Promise<void> | null = null;
 
 export const loadGoogleMaps = async (): Promise<void> => {
+  console.log('[GoogleMapsLoader] loadGoogleMaps() called');
   // If already loaded, return immediately
   if (isLoaded && window.google) {
     return Promise.resolve();
