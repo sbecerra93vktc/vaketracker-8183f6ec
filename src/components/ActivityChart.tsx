@@ -1,27 +1,22 @@
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Thermometer } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import * as d3 from 'd3';
-import * as topojson from 'topojson-client';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-interface HeatMapData {
-  region: string;
-  count: number;
-  intensity: number;
+interface ActivityData {
+  state: string;
+  activities: number;
 }
 
-const HeatMapComponent = () => {
-  const [heatMapData, setHeatMapData] = useState<HeatMapData[]>([]);
+const ActivityChart = () => {
+  const [activityData, setActivityData] = useState<ActivityData[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<string>('Guatemala');
   const [loading, setLoading] = useState(true);
   const { userRole } = useAuth();
-  const svgRef = useRef<SVGSVGElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
   // Comprehensive state/region coordinates for all countries
   const countryRegions = {
@@ -148,19 +143,6 @@ const HeatMapComponent = () => {
     }
   };
 
-  // Improved state boundaries and detection
-  const mexicanStates = {
-    'Quintana Roo': [
-      [[-86.0, 18.5], [-86.0, 22.0], [-88.0, 22.0], [-88.0, 18.5], [-86.0, 18.5]]
-    ],
-    'Yucatán': [
-      [[-88.0, 20.0], [-88.0, 21.6], [-90.5, 21.6], [-90.5, 20.0], [-88.0, 20.0]]
-    ],
-    'Campeche': [
-      [[-90.5, 17.8], [-90.5, 20.8], [-92.5, 20.8], [-92.5, 17.8], [-90.5, 17.8]]
-    ]
-  };
-
   const detectStateFromCoordinates = (lat: number, lng: number, country: string): string => {
     if (country === 'Guatemala') {
       // Guatemala City area - expanded to include more of the central region
@@ -237,10 +219,10 @@ const HeatMapComponent = () => {
     return '';
   };
 
-  const fetchHeatMapData = async () => {
+  const fetchActivityData = async () => {
     try {
       setLoading(true);
-      console.log('Fetching heat map data for country:', selectedCountry);
+      console.log('Fetching activity data for country:', selectedCountry);
       
       const { data: locations, error } = await supabase
         .from('locations')
@@ -249,190 +231,64 @@ const HeatMapComponent = () => {
       if (error) throw error;
       console.log('Fetched locations:', locations);
 
-      const regionCounts: Record<string, number> = {};
+      const stateCounts: Record<string, number> = {};
       
       locations?.forEach(location => {
         const detectedCountry = location.country || detectCountryFromCoordinates(location.latitude, location.longitude);
         console.log(`Location: ${location.latitude}, ${location.longitude} -> Country: ${detectedCountry}`);
         
         if (detectedCountry === selectedCountry) {
-          const region = location.state || detectStateFromCoordinates(location.latitude, location.longitude, detectedCountry);
-          console.log(`Matched location in ${selectedCountry}, region: ${region}`);
-          regionCounts[region] = (regionCounts[region] || 0) + 1;
+          const state = location.state || detectStateFromCoordinates(location.latitude, location.longitude, detectedCountry);
+          console.log(`Matched location in ${selectedCountry}, state: ${state}`);
+          stateCounts[state] = (stateCounts[state] || 0) + 1;
         }
       });
 
-      console.log('Region counts for', selectedCountry, ':', regionCounts);
-      const maxCount = Math.max(...Object.values(regionCounts), 1);
-      const heatData = Object.entries(regionCounts).map(([region, count]) => ({
-        region,
-        count,
-        intensity: maxCount > 0 ? (count / maxCount) * 100 : 0
-      }));
+      console.log('State counts for', selectedCountry, ':', stateCounts);
+      
+      // Convert to chart data format
+      const chartData = Object.entries(stateCounts)
+        .map(([state, activities]) => ({
+          state,
+          activities
+        }))
+        .sort((a, b) => b.activities - a.activities); // Sort by activity count descending
 
-      console.log('Heat map data:', heatData);
-      setHeatMapData(heatData);
+      console.log('Chart data:', chartData);
+      setActivityData(chartData);
     } catch (error) {
-      console.error('Error fetching heat map data:', error);
+      console.error('Error fetching activity data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const getIntensityColor = (intensity: number) => {
-    if (intensity >= 80) return '#b91c1c'; // red-700
-    if (intensity >= 60) return '#dc2626'; // red-600
-    if (intensity >= 40) return '#ef4444'; // red-500
-    if (intensity >= 20) return '#f87171'; // red-400
-    if (intensity > 0) return '#fca5a5'; // red-300
-    return '#f3f4f6'; // gray-100 for no data
-  };
-
-  const drawHeatMap = () => {
-    if (!svgRef.current || loading) return;
-
-    const { width, height } = containerSize;
-    if (!width || !height) {
-      console.warn('[HeatMap] container not ready yet, skipping draw');
-      return;
-    }
-
-    console.log('[HeatMap] draw start with', containerSize);
-
-    const svg = d3.select(svgRef.current);
-    svg.selectAll('*').remove();
-
-    svg
-      .attr('width', '100%')
-      .attr('height', '100%')
-      .attr('viewBox', `0 0 ${width} ${height}`)
-      .attr('preserveAspectRatio', 'xMidYMid meet');
-
-    // Remove any existing tooltips
-    d3.select("body").selectAll(".heat-map-tooltip").remove();
-
-    const margin = { top: 20, right: 20, bottom: 20, left: 20 };
-    const drawWidth = width - margin.left - margin.right;
-    const drawHeight = height - margin.top - margin.bottom;
-
-    // Create tooltip
-    const tooltip = d3.select("body").append("div")
-      .attr("class", "heat-map-tooltip absolute z-10 p-2 bg-popover text-popover-foreground rounded border shadow-lg text-sm pointer-events-none opacity-0");
-
-    // Get regions for the selected country
-    const regions = countryRegions[selectedCountry as keyof typeof countryRegions];
-    if (!regions) {
-      console.log('No regions found for country:', selectedCountry);
-      return;
-    }
-
-    // Set up projection and path
-    const projection = d3.geoMercator()
-      .fitSize([drawWidth, drawHeight], {
-        type: "FeatureCollection",
-        features: Object.entries(regions).map(([name, coordinates]) => ({
-          type: "Feature",
-          properties: { name },
-          geometry: {
-            type: "Polygon",
-            coordinates: [coordinates]
-          }
-        }))
-      })
-      .translate([drawWidth / 2 + margin.left, drawHeight / 2 + margin.top]);
-
-    const path = d3.geoPath().projection(projection);
-
-    // Create group for the map
-    const mapGroup = svg.append("g");
-
-    // Draw regions
-    Object.entries(regions).forEach(([regionName, coordinates]) => {
-      const regionData = heatMapData.find(d => d.region === regionName);
-      const intensity = regionData ? regionData.intensity : 0;
-      const count = regionData ? regionData.count : 0;
-
-      const feature = {
-        type: "Feature",
-        properties: { name: regionName },
-        geometry: {
-          type: "Polygon",
-          coordinates: [coordinates]
-        }
-      };
-
-      mapGroup.append("path")
-        .datum(feature)
-        .attr("d", path as any)
-        .attr("fill", getIntensityColor(intensity))
-        .attr("stroke", "#374151")
-        .attr("stroke-width", 1)
-        .style("cursor", "pointer")
-        .on("mouseover", function(event) {
-          tooltip.transition()
-            .duration(200)
-            .style("opacity", .9);
-          tooltip.html(`
-            <div class="font-medium">${regionName}</div>
-            <div class="text-xs">Actividades: ${count}</div>
-            <div class="text-xs">Intensidad: ${intensity.toFixed(1)}%</div>
-          `)
-            .style("left", (event.pageX + 10) + "px")
-            .style("top", (event.pageY - 28) + "px");
-        })
-        .on("mouseout", function() {
-          tooltip.transition()
-            .duration(500)
-            .style("opacity", 0);
-        });
-    });
-
-    console.log('[HeatMap] draw finished');
-  };
-
-  // ResizeObserver effect
   useEffect(() => {
-    if (!containerRef.current) return;
-    const ro = new ResizeObserver((entries) => {
-      const cr = entries[0]?.contentRect;
-      if (cr) setContainerSize({
-        width: Math.floor(cr.width),
-        height: Math.floor(Math.max(cr.height, 600))
-      });
-    });
-    ro.observe(containerRef.current);
-    return () => ro.disconnect();
-  }, []);
-
-  useEffect(() => {
-    fetchHeatMapData();
+    fetchActivityData();
   }, [selectedCountry]);
 
-  // Delay drawing until container is ready
-  useEffect(() => {
-    if (loading) return;
-    if (!containerSize.width || !containerSize.height) return;
-
-    const id = requestAnimationFrame(() => {
-      console.log('[HeatMap] draw start with', containerSize);
-      drawHeatMap();
-    });
-    return () => cancelAnimationFrame(id);
-  }, [heatMapData, loading, selectedCountry, containerSize]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      d3.select("body").selectAll(".heat-map-tooltip").remove();
-    };
-  }, []);
+  // Custom tooltip for the chart
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-popover text-popover-foreground p-3 rounded-lg border shadow-lg">
+          <p className="font-semibold">{label}</p>
+          <p className="text-sm">
+            <span className="text-primary">Actividades: </span>
+            <span className="font-medium">{payload[0].value}</span>
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-warning">
-          <Thermometer className="h-5 w-5" />
-          Mapa de Calor por Actividades
+          <BarChart3 className="h-5 w-5" />
+          Actividades por Estado
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -460,35 +316,52 @@ const HeatMapComponent = () => {
 
           {loading ? (
             <div className="text-center py-8 text-muted-foreground">
-              Cargando datos del mapa de calor...
+              Cargando datos de actividades...
+            </div>
+          ) : activityData.length > 0 ? (
+            <div className="w-full h-96">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={activityData}
+                  margin={{
+                    top: 20,
+                    right: 30,
+                    left: 20,
+                    bottom: 60,
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                  <XAxis 
+                    dataKey="state" 
+                    angle={-45}
+                    textAnchor="end"
+                    height={100}
+                    interval={0}
+                    fontSize={12}
+                  />
+                  <YAxis />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend />
+                  <Bar 
+                    dataKey="activities" 
+                    fill="hsl(var(--primary))" 
+                    name="Actividades"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           ) : (
-            <div className="space-y-4">
-              <div
-                ref={containerRef}
-                className="w-full border rounded-lg bg-background"
-                style={{ minHeight: 600 }}
-              >
-                <svg ref={svgRef} className="w-full h-full" />
-              </div>
-              
-              <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
-                <span>Menor intensidad</span>
-                <div className="flex gap-1">
-                  <div className="w-4 h-3 rounded" style={{ backgroundColor: '#fca5a5' }} />
-                  <div className="w-4 h-3 rounded" style={{ backgroundColor: '#f87171' }} />
-                  <div className="w-4 h-3 rounded" style={{ backgroundColor: '#ef4444' }} />
-                  <div className="w-4 h-3 rounded" style={{ backgroundColor: '#dc2626' }} />
-                  <div className="w-4 h-3 rounded" style={{ backgroundColor: '#b91c1c' }} />
-                </div>
-                <span>Mayor intensidad</span>
-              </div>
+            <div className="text-center py-8 text-muted-foreground">
+              <p className="text-lg font-medium mb-2">Sin actividades registradas</p>
+              <p className="text-sm">No se encontraron actividades para {selectedCountry}</p>
+            </div>
+          )}
 
-              {selectedCountry === 'Guatemala' && heatMapData.length > 0 && (
-                <div className="mt-4 text-center text-sm text-muted-foreground">
-                  <p>Pasa el cursor sobre las regiones para ver detalles</p>
-                </div>
-              )}
+          {activityData.length > 0 && (
+            <div className="mt-4 text-center text-sm text-muted-foreground">
+              <p>Total de estados con actividades: {activityData.length}</p>
+              <p>Total de actividades: {activityData.reduce((sum, item) => sum + item.activities, 0)}</p>
             </div>
           )}
         </div>
@@ -497,4 +370,4 @@ const HeatMapComponent = () => {
   );
 };
 
-export default HeatMapComponent;
+export default ActivityChart;

@@ -6,7 +6,7 @@ import GoogleMapComponent from '@/components/GoogleMapComponent';
 import LocationCapture from '@/components/LocationCapture';
 import LocationHistory from '@/components/LocationHistory';
 import ActivitySummary from '@/components/ActivitySummary';
-import HeatMapComponent from '@/components/HeatMapComponent';
+import ActivityChart from '@/components/ActivityChart';
 import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
@@ -76,7 +76,7 @@ const Dashboard = () => {
           </Card>
 
           {hasPermission('view_team_locations') && (
-            <HeatMapComponent />
+            <ActivityChart />
           )}
         </div>
       </main>
