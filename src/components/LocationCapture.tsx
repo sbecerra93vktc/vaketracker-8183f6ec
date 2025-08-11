@@ -61,7 +61,6 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
         setLoading(false);
       },
       (error) => {
-        console.error('Location error:', error);
         toast({
           variant: 'destructive',
           title: 'Acceso a ubicación denegado',
@@ -96,17 +95,23 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
       let state = '';
       
       try {
-        const response = await fetch(
-          `https://api.opencagedata.com/geocode/v1/json?q=${currentLocation.latitude}+${currentLocation.longitude}&key=demo&limit=1`
-        );
-        const data = await response.json();
-        if (data.results && data.results[0]) {
-          address = data.results[0].formatted;
-          country = data.results[0].components?.country || '';
-          state = data.results[0].components?.state || data.results[0].components?.province || '';
+        const { data: geocodeData, error: geocodeError } = await supabase.functions.invoke('geocode', {
+          body: { 
+            latitude: currentLocation.latitude, 
+            longitude: currentLocation.longitude 
+          }
+        });
+
+        if (geocodeError) {
+          throw geocodeError;
+        }
+
+        if (geocodeData) {
+          address = geocodeData.address || '';
+          country = geocodeData.country || '';
+          state = geocodeData.state || '';
         }
       } catch (geocodeError) {
-        console.warn('Geocoding failed:', geocodeError);
         address = `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`;
         
         // Fallback region detection for the Americas
@@ -224,7 +229,6 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
         onLocationCaptured();
       }
     } catch (error) {
-      console.error('Error saving location:', error);
       toast({
         variant: 'destructive',
         title: 'Error al guardar actividad',
