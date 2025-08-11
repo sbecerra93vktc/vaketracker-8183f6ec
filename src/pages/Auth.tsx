@@ -87,7 +87,18 @@ const Auth = () => {
     const password = formData.get('password') as string;
     const firstName = formData.get('firstName') as string;
     const lastName = formData.get('lastName') as string;
+    const country = formData.get('country') as string;
     const invitationToken = formData.get('token') as string || token;
+
+    if (!country) {
+      toast({
+        variant: 'destructive',
+        title: 'Country required',
+        description: 'Please select your country.',
+      });
+      setLoading(false);
+      return;
+    }
 
     // If this is not the first user, validate invitation token
     if (!isFirstUser) {
@@ -150,6 +161,7 @@ const Auth = () => {
         data: {
           first_name: firstName,
           last_name: lastName,
+          country: country,
         },
       },
     });
@@ -271,6 +283,23 @@ const Auth = () => {
                       placeholder="Last name"
                     />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="country">Country*</Label>
+                  <select
+                    id="country"
+                    name="country"
+                    required
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="">Select your country</option>
+                    <option value="Mexico">Mexico</option>
+                    <option value="Guatemala">Guatemala</option>
+                    <option value="El Salvador">El Salvador</option>
+                    <option value="Honduras">Honduras</option>
+                    <option value="Nicaragua">Nicaragua</option>
+                    <option value="Costa Rica">Costa Rica</option>
+                  </select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-password">Password</Label>
