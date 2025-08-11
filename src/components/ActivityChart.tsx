@@ -113,12 +113,16 @@ const ActivityChart = () => {
       const userIdsWithActivities = new Set<string>();
       
       if (locationsData) {
+        console.log('All locations data:', locationsData);
         locationsData.forEach(location => {
           const country = detectCountryFromCoordinates(location.latitude, location.longitude);
+          console.log(`User ${location.user_id}: ${location.latitude}, ${location.longitude} -> Country: ${country}`);
           if (country === selectedCountry) {
+            console.log(`Adding user ${location.user_id} to userIdsWithActivities`);
             userIdsWithActivities.add(location.user_id);
           }
         });
+        console.log('Users with activities in', selectedCountry, ':', Array.from(userIdsWithActivities));
       }
 
       // Now fetch profiles only for users who have activities in the selected country
