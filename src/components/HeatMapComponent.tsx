@@ -550,8 +550,13 @@ const HeatMapComponent = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="w-full flex justify-center">
-                <svg ref={svgRef} className="border rounded-lg bg-background"></svg>
+               <div className="w-full flex justify-center">
+                <svg 
+                  ref={svgRef} 
+                  width={800} 
+                  height={600}
+                  className="border rounded-lg bg-background"
+                ></svg>
               </div>
               
               <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
