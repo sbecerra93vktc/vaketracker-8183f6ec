@@ -101,15 +101,41 @@ const ActivityChart = () => {
   const fetchProfiles = async () => {
     try {
       console.log('Fetching profiles for country:', selectedCountry);
-      const { data: profilesData, error } = await supabase
-        .from('profiles')
-        .select('user_id, first_name, last_name, country')
-        .eq('country', selectedCountry)
-        .order('first_name');
+      
+      // First, get all locations to find user_ids with activities in the selected country
+      const { data: locationsData, error: locationsError } = await supabase
+        .from('location_tracking')
+        .select('user_id, latitude, longitude');
 
-      if (error) throw error;
-      console.log('Fetched profiles:', profilesData);
-      setProfiles(profilesData || []);
+      if (locationsError) throw locationsError;
+
+      // Filter locations by country and get unique user_ids
+      const userIdsWithActivities = new Set<string>();
+      
+      if (locationsData) {
+        locationsData.forEach(location => {
+          const country = detectCountryFromCoordinates(location.latitude, location.longitude);
+          if (country === selectedCountry) {
+            userIdsWithActivities.add(location.user_id);
+          }
+        });
+      }
+
+      // Now fetch profiles only for users who have activities in the selected country
+      if (userIdsWithActivities.size > 0) {
+        const { data: profilesData, error } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name, country')
+          .in('user_id', Array.from(userIdsWithActivities))
+          .order('first_name');
+
+        if (error) throw error;
+        console.log('Fetched profiles:', profilesData);
+        setProfiles(profilesData || []);
+      } else {
+        console.log('No users found with activities in', selectedCountry);
+        setProfiles([]);
+      }
     } catch (error) {
       console.error('Error fetching profiles:', error);
     }
