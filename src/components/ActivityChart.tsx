@@ -85,11 +85,16 @@ const ActivityChart = () => {
   };
 
   const detectCountryFromCoordinates = (lat: number, lng: number): string => {
-    if (lat >= 14.5 && lat <= 32.7 && lng >= -118.4 && lng <= -86.7) return 'Mexico';
+    // Guatemala first (more specific range to avoid overlap with Mexico)
     if (lat >= 13.0 && lat <= 17.8 && lng >= -92.5 && lng <= -88.0) return 'Guatemala';
+    // El Salvador
     if (lat >= 12.0 && lat <= 14.5 && lng >= -90.5 && lng <= -87.0) return 'El Salvador';
+    // Honduras  
     if (lat >= 12.5 && lat <= 16.5 && lng >= -89.5 && lng <= -83.0) return 'Honduras';
+    // Costa Rica
     if (lat >= 8.0 && lat <= 11.5 && lng >= -86.0 && lng <= -82.5) return 'Costa Rica';
+    // Mexico (broader range but checked last to avoid conflicts)
+    if (lat >= 14.5 && lat <= 32.7 && lng >= -118.4 && lng <= -86.7) return 'Mexico';
     return '';
   };
 
