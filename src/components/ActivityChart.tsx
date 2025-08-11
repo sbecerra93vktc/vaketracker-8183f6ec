@@ -100,12 +100,15 @@ const ActivityChart = () => {
 
   const fetchProfiles = async () => {
     try {
+      console.log('Fetching profiles for country:', selectedCountry);
       const { data: profilesData, error } = await supabase
         .from('profiles')
         .select('user_id, first_name, last_name, country')
-        .eq('country', selectedCountry);
+        .eq('country', selectedCountry)
+        .order('first_name');
 
       if (error) throw error;
+      console.log('Fetched profiles:', profilesData);
       setProfiles(profilesData || []);
     } catch (error) {
       console.error('Error fetching profiles:', error);
