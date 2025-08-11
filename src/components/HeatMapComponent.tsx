@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
@@ -20,6 +20,8 @@ const HeatMapComponent = () => {
   const [loading, setLoading] = useState(true);
   const { userRole } = useAuth();
   const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
 
   // Comprehensive state/region coordinates for all countries
   const countryRegions = {
@@ -287,232 +289,174 @@ const HeatMapComponent = () => {
   };
 
   const drawHeatMap = () => {
-    if (!svgRef.current || loading) return;
+    if (!svgRef.current || !containerRef.current || heatMapData.length === 0) {
+      console.log('Draw cancelled: missing refs or data');
+      return;
+    }
+
+    const containerWidth = containerDimensions.width;
+    const containerHeight = containerDimensions.height;
+
+    if (containerWidth <= 0 || containerHeight <= 0) {
+      console.log('Draw cancelled: invalid dimensions', containerWidth, containerHeight);
+      return;
+    }
+
+    console.log('Draw started:', { containerWidth, containerHeight });
 
     const svg = d3.select(svgRef.current);
-    svg.selectAll("*").remove();
+    svg.selectAll("*").remove(); // Clear previous content
 
-    const width = 800;
-    const height = 600;
-    
-    svg.attr("width", width).attr("height", height);
+    // Remove any existing tooltips
+    d3.select("body").selectAll(".heat-map-tooltip").remove();
 
-    // Create geographic visualizations for countries with state boundaries
-    if (selectedCountry === 'Guatemala') {
-      // Create a map projection for Guatemala
-      const projection = d3.geoMercator()
-        .center([-90.5, 15.5])
-        .scale(8000)
-        .translate([width / 2, height / 2]);
+    const margin = { top: 20, right: 20, bottom: 20, left: 20 };
+    const width = containerWidth - margin.left - margin.right;
+    const height = containerHeight - margin.top - margin.bottom;
 
-      // Draw all Guatemala states with their boundaries and colors
-      Object.entries(countryRegions.Guatemala).forEach(([stateName, coordinates]) => {
-        const stateData = heatMapData.find(d => d.region === stateName);
-        const intensity = stateData ? stateData.intensity : 0;
-        
-        const pathData = d3.geoPath().projection(projection)({
+    console.log('SVG dimensions:', { width, height });
+
+    // Set SVG viewBox for responsiveness
+    svg
+      .attr("viewBox", `0 0 ${containerWidth} ${containerHeight}`)
+      .attr("preserveAspectRatio", "xMidYMid meet");
+
+    // Create tooltip
+    const tooltip = d3.select("body").append("div")
+      .attr("class", "heat-map-tooltip absolute z-10 p-2 bg-popover text-popover-foreground rounded border shadow-lg text-sm pointer-events-none opacity-0");
+
+    // Get regions for the selected country
+    const regions = countryRegions[selectedCountry as keyof typeof countryRegions];
+    if (!regions) {
+      console.log('No regions found for country:', selectedCountry);
+      return;
+    }
+
+    // Set up projection and path
+    const bounds = d3.geoBounds({
+      type: "FeatureCollection",
+      features: Object.entries(regions).map(([name, coordinates]) => ({
+        type: "Feature",
+        properties: { name },
+        geometry: {
+          type: "Polygon",
+          coordinates: [coordinates]
+        }
+      }))
+    });
+
+    const projection = d3.geoMercator()
+      .fitSize([width, height], {
+        type: "FeatureCollection",
+        features: Object.entries(regions).map(([name, coordinates]) => ({
           type: "Feature",
-          properties: {},
+          properties: { name },
           geometry: {
             type: "Polygon",
             coordinates: [coordinates]
           }
-        });
+        }))
+      })
+      .translate([width / 2 + margin.left, height / 2 + margin.top]);
 
-        if (pathData) {
-          svg.append("path")
-            .attr("d", pathData)
-            .attr("fill", getIntensityColor(intensity))
-            .attr("stroke", "#374151")
-            .attr("stroke-width", 1)
-            .attr("opacity", 0.8)
-            .style("cursor", "pointer")
-            .on("mouseover", function(event) {
-              d3.select(this).attr("stroke-width", 2).attr("opacity", 1);
-              
-              // Create tooltip
-              const tooltip = d3.select("body").append("div")
-                .attr("class", "heatmap-tooltip")
-                .style("position", "absolute")
-                .style("background", "rgba(0, 0, 0, 0.9)")
-                .style("color", "white")
-                .style("padding", "8px 12px")
-                .style("border-radius", "6px")
-                .style("font-size", "13px")
-                .style("pointer-events", "none")
-                .style("z-index", "1000")
-                .style("box-shadow", "0 4px 6px rgba(0, 0, 0, 0.1)");
-              
-              tooltip.html(`
-                <div><strong>${stateName}</strong></div>
-                <div>Actividades: ${stateData ? stateData.count : 0}</div>
-                <div>Intensidad: ${intensity.toFixed(0)}%</div>
-              `)
-              .style("left", (event.pageX + 10) + "px")
-              .style("top", (event.pageY - 10) + "px");
-            })
-            .on("mouseout", function() {
-              d3.select(this).attr("stroke-width", 1).attr("opacity", 0.8);
-              d3.selectAll(".heatmap-tooltip").remove();
-            });
+    const path = d3.geoPath().projection(projection);
+
+    // Create group for the map
+    const mapGroup = svg.append("g");
+
+    // Draw regions
+    Object.entries(regions).forEach(([regionName, coordinates]) => {
+      const regionData = heatMapData.find(d => d.region === regionName);
+      const intensity = regionData ? regionData.intensity : 0;
+      const count = regionData ? regionData.count : 0;
+
+      const feature = {
+        type: "Feature",
+        properties: { name: regionName },
+        geometry: {
+          type: "Polygon",
+          coordinates: [coordinates]
         }
-      });
+      };
 
-    } else if (selectedCountry === 'México') {
-      // Create a map projection for Mexico (focused on southern region)
-      const projection = d3.geoMercator()
-        .center([-88.5, 20.0])
-        .scale(4000)
-        .translate([width / 2, height / 2]);
-
-      // Draw Mexican states with their boundaries and colors
-      Object.entries(mexicanStates).forEach(([stateName, coordinates]) => {
-        const stateData = heatMapData.find(d => d.region === stateName);
-        const intensity = stateData ? stateData.intensity : 0;
-        
-        const pathData = d3.geoPath().projection(projection)({
-          type: "Feature",
-          properties: {},
-          geometry: {
-            type: "Polygon",
-            coordinates: coordinates
-          }
+      mapGroup.append("path")
+        .datum(feature)
+        .attr("d", path as any)
+        .attr("fill", getIntensityColor(intensity))
+        .attr("stroke", "#374151")
+        .attr("stroke-width", 1)
+        .style("cursor", "pointer")
+        .on("mouseover", function(event) {
+          tooltip.transition()
+            .duration(200)
+            .style("opacity", .9);
+          tooltip.html(`
+            <div class="font-medium">${regionName}</div>
+            <div class="text-xs">Actividades: ${count}</div>
+            <div class="text-xs">Intensidad: ${intensity.toFixed(1)}%</div>
+          `)
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 28) + "px");
+        })
+        .on("mouseout", function() {
+          tooltip.transition()
+            .duration(500)
+            .style("opacity", 0);
         });
+    });
 
-        if (pathData) {
-          svg.append("path")
-            .attr("d", pathData)
-            .attr("fill", getIntensityColor(intensity))
-            .attr("stroke", "#374151")
-            .attr("stroke-width", 1)
-            .attr("opacity", 0.8)
-            .style("cursor", "pointer")
-            .on("mouseover", function(event) {
-              d3.select(this).attr("stroke-width", 2).attr("opacity", 1);
-              
-              // Create tooltip
-              const tooltip = d3.select("body").append("div")
-                .attr("class", "heatmap-tooltip")
-                .style("position", "absolute")
-                .style("background", "rgba(0, 0, 0, 0.9)")
-                .style("color", "white")
-                .style("padding", "8px 12px")
-                .style("border-radius", "6px")
-                .style("font-size", "13px")
-                .style("pointer-events", "none")
-                .style("z-index", "1000")
-                .style("box-shadow", "0 4px 6px rgba(0, 0, 0, 0.1)");
-              
-              tooltip.html(`
-                <div><strong>${stateName}</strong></div>
-                <div>Actividades: ${stateData ? stateData.count : 0}</div>
-                <div>Intensidad: ${intensity.toFixed(0)}%</div>
-              `)
-              .style("left", (event.pageX + 10) + "px")
-              .style("top", (event.pageY - 10) + "px");
-            })
-            .on("mouseout", function() {
-              d3.select(this).attr("stroke-width", 1).attr("opacity", 0.8);
-              d3.selectAll(".heatmap-tooltip").remove();
-            });
-        }
-      });
+    console.log('Draw finished');
 
-    } else {
-      // For other countries, show data as an interactive bar chart
-      if (heatMapData.length > 0) {
-        const maxCount = Math.max(...heatMapData.map(d => d.count));
-        
-        svg.append("text")
-          .attr("x", width / 2)
-          .attr("y", 30)
-          .attr("text-anchor", "middle")
-          .attr("font-size", "18px")
-          .attr("font-weight", "bold")
-          .attr("fill", "#374151")
-          .text(`Actividades por región en ${selectedCountry}`);
-        
-        // Show regions as interactive colored bars
-        heatMapData.forEach((data, index) => {
-          const y = 70 + index * 50;
-          const barWidth = (data.count / maxCount) * 500;
-          
-          // Background rectangle
-          svg.append("rect")
-            .attr("x", 50)
-            .attr("y", y)
-            .attr("width", 600)
-            .attr("height", 40)
-            .attr("fill", "#f9fafb")
-            .attr("stroke", "#e5e7eb")
-            .attr("rx", 6)
-            .style("cursor", "pointer");
-          
-          // Data rectangle with hover effect
-          svg.append("rect")
-            .attr("x", 50)
-            .attr("y", y)
-            .attr("width", barWidth)
-            .attr("height", 40)
-            .attr("fill", getIntensityColor(data.intensity))
-            .attr("rx", 6)
-            .style("cursor", "pointer")
-            .on("mouseover", function() {
-              d3.select(this).attr("opacity", 0.8);
-            })
-            .on("mouseout", function() {
-              d3.select(this).attr("opacity", 1);
-            });
-          
-          // Region name
-          svg.append("text")
-            .attr("x", 60)
-            .attr("y", y + 25)
-            .attr("font-size", "14px")
-            .attr("font-weight", "600")
-            .attr("fill", "#1f2937")
-            .text(data.region);
-          
-          // Count
-          svg.append("text")
-            .attr("x", 660)
-            .attr("y", y + 25)
-            .attr("font-size", "13px")
-            .attr("fill", "#6b7280")
-            .attr("text-anchor", "end")
-            .text(`${data.count} actividades (${data.intensity.toFixed(0)}%)`);
-        });
-      } else {
-        // No data message for countries without activities
-        svg.append("text")
-          .attr("x", width / 2)
-          .attr("y", height / 2 - 20)
-          .attr("text-anchor", "middle")
-          .attr("font-size", "18px")
-          .attr("font-weight", "600")
-          .attr("fill", "#6b7280")
-          .text(`Sin actividades en ${selectedCountry}`);
-        
-        svg.append("text")
-          .attr("x", width / 2)
-          .attr("y", height / 2 + 10)
-          .attr("text-anchor", "middle")
-          .attr("font-size", "14px")
-          .attr("fill", "#9ca3af")
-          .text("Cuando se registren actividades aparecerán aquí");
-      }
-    }
+    // Clean up tooltip on component unmount
+    return () => {
+      d3.select("body").selectAll(".heat-map-tooltip").remove();
+    };
   };
+
+  // ResizeObserver effect
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        console.log('Container resized:', { width, height });
+        setContainerDimensions({ width, height });
+      }
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     fetchHeatMapData();
   }, [selectedCountry]);
 
-  useEffect(() => {
-    if (!loading) {
-      drawHeatMap();
+  // Use layoutEffect for proper timing
+  useLayoutEffect(() => {
+    if (!loading && 
+        heatMapData.length > 0 && 
+        containerDimensions.width > 0 && 
+        containerDimensions.height > 0) {
+      
+      // Use requestAnimationFrame to ensure layout is settled
+      requestAnimationFrame(() => {
+        const cleanup = drawHeatMap();
+        return cleanup;
+      });
     }
-  }, [heatMapData, loading, selectedCountry]);
+  }, [heatMapData, loading, containerDimensions, selectedCountry]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      d3.select("body").selectAll(".heat-map-tooltip").remove();
+    };
+  }, []);
 
   return (
     <Card>
@@ -535,6 +479,7 @@ const HeatMapComponent = () => {
                 <SelectItem value="México">México</SelectItem>
                 <SelectItem value="El Salvador">El Salvador</SelectItem>
                 <SelectItem value="Honduras">Honduras</SelectItem>
+                <SelectItem value="Nicaragua">Nicaragua</SelectItem>
                 <SelectItem value="Costa Rica">Costa Rica</SelectItem>
                 <SelectItem value="Panamá">Panamá</SelectItem>
                 <SelectItem value="Colombia">Colombia</SelectItem>
@@ -550,12 +495,14 @@ const HeatMapComponent = () => {
             </div>
           ) : (
             <div className="space-y-4">
-               <div className="w-full flex justify-center">
+              <div 
+                ref={containerRef}
+                className="w-full flex justify-center border rounded-lg bg-background"
+                style={{ minHeight: '600px', height: '600px' }}
+              >
                 <svg 
                   ref={svgRef} 
-                  width={800} 
-                  height={600}
-                  className="border rounded-lg bg-background"
+                  className="w-full h-full"
                 ></svg>
               </div>
               
