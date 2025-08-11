@@ -48,6 +48,13 @@ const GoogleMapComponent = () => {
     }
   }, [selectedCountry]);
 
+  // Reset user filter when country changes
+  useEffect(() => {
+    if (selectedCountry !== 'all') {
+      setSelectedUser('all');
+    }
+  }, [selectedCountry]);
+
   // Country detection from coordinates
   const detectCountryFromCoordinates = (lat: number, lng: number): string => {
     // More specific ranges first to avoid overlaps
@@ -420,10 +427,24 @@ const GoogleMapComponent = () => {
     };
   }, [isMapLoaded, fetchLocations]);
 
-  const uniqueUsers = Array.from(new Set(teamLocations.map(l => l.user_id)))
-    .map(userId => teamLocations.find(l => l.user_id === userId)!)
-    .filter(Boolean);
+  // Get unique users filtered by selected country
+  const getUniqueUsersForCountry = () => {
+    let filteredLocations = teamLocations;
+    
+    // If a country is selected, only show users who have activities in that country
+    if (selectedCountry !== 'all') {
+      filteredLocations = teamLocations.filter(loc => {
+        const detectedCountry = detectCountryFromCoordinates(loc.latitude, loc.longitude);
+        return detectedCountry === selectedCountry;
+      });
+    }
+    
+    return Array.from(new Set(filteredLocations.map(l => l.user_id)))
+      .map(userId => teamLocations.find(l => l.user_id === userId)!)
+      .filter(Boolean);
+  };
 
+  const uniqueUsers = getUniqueUsersForCountry();
   const uniqueRegions = Array.from(new Set(teamLocations.map(l => l.region).filter(Boolean)));
 
   const getUniqueStatesForMap = () => {
@@ -488,6 +509,46 @@ const GoogleMapComponent = () => {
             {/* Mobile/Desktop responsive grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               <div className="space-y-1">
+                <Label htmlFor="country-filter" className="text-xs font-medium">País</Label>
+                <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="México">México</SelectItem>
+                    <SelectItem value="Guatemala">Guatemala</SelectItem>
+                    <SelectItem value="El Salvador">El Salvador</SelectItem>
+                    <SelectItem value="Honduras">Honduras</SelectItem>
+                    <SelectItem value="Costa Rica">Costa Rica</SelectItem>
+                    <SelectItem value="Panamá">Panamá</SelectItem>
+                    <SelectItem value="Colombia">Colombia</SelectItem>
+                    <SelectItem value="Estados Unidos">Estados Unidos</SelectItem>
+                    <SelectItem value="Canadá">Canadá</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedCountry !== 'all' && (
+                <div className="space-y-1">
+                  <Label htmlFor="state-filter" className="text-xs font-medium">Región</Label>
+                  <Select value={selectedState} onValueChange={setSelectedState}>
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="Todas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {getUniqueStatesForMap().map(state => (
+                        <SelectItem key={state} value={state}>
+                          {state}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="space-y-1">
                 <Label htmlFor="user-filter" className="text-xs font-medium">Usuario</Label>
                 <Select value={selectedUser} onValueChange={setSelectedUser}>
                   <SelectTrigger className="h-9 text-sm">
@@ -540,46 +601,6 @@ const GoogleMapComponent = () => {
                   className="h-9 text-sm"
                 />
               </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="country-filter" className="text-xs font-medium">País</Label>
-                <Select value={selectedCountry} onValueChange={setSelectedCountry}>
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="México">México</SelectItem>
-                    <SelectItem value="Guatemala">Guatemala</SelectItem>
-                    <SelectItem value="El Salvador">El Salvador</SelectItem>
-                    <SelectItem value="Honduras">Honduras</SelectItem>
-                    <SelectItem value="Costa Rica">Costa Rica</SelectItem>
-                    <SelectItem value="Panamá">Panamá</SelectItem>
-                    <SelectItem value="Colombia">Colombia</SelectItem>
-                    <SelectItem value="Estados Unidos">Estados Unidos</SelectItem>
-                    <SelectItem value="Canadá">Canadá</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {selectedCountry !== 'all' && (
-                <div className="space-y-1">
-                  <Label htmlFor="state-filter" className="text-xs font-medium">Región</Label>
-                  <Select value={selectedState} onValueChange={setSelectedState}>
-                    <SelectTrigger className="h-9 text-sm">
-                      <SelectValue placeholder="Todas" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas</SelectItem>
-                      {getUniqueStatesForMap().map(state => (
-                        <SelectItem key={state} value={state}>
-                          {state}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
             </div>
           </div>
         </div>
