@@ -104,7 +104,7 @@ const ActivityChart = () => {
       
       // First, get all locations to find user_ids with activities in the selected country
       const { data: locationsData, error: locationsError } = await supabase
-        .from('location_tracking')
+        .from('locations')
         .select('user_id, latitude, longitude');
 
       if (locationsError) throw locationsError;
