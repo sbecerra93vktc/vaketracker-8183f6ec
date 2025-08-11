@@ -479,105 +479,108 @@ const GoogleMapComponent = () => {
       {/* Filters */}
       {isMapLoaded && teamLocations.length > 0 && (
         <div className="border-b bg-card">
-          <div className="flex items-center gap-4 px-6 py-4">
+          <div className="px-6 py-4 space-y-4">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-warning" />
               <span className="text-sm font-medium">Filtros:</span>
             </div>
             
-            <div className="flex items-center gap-2">
-              <Label htmlFor="user-filter" className="text-sm">Usuario:</Label>
-              <Select value={selectedUser} onValueChange={setSelectedUser}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {uniqueUsers.map(user => (
-                    <SelectItem key={user.user_id} value={user.user_id}>
-                      {user.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Label htmlFor="visit-type-filter" className="text-sm">Tipo:</Label>
-              <Select value={selectedVisitType} onValueChange={setSelectedVisitType}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="Visita en Frío">Visita en Frío</SelectItem>
-                  <SelectItem value="Negociación">Negociación</SelectItem>
-                  <SelectItem value="Pre-entrega">Pre-entrega</SelectItem>
-                  <SelectItem value="Técnica">Técnica</SelectItem>
-                  <SelectItem value="Cortesía">Cortesía</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Label htmlFor="date-from-filter" className="text-sm">Desde:</Label>
-              <Input
-                type="date"
-                value={selectedDateFrom}
-                onChange={(e) => setSelectedDateFrom(e.target.value)}
-                className="w-40"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Label htmlFor="date-to-filter" className="text-sm">Hasta:</Label>
-              <Input
-                type="date"
-                value={selectedDateTo}
-                onChange={(e) => setSelectedDateTo(e.target.value)}
-                className="w-40"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Label htmlFor="country-filter" className="text-sm">País:</Label>
-              <Select value={selectedCountry} onValueChange={setSelectedCountry}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="México">México</SelectItem>
-                  <SelectItem value="Guatemala">Guatemala</SelectItem>
-                  <SelectItem value="El Salvador">El Salvador</SelectItem>
-                  <SelectItem value="Honduras">Honduras</SelectItem>
-                  <SelectItem value="Costa Rica">Costa Rica</SelectItem>
-                  <SelectItem value="Panamá">Panamá</SelectItem>
-                  <SelectItem value="Colombia">Colombia</SelectItem>
-                  <SelectItem value="Estados Unidos">Estados Unidos</SelectItem>
-                  <SelectItem value="Canadá">Canadá</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {selectedCountry !== 'all' && (
-              <div className="flex items-center gap-2">
-                <Label htmlFor="state-filter" className="text-sm">Región:</Label>
-                <Select value={selectedState} onValueChange={setSelectedState}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue />
+            {/* Mobile/Desktop responsive grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="user-filter" className="text-xs font-medium">Usuario</Label>
+                <Select value={selectedUser} onValueChange={setSelectedUser}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {getUniqueStatesForMap().map(state => (
-                      <SelectItem key={state} value={state}>
-                        {state}
+                    <SelectItem value="all">Todos</SelectItem>
+                    {uniqueUsers.map(user => (
+                      <SelectItem key={user.user_id} value={user.user_id}>
+                        {user.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            )}
+
+              <div className="space-y-1">
+                <Label htmlFor="visit-type-filter" className="text-xs font-medium">Tipo</Label>
+                <Select value={selectedVisitType} onValueChange={setSelectedVisitType}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="Visita en Frío">Visita en Frío</SelectItem>
+                    <SelectItem value="Negociación">Negociación</SelectItem>
+                    <SelectItem value="Pre-entrega">Pre-entrega</SelectItem>
+                    <SelectItem value="Técnica">Técnica</SelectItem>
+                    <SelectItem value="Cortesía">Cortesía</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="date-from-filter" className="text-xs font-medium">Desde</Label>
+                <Input
+                  type="date"
+                  value={selectedDateFrom}
+                  onChange={(e) => setSelectedDateFrom(e.target.value)}
+                  className="h-9 text-sm"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="date-to-filter" className="text-xs font-medium">Hasta</Label>
+                <Input
+                  type="date"
+                  value={selectedDateTo}
+                  onChange={(e) => setSelectedDateTo(e.target.value)}
+                  className="h-9 text-sm"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="country-filter" className="text-xs font-medium">País</Label>
+                <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="México">México</SelectItem>
+                    <SelectItem value="Guatemala">Guatemala</SelectItem>
+                    <SelectItem value="El Salvador">El Salvador</SelectItem>
+                    <SelectItem value="Honduras">Honduras</SelectItem>
+                    <SelectItem value="Costa Rica">Costa Rica</SelectItem>
+                    <SelectItem value="Panamá">Panamá</SelectItem>
+                    <SelectItem value="Colombia">Colombia</SelectItem>
+                    <SelectItem value="Estados Unidos">Estados Unidos</SelectItem>
+                    <SelectItem value="Canadá">Canadá</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedCountry !== 'all' && (
+                <div className="space-y-1">
+                  <Label htmlFor="state-filter" className="text-xs font-medium">Región</Label>
+                  <Select value={selectedState} onValueChange={setSelectedState}>
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="Todas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {getUniqueStatesForMap().map(state => (
+                        <SelectItem key={state} value={state}>
+                          {state}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
