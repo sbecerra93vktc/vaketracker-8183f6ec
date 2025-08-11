@@ -21,7 +21,7 @@ const HeatMapComponent = () => {
   const { userRole } = useAuth();
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
   // Comprehensive state/region coordinates for all countries
   const countryRegions = {
@@ -289,37 +289,31 @@ const HeatMapComponent = () => {
   };
 
   const drawHeatMap = () => {
-    if (!svgRef.current || !containerRef.current || heatMapData.length === 0) {
-      console.log('Draw cancelled: missing refs or data');
+    if (!svgRef.current || loading) return;
+
+    const { width, height } = containerSize;
+    if (!width || !height) {
+      console.warn('[HeatMap] container not ready yet, skipping draw');
       return;
     }
 
-    const containerWidth = containerDimensions.width;
-    const containerHeight = containerDimensions.height;
-
-    if (containerWidth <= 0 || containerHeight <= 0) {
-      console.log('Draw cancelled: invalid dimensions', containerWidth, containerHeight);
-      return;
-    }
-
-    console.log('Draw started:', { containerWidth, containerHeight });
+    console.log('[HeatMap] draw start with', containerSize);
 
     const svg = d3.select(svgRef.current);
-    svg.selectAll("*").remove(); // Clear previous content
+    svg.selectAll('*').remove();
+
+    svg
+      .attr('width', '100%')
+      .attr('height', '100%')
+      .attr('viewBox', `0 0 ${width} ${height}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet');
 
     // Remove any existing tooltips
     d3.select("body").selectAll(".heat-map-tooltip").remove();
 
     const margin = { top: 20, right: 20, bottom: 20, left: 20 };
-    const width = containerWidth - margin.left - margin.right;
-    const height = containerHeight - margin.top - margin.bottom;
-
-    console.log('SVG dimensions:', { width, height });
-
-    // Set SVG viewBox for responsiveness
-    svg
-      .attr("viewBox", `0 0 ${containerWidth} ${containerHeight}`)
-      .attr("preserveAspectRatio", "xMidYMid meet");
+    const drawWidth = width - margin.left - margin.right;
+    const drawHeight = height - margin.top - margin.bottom;
 
     // Create tooltip
     const tooltip = d3.select("body").append("div")
@@ -333,20 +327,8 @@ const HeatMapComponent = () => {
     }
 
     // Set up projection and path
-    const bounds = d3.geoBounds({
-      type: "FeatureCollection",
-      features: Object.entries(regions).map(([name, coordinates]) => ({
-        type: "Feature",
-        properties: { name },
-        geometry: {
-          type: "Polygon",
-          coordinates: [coordinates]
-        }
-      }))
-    });
-
     const projection = d3.geoMercator()
-      .fitSize([width, height], {
+      .fitSize([drawWidth, drawHeight], {
         type: "FeatureCollection",
         features: Object.entries(regions).map(([name, coordinates]) => ({
           type: "Feature",
@@ -357,7 +339,7 @@ const HeatMapComponent = () => {
           }
         }))
       })
-      .translate([width / 2 + margin.left, height / 2 + margin.top]);
+      .translate([drawWidth / 2 + margin.left, drawHeight / 2 + margin.top]);
 
     const path = d3.geoPath().projection(projection);
 
@@ -405,51 +387,38 @@ const HeatMapComponent = () => {
         });
     });
 
-    console.log('Draw finished');
-
-    // Clean up tooltip on component unmount
-    return () => {
-      d3.select("body").selectAll(".heat-map-tooltip").remove();
-    };
+    console.log('[HeatMap] draw finished');
   };
 
   // ResizeObserver effect
   useEffect(() => {
     if (!containerRef.current) return;
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect;
-        console.log('Container resized:', { width, height });
-        setContainerDimensions({ width, height });
-      }
+    const ro = new ResizeObserver((entries) => {
+      const cr = entries[0]?.contentRect;
+      if (cr) setContainerSize({
+        width: Math.floor(cr.width),
+        height: Math.floor(Math.max(cr.height, 600))
+      });
     });
-
-    resizeObserver.observe(containerRef.current);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
   }, []);
 
   useEffect(() => {
     fetchHeatMapData();
   }, [selectedCountry]);
 
-  // Use layoutEffect for proper timing
-  useLayoutEffect(() => {
-    if (!loading && 
-        heatMapData.length > 0 && 
-        containerDimensions.width > 0 && 
-        containerDimensions.height > 0) {
-      
-      // Use requestAnimationFrame to ensure layout is settled
-      requestAnimationFrame(() => {
-        const cleanup = drawHeatMap();
-        return cleanup;
-      });
-    }
-  }, [heatMapData, loading, containerDimensions, selectedCountry]);
+  // Delay drawing until container is ready
+  useEffect(() => {
+    if (loading) return;
+    if (!containerSize.width || !containerSize.height) return;
+
+    const id = requestAnimationFrame(() => {
+      console.log('[HeatMap] draw start with', containerSize);
+      drawHeatMap();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [heatMapData, loading, selectedCountry, containerSize]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -495,15 +464,12 @@ const HeatMapComponent = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              <div 
+              <div
                 ref={containerRef}
-                className="w-full flex justify-center border rounded-lg bg-background"
-                style={{ minHeight: '600px', height: '600px' }}
+                className="w-full border rounded-lg bg-background"
+                style={{ minHeight: 600 }}
               >
-                <svg 
-                  ref={svgRef} 
-                  className="w-full h-full"
-                ></svg>
+                <svg ref={svgRef} className="w-full h-full" />
               </div>
               
               <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
