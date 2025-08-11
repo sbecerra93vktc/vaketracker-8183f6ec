@@ -27,28 +27,30 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-warning">Vaketracker</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">
+        <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
+          <h1 className="text-xl sm:text-2xl font-bold text-warning">Vaketracker</h1>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
+            <span className="text-xs sm:text-sm text-muted-foreground truncate">
               Welcome, {user?.email}
             </span>
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary text-primary-foreground">
               {userRole}
             </span>
-            {userRole === 'admin' && (
-              <Button variant="outline" onClick={() => navigate('/admin')}>
-                Admin Panel
+            <div className="flex gap-2">
+              {userRole === 'admin' && (
+                <Button variant="outline" size="sm" onClick={() => navigate('/admin')} className="text-xs">
+                  Admin Panel
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={handleSignOut} className="text-xs">
+                Sign Out
               </Button>
-            )}
-            <Button variant="outline" onClick={handleSignOut}>
-              Sign Out
-            </Button>
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto p-6">
+      <main className="container mx-auto p-3 sm:p-6">
         <div className="space-y-6 mb-6">
           <LocationCapture onLocationCaptured={refreshData} />
           <ActivitySummary />

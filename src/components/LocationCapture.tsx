@@ -272,17 +272,16 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
               <SelectTrigger>
                 <SelectValue placeholder="Selecciona el tipo de visita" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Negociación en curso">Negociación en curso</SelectItem>
-                <SelectItem value="Visita Pre-entrega e instalación">Visita Pre-entrega e instalación</SelectItem>
-                <SelectItem value="Visita técnica">Visita técnica</SelectItem>
-                <SelectItem value="Visita de cortesía">Visita de cortesía</SelectItem>
-              </SelectContent>
+            <SelectContent>
+              <SelectItem value="Negociación en curso">Negociación en curso</SelectItem>
+              <SelectItem value="Visita Pre-entrega e instalación">Visita Pre-entrega e instalación</SelectItem>
+              <SelectItem value="Visita técnica">Visita técnica</SelectItem>
+            </SelectContent>
             </Select>
           </div>
         )}
 
-        {activityType === 'Visita en frío' && (
+        {(activityType === 'Visita en frío' || activityType === 'Visita programada' || activityType === 'Visita de cortesía') && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -335,7 +334,7 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
                 accept="image/*"
                 capture="environment"
                 onChange={handlePhotoUpload}
-                className="cursor-pointer"
+                className="cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/80"
               />
               {photoFile && (
                 <div className="mt-2 p-2 bg-secondary rounded-lg">

@@ -115,10 +115,11 @@ const LocationHistory = () => {
 
     // Date filter
     if (selectedDate) {
-      const filterDate = new Date(selectedDate).toDateString();
-      filtered = filtered.filter(location => 
-        new Date(location.created_at).toDateString() === filterDate
-      );
+      const filterDate = new Date(selectedDate + 'T00:00:00.000Z');
+      filtered = filtered.filter(location => {
+        const locationDate = new Date(location.created_at);
+        return locationDate.toDateString() === filterDate.toDateString();
+      });
     }
 
     // Country filter
