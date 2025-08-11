@@ -34,7 +34,9 @@ const GoogleMapComponent = () => {
   const [teamLocations, setTeamLocations] = useState<TeamLocation[]>([]);
   const [filteredLocations, setFilteredLocations] = useState<TeamLocation[]>([]);
   const [selectedUser, setSelectedUser] = useState<string>('all');
-  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedVisitType, setSelectedVisitType] = useState<string>('all');
+  const [selectedDateFrom, setSelectedDateFrom] = useState<string>('');
+  const [selectedDateTo, setSelectedDateTo] = useState<string>('');
   const [selectedCountry, setSelectedCountry] = useState<string>('all');
   const [selectedState, setSelectedState] = useState<string>('all');
   const { userRole } = useAuth();
@@ -248,11 +250,24 @@ const GoogleMapComponent = () => {
       filtered = filtered.filter(loc => loc.user_id === selectedUser);
     }
 
-    // Filter by date
-    if (selectedDate) {
-      const filterDate = new Date(selectedDate).toDateString();
+    // Filter by visit type
+    if (selectedVisitType !== 'all') {
+      filtered = filtered.filter(loc => loc.visit_type === selectedVisitType);
+    }
+
+    // Filter by date range
+    if (selectedDateFrom) {
+      const fromDate = new Date(selectedDateFrom);
       filtered = filtered.filter(loc => 
-        new Date(loc.created_at).toDateString() === filterDate
+        new Date(loc.created_at) >= fromDate
+      );
+    }
+
+    if (selectedDateTo) {
+      const toDate = new Date(selectedDateTo);
+      toDate.setHours(23, 59, 59, 999); // Include the entire day
+      filtered = filtered.filter(loc => 
+        new Date(loc.created_at) <= toDate
       );
     }
 
@@ -274,7 +289,7 @@ const GoogleMapComponent = () => {
     }
 
     setFilteredLocations(filtered);
-  }, [teamLocations, selectedUser, selectedDate, selectedCountry, selectedState]);
+  }, [teamLocations, selectedUser, selectedVisitType, selectedDateFrom, selectedDateTo, selectedCountry, selectedState]);
 
   // Update markers on the map
   const updateMapMarkers = useCallback(() => {
@@ -488,11 +503,38 @@ const GoogleMapComponent = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              <Label htmlFor="date-filter" className="text-sm">Fecha:</Label>
+              <Label htmlFor="visit-type-filter" className="text-sm">Tipo:</Label>
+              <Select value={selectedVisitType} onValueChange={setSelectedVisitType}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="Visita en Frío">Visita en Frío</SelectItem>
+                  <SelectItem value="Negociación">Negociación</SelectItem>
+                  <SelectItem value="Pre-entrega">Pre-entrega</SelectItem>
+                  <SelectItem value="Técnica">Técnica</SelectItem>
+                  <SelectItem value="Cortesía">Cortesía</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Label htmlFor="date-from-filter" className="text-sm">Desde:</Label>
               <Input
                 type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+                value={selectedDateFrom}
+                onChange={(e) => setSelectedDateFrom(e.target.value)}
+                className="w-40"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Label htmlFor="date-to-filter" className="text-sm">Hasta:</Label>
+              <Input
+                type="date"
+                value={selectedDateTo}
+                onChange={(e) => setSelectedDateTo(e.target.value)}
                 className="w-40"
               />
             </div>

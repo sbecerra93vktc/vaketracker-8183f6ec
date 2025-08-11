@@ -28,6 +28,7 @@ const ActivityChart = () => {
   const [activityData, setActivityData] = useState<ActivityData[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<string>('Mexico');
   const [selectedUser, setSelectedUser] = useState<string>('all');
+  const [selectedVisitType, setSelectedVisitType] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>(new Date(new Date().getFullYear(), 0, 1));
   const [dateTo, setDateTo] = useState<Date | undefined>(new Date());
   const [loading, setLoading] = useState(true);
@@ -169,6 +170,11 @@ const ActivityChart = () => {
         query = query.eq('user_id', selectedUser);
       }
 
+      // Add visit type filter
+      if (selectedVisitType !== 'all') {
+        query = query.eq('visit_type', selectedVisitType);
+      }
+
       const { data: locations, error } = await query;
 
       if (error) throw error;
@@ -226,7 +232,7 @@ const ActivityChart = () => {
 
   useEffect(() => {
     fetchActivityData();
-  }, [selectedCountry, selectedUser, dateFrom, dateTo]);
+  }, [selectedCountry, selectedUser, selectedVisitType, dateFrom, dateTo]);
 
   // Custom tooltip for the chart
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -255,7 +261,7 @@ const ActivityChart = () => {
       <CardContent>
         <div className="space-y-4 mb-6">
           {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Country Filter */}
             <div className="space-y-2">
               <Label htmlFor="country-select">País</Label>
@@ -288,6 +294,24 @@ const ActivityChart = () => {
                       {profile.first_name} {profile.last_name}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Activity Type Filter */}
+            <div className="space-y-2">
+              <Label htmlFor="visit-type-select">Tipo de Actividad</Label>
+              <Select value={selectedVisitType} onValueChange={setSelectedVisitType}>
+                <SelectTrigger id="visit-type-select">
+                  <SelectValue placeholder="Todos los tipos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los tipos</SelectItem>
+                  <SelectItem value="Visita en Frío">Visita en Frío</SelectItem>
+                  <SelectItem value="Negociación">Negociación</SelectItem>
+                  <SelectItem value="Pre-entrega">Pre-entrega</SelectItem>
+                  <SelectItem value="Técnica">Técnica</SelectItem>
+                  <SelectItem value="Cortesía">Cortesía</SelectItem>
                 </SelectContent>
               </Select>
             </div>
