@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,6 +28,7 @@ interface Profile {
   company: string;
   territory: string;
   phone: string;
+  avatar_url?: string;
   role?: string;
   user_id: string;
 }
@@ -42,6 +44,7 @@ interface UserPermissions {
   user_id: string;
   user_name: string;
   user_email: string;
+  avatar_url?: string;
   role: string;
   permissions: Permission[];
 }
@@ -135,7 +138,7 @@ const Admin = () => {
       // Fetch all profiles
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('user_id, first_name, last_name, email')
+        .select('user_id, first_name, last_name, email, avatar_url')
         .order('first_name', { ascending: true });
 
       if (profilesError) {
@@ -184,6 +187,7 @@ const Admin = () => {
           user_id: profile.user_id,
           user_name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Usuario sin nombre',
           user_email: profile.email,
+          avatar_url: profile.avatar_url,
           role: role?.role || 'Unknown',
           permissions
         };
@@ -503,30 +507,38 @@ const Admin = () => {
                 </div>
               ) : (
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Nombre del Usuario</TableHead>
-                      <TableHead>Rol</TableHead>
-                      <TableHead>Fecha de Invitación</TableHead>
-                      <TableHead>Estado</TableHead>
-                    </TableRow>
-                  </TableHeader>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Usuario</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Rol</TableHead>
+                    <TableHead>Fecha de Invitación</TableHead>
+                    <TableHead>Estado</TableHead>
+                  </TableRow>
+                </TableHeader>
                   <TableBody>
                     {validatedInvitations.map((invitation) => (
                       <TableRow key={invitation.id}>
-                        <TableCell>{invitation.email}</TableCell>
                         <TableCell>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{invitation.user_name}</span>
-                            {invitation.user_profile && (
-                              <span className="text-xs text-muted-foreground">
-                                {invitation.user_profile.company && `${invitation.user_profile.company} • `}
-                                {invitation.user_profile.territory || 'Sin territorio'}
-                              </span>
-                            )}
+                          <div className="flex items-center gap-3">
+                            <Avatar>
+                              <AvatarImage src={invitation.user_profile?.avatar_url} />
+                              <AvatarFallback>
+                                {invitation.user_name?.split(' ').map(n => n[0]).join('').toUpperCase() || '??'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{invitation.user_name}</span>
+                              {invitation.user_profile && (
+                                <span className="text-xs text-muted-foreground">
+                                  {invitation.user_profile.company && `${invitation.user_profile.company} • `}
+                                  {invitation.user_profile.territory || 'Sin territorio'}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </TableCell>
+                        <TableCell>{invitation.email}</TableCell>
                         <TableCell>
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             {invitation.user_role}
@@ -568,7 +580,7 @@ const Admin = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Nombre</TableHead>
+                    <TableHead>Usuario</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Rol</TableHead>
                   </TableRow>
@@ -577,7 +589,15 @@ const Admin = () => {
                   {profiles.map((profile) => (
                     <TableRow key={profile.id}>
                       <TableCell>
-                        {profile.first_name} {profile.last_name}
+                        <div className="flex items-center gap-3">
+                          <Avatar>
+                            <AvatarImage src={profile.avatar_url} />
+                            <AvatarFallback>
+                              {`${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}`.toUpperCase() || '??'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span>{profile.first_name} {profile.last_name}</span>
+                        </div>
                       </TableCell>
                       <TableCell>{profile.email}</TableCell>
                       <TableCell>
@@ -609,12 +629,20 @@ const Admin = () => {
                   {userPermissions.map((user) => (
                     <div key={user.user_id} className="border rounded-lg p-4 space-y-4">
                       <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="text-lg font-semibold">{user.user_name}</h3>
-                          <p className="text-sm text-muted-foreground">{user.user_email}</p>
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/20 text-primary">
-                            {user.role}
-                          </span>
+                        <div className="flex items-center gap-3">
+                          <Avatar>
+                            <AvatarImage src={user.avatar_url} />
+                            <AvatarFallback>
+                              {user.user_name?.split(' ').map(n => n[0]).join('').toUpperCase() || '??'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <h3 className="text-lg font-semibold">{user.user_name}</h3>
+                            <p className="text-sm text-muted-foreground">{user.user_email}</p>
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/20 text-primary">
+                              {user.role}
+                            </span>
+                          </div>
                         </div>
                       </div>
                       
