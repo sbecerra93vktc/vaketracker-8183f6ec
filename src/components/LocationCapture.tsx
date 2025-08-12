@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { CheckSquare, Loader2 } from 'lucide-react';
+import { sanitizeCoordinates, validateInput } from './SecurityLogger';
 
 interface LocationCaptureProps {
   onLocationCaptured?: () => void;
@@ -86,9 +87,17 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
       return;
     }
 
-    setLoading(true);
-
     try {
+      // Validate and sanitize coordinates
+      const { lat, lng } = sanitizeCoordinates(currentLocation.latitude, currentLocation.longitude);
+      
+      // Validate and sanitize text inputs
+      const sanitizedNotes = notes.trim() ? validateInput(notes, 500) : '';
+      const sanitizedBusinessName = businessName.trim() ? validateInput(businessName, 100) : '';
+      const sanitizedContactPerson = contactPerson.trim() ? validateInput(contactPerson, 100) : '';
+      
+      setLoading(true);
+
       // Get address and detect country/state from coordinates
       let address = '';
       let country = '';
@@ -97,8 +106,8 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
       try {
         const { data: geocodeData, error: geocodeError } = await supabase.functions.invoke('geocode', {
           body: { 
-            latitude: currentLocation.latitude, 
-            longitude: currentLocation.longitude 
+            latitude: lat, 
+            longitude: lng 
           }
         });
 
@@ -112,76 +121,76 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
           state = geocodeData.state || '';
         }
       } catch (geocodeError) {
-        address = `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`;
+        address = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
         
         // Fallback region detection for the Americas
-        const lat = currentLocation.latitude;
-        const lng = currentLocation.longitude;
+        const fallbackLat = lat;
+        const fallbackLng = lng;
         
         // More specific ranges first to avoid overlaps - Guatemala checked before Mexico
-        if (lat >= 13.0 && lat <= 17.8 && lng >= -92.5 && lng <= -88.0) {
+        if (fallbackLat >= 13.0 && fallbackLat <= 17.8 && fallbackLng >= -92.5 && fallbackLng <= -88.0) {
           country = 'Guatemala';
           // Guatemala City and surrounding metropolitan area (zones 1-25)
-          if (lat >= 14.4 && lat <= 14.8 && lng >= -90.8 && lng <= -90.3) state = 'Guatemala (Capital)';
+          if (fallbackLat >= 14.4 && fallbackLat <= 14.8 && fallbackLng >= -90.8 && fallbackLng <= -90.3) state = 'Guatemala (Capital)';
           // Mixco, Villa Nueva, San José Pinula (metropolitan area)
-          else if (lat >= 14.4 && lat <= 14.8 && lng >= -90.8 && lng <= -90.2) state = 'Guatemala (Metropolitana)';
+          else if (fallbackLat >= 14.4 && fallbackLat <= 14.8 && fallbackLng >= -90.8 && fallbackLng <= -90.2) state = 'Guatemala (Metropolitana)';
           // Other regions
-          else if (lat >= 15.5 && lat <= 16.0 && lng >= -91.5 && lng <= -90.5) state = 'Alta Verapaz';
-          else if (lat >= 15.0 && lat <= 15.8 && lng >= -90.8 && lng <= -90.0) state = 'Baja Verapaz';
-          else if (lat >= 14.8 && lat <= 15.8 && lng >= -92.0 && lng <= -91.0) state = 'Quiché';
-          else if (lat >= 14.2 && lat <= 15.0 && lng >= -91.8 && lng <= -90.8) state = 'Chimaltenango';
-          else if (lat >= 14.3 && lat <= 14.8 && lng >= -91.0 && lng <= -90.5) state = 'Sacatepéquez';
-          else if (lat >= 13.8 && lat <= 14.5 && lng >= -90.5 && lng <= -89.5) state = 'Jalapa';
-          else if (lat >= 13.5 && lat <= 14.3 && lng >= -90.2 && lng <= -89.2) state = 'Jutiapa';
+          else if (fallbackLat >= 15.5 && fallbackLat <= 16.0 && fallbackLng >= -91.5 && fallbackLng <= -90.5) state = 'Alta Verapaz';
+          else if (fallbackLat >= 15.0 && fallbackLat <= 15.8 && fallbackLng >= -90.8 && fallbackLng <= -90.0) state = 'Baja Verapaz';
+          else if (fallbackLat >= 14.8 && fallbackLat <= 15.8 && fallbackLng >= -92.0 && fallbackLng <= -91.0) state = 'Quiché';
+          else if (fallbackLat >= 14.2 && fallbackLat <= 15.0 && fallbackLng >= -91.8 && fallbackLng <= -90.8) state = 'Chimaltenango';
+          else if (fallbackLat >= 14.3 && fallbackLat <= 14.8 && fallbackLng >= -91.0 && fallbackLng <= -90.5) state = 'Sacatepéquez';
+          else if (fallbackLat >= 13.8 && fallbackLat <= 14.5 && fallbackLng >= -90.5 && fallbackLng <= -89.5) state = 'Jalapa';
+          else if (fallbackLat >= 13.5 && fallbackLat <= 14.3 && fallbackLng >= -90.2 && fallbackLng <= -89.2) state = 'Jutiapa';
           else state = 'Guatemala';
         } 
         // El Salvador
-        else if (lat >= 12.0 && lat <= 14.5 && lng >= -90.5 && lng <= -87.0) {
+        else if (fallbackLat >= 12.0 && fallbackLat <= 14.5 && fallbackLng >= -90.5 && fallbackLng <= -87.0) {
           country = 'El Salvador';
-          if (lat >= 13.5 && lat <= 14.5 && lng >= -89.5 && lng <= -88.8) state = 'San Salvador';
-          else if (lat >= 13.8 && lat <= 14.2 && lng >= -89.8 && lng <= -89.2) state = 'Santa Ana';
-          else if (lat >= 13.0 && lat <= 13.8 && lng >= -89.5 && lng <= -88.8) state = 'La Libertad';
+          if (fallbackLat >= 13.5 && fallbackLat <= 14.5 && fallbackLng >= -89.5 && fallbackLng <= -88.8) state = 'San Salvador';
+          else if (fallbackLat >= 13.8 && fallbackLat <= 14.2 && fallbackLng >= -89.8 && fallbackLng <= -89.2) state = 'Santa Ana';
+          else if (fallbackLat >= 13.0 && fallbackLat <= 13.8 && fallbackLng >= -89.5 && fallbackLng <= -88.8) state = 'La Libertad';
           else state = 'El Salvador';
         } 
         // Honduras
-        else if (lat >= 12.5 && lat <= 16.5 && lng >= -89.5 && lng <= -83.0) {
+        else if (fallbackLat >= 12.5 && fallbackLat <= 16.5 && fallbackLng >= -89.5 && fallbackLng <= -83.0) {
           country = 'Honduras';
-          if (lat >= 14.0 && lat <= 14.3 && lng >= -87.5 && lng <= -86.8) state = 'Francisco Morazán';
-          else if (lat >= 15.3 && lat <= 15.8 && lng >= -88.2 && lng <= -87.5) state = 'Cortés';
-          else if (lat >= 15.0 && lat <= 15.5 && lng >= -87.8 && lng <= -87.0) state = 'Atlántida';
+          if (fallbackLat >= 14.0 && fallbackLat <= 14.3 && fallbackLng >= -87.5 && fallbackLng <= -86.8) state = 'Francisco Morazán';
+          else if (fallbackLat >= 15.3 && fallbackLat <= 15.8 && fallbackLng >= -88.2 && fallbackLng <= -87.5) state = 'Cortés';
+          else if (fallbackLat >= 15.0 && fallbackLat <= 15.5 && fallbackLng >= -87.8 && fallbackLng <= -87.0) state = 'Atlántida';
           else state = 'Honduras';
         }
         // Mexico (checked after Central American countries to avoid overlap)
-        else if (lat >= 14.5 && lat <= 32.7 && lng >= -118.4 && lng <= -86.7) {
+        else if (fallbackLat >= 14.5 && fallbackLat <= 32.7 && fallbackLng >= -118.4 && fallbackLng <= -86.7) {
           country = 'México';
-          if (lat >= 19.0 && lat <= 25.0 && lng >= -89.0 && lng <= -86.0) state = 'Quintana Roo';
-          else if (lat >= 20.0 && lat <= 22.5 && lng >= -90.5 && lng <= -88.0) state = 'Yucatán';
-          else if (lat >= 19.0 && lat <= 21.5 && lng >= -91.0 && lng <= -89.0) state = 'Campeche';
-          else if (lat >= 25.0 && lat <= 32.7 && lng >= -115.0 && lng <= -109.0) state = 'Baja California';
+          if (fallbackLat >= 19.0 && fallbackLat <= 25.0 && fallbackLng >= -89.0 && fallbackLng <= -86.0) state = 'Quintana Roo';
+          else if (fallbackLat >= 20.0 && fallbackLat <= 22.5 && fallbackLng >= -90.5 && fallbackLng <= -88.0) state = 'Yucatán';
+          else if (fallbackLat >= 19.0 && fallbackLat <= 21.5 && fallbackLng >= -91.0 && fallbackLng <= -89.0) state = 'Campeche';
+          else if (fallbackLat >= 25.0 && fallbackLat <= 32.7 && fallbackLng >= -115.0 && fallbackLng <= -109.0) state = 'Baja California';
           else state = 'Otra región';
         } 
         // Costa Rica
-        else if (lat >= 8.0 && lat <= 11.5 && lng >= -86.0 && lng <= -82.5) {
+        else if (fallbackLat >= 8.0 && fallbackLat <= 11.5 && fallbackLng >= -86.0 && fallbackLng <= -82.5) {
           country = 'Costa Rica';
           state = 'Región detectada';
         }
         // Panama
-        else if (lat >= 7.0 && lat <= 9.7 && lng >= -83.0 && lng <= -77.0) {
+        else if (fallbackLat >= 7.0 && fallbackLat <= 9.7 && fallbackLng >= -83.0 && fallbackLng <= -77.0) {
           country = 'Panamá';
           state = 'Región detectada';
         }
         // Colombia
-        else if (lat >= -4.5 && lat <= 13.5 && lng >= -82.0 && lng <= -66.0) {
+        else if (fallbackLat >= -4.5 && fallbackLat <= 13.5 && fallbackLng >= -82.0 && fallbackLng <= -66.0) {
           country = 'Colombia';
           state = 'Región detectada';
         }
         // USA
-        else if (lat >= 24.0 && lat <= 50.0 && lng >= -130.0 && lng <= -65.0) {
+        else if (fallbackLat >= 24.0 && fallbackLat <= 50.0 && fallbackLng >= -130.0 && fallbackLng <= -65.0) {
           country = 'Estados Unidos';
           state = 'Región detectada';
         }
         // Canada
-        else if (lat >= 42.0 && lat <= 70.0 && lng >= -140.0 && lng <= -52.0) {
+        else if (fallbackLat >= 42.0 && fallbackLat <= 70.0 && fallbackLng >= -140.0 && fallbackLng <= -52.0) {
           country = 'Canadá';
           state = 'Región detectada';
         }
@@ -195,11 +204,11 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
         .from('locations')
         .insert({
           user_id: (await supabase.auth.getUser()).data.user?.id,
-          latitude: currentLocation.latitude,
-          longitude: currentLocation.longitude,
+          latitude: lat,
+          longitude: lng,
           accuracy: currentLocation.accuracy,
           address,
-          notes: notes.trim() || null,
+          notes: sanitizedNotes || null,
           visit_type: visitType,
           country: country || null,
           state: state || null,
@@ -228,12 +237,20 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
       if (onLocationCaptured) {
         onLocationCaptured();
       }
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error al guardar actividad',
-        description: 'Por favor intenta de nuevo.',
-      });
+    } catch (error: any) {
+      if (error.message && error.message.includes('Invalid')) {
+        toast({
+          variant: 'destructive',
+          title: 'Datos inválidos',
+          description: error.message || 'Por favor verifica los datos ingresados.',
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Error al guardar actividad',
+          description: 'Por favor intenta de nuevo.',
+        });
+      }
     } finally {
       setLoading(false);
     }

@@ -214,6 +214,20 @@ const Admin = () => {
           description: error.message,
         });
       } else {
+        // Log the security event
+        await supabase
+          .from('admin_action_logs')
+          .insert({
+            user_id: (await supabase.auth.getUser()).data.user?.id,
+            action_type: 'permission_updated',
+            action_details: { 
+              target_user_id: userId, 
+              permission_name: permissionName, 
+              enabled 
+            },
+            user_agent: navigator.userAgent
+          });
+          
         toast({
           title: 'Permission updated',
           description: 'User permissions have been updated successfully.',
@@ -295,24 +309,48 @@ const Admin = () => {
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
     
-    // Generate a random token
-    const token = crypto.randomUUID();
-    
-    const { error } = await supabase
-      .from('invitations')
-      .insert({
-        email,
-        token,
-        invited_by: (await supabase.auth.getUser()).data.user?.id,
-      });
+    try {
+      // Rate limiting check - only allow 5 invitations per hour per admin
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { data: recentInvitations } = await supabase
+        .from('admin_action_logs')
+        .select('id')
+        .eq('action_type', 'invitation_created')
+        .gte('created_at', oneHourAgo);
+      
+      if (recentInvitations && recentInvitations.length >= 5) {
+        toast({
+          variant: 'destructive',
+          title: 'Rate limit exceeded',
+          description: 'Maximum 5 invitations per hour allowed. Please try again later.',
+        });
+        setLoading(false);
+        return;
+      }
+      
+      // Generate a random token
+      const token = crypto.randomUUID();
+      
+      const { error } = await supabase
+        .from('invitations')
+        .insert({
+          email,
+          token,
+          invited_by: (await supabase.auth.getUser()).data.user?.id,
+        });
 
-    if (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error sending invitation',
-        description: error.message,
-      });
-    } else {
+      if (error) throw error;
+      
+      // Log the security event
+      await supabase
+        .from('admin_action_logs')
+        .insert({
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          action_type: 'invitation_created',
+          action_details: { email, token_id: token },
+          user_agent: navigator.userAgent
+        });
+
       toast({
         title: 'Invitation created!',
         description: `Share this token: ${token}`,
@@ -328,6 +366,12 @@ const Admin = () => {
       
       fetchInvitations();
       (e.target as HTMLFormElement).reset();
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error sending invitation',
+        description: error.message,
+      });
     }
     setLoading(false);
   };
