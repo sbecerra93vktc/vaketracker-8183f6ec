@@ -77,7 +77,7 @@ const LocationTracker = () => {
         throw error;
       }
 
-      console.log('Location tracking saved successfully with geocoding');
+      // Location tracking saved successfully with geocoding
     } catch (error) {
       console.error('Error in saveTrackingLocation:', error);
       
@@ -95,7 +95,7 @@ const LocationTracker = () => {
           });
         
         if (fallbackError) throw fallbackError;
-        console.log('Location saved without geocoding');
+        // Location saved without geocoding
       } catch (fallbackError) {
         console.error('Failed to save location:', fallbackError);
         toast({

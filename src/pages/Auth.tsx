@@ -30,8 +30,6 @@ const Auth = () => {
           .select('id')
           .limit(1);
         
-        console.log('Roles check:', rolesData, 'Error:', rolesError);
-        
         // If we can query user roles, it means there's a user system in place
         // Only consider it "first user" if we get a specific error or if explicitly no data exists
         const hasUserSystem = !rolesError && Array.isArray(rolesData);
@@ -40,8 +38,6 @@ const Auth = () => {
         const hasToken = token !== null;
         
         const firstUser = !hasUserSystem && !hasToken;
-        
-        console.log('Has user system:', hasUserSystem, 'Has token:', hasToken, 'First user:', firstUser);
         setIsFirstUser(firstUser);
       } catch (err) {
         console.error('Error checking first user:', err);

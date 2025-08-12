@@ -120,10 +120,7 @@ const GoogleMapComponent = () => {
   };
 
   const loadMap = useCallback(async (key: string) => {
-    console.log('[TrackingMap] initializeMap() called');
-    console.log('loadMap called with key:', key ? 'API key provided' : 'No API key');
     if (!mapRef.current || !key || isLoading) {
-      console.log('loadMap early return:', { mapRef: !!mapRef.current, key: !!key, isLoading });
       return;
     }
 
@@ -148,7 +145,7 @@ const GoogleMapComponent = () => {
 
       mapInstanceRef.current = map;
       setIsMapLoaded(true);
-      console.log('Map loaded successfully');
+      // Map loaded successfully
     } catch (error) {
       console.error('Error loading Google Maps:', error);
     } finally {
@@ -158,7 +155,7 @@ const GoogleMapComponent = () => {
 
   // Fetch Google Maps API key from Supabase edge function
   const fetchGoogleMapsKey = useCallback(async () => {
-    console.log('[GoogleMapComponent] fetchGoogleMapsKey() called');
+    // Fetching Google Maps API key
     try {
       const { data, error } = await supabase.functions.invoke('get-google-maps-key');
       
@@ -416,7 +413,7 @@ const GoogleMapComponent = () => {
           table: 'locations'
         },
         () => {
-          console.log('Location updated, refreshing...');
+          // Location updated, refreshing map
           fetchLocations();
         }
       )
