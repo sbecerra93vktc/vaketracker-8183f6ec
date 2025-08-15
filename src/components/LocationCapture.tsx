@@ -405,6 +405,9 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
             </div>
 
             <div className="w-full">
+              <div className="p-2 bg-blue-50 border border-blue-200 rounded mb-2 text-xs text-blue-800">
+                Debug: MediaRecorder should appear here (Activity: {activityType})
+              </div>
               <MediaRecorder
                 onFilesChange={handleMediaFilesChange}
                 maxAudioFiles={5}
