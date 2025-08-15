@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { MapPin, Clock, User, Filter, Calendar, Globe, List, Grid3X3 } from 'lucide-react';
+import ActivityMediaDisplay from './ActivityMediaDisplay';
 
 interface Location {
   id: string;
@@ -442,6 +443,11 @@ const LocationHistory = () => {
                         {location.notes}
                       </p>
                     )}
+                    
+                    <ActivityMediaDisplay 
+                      activityId={location.id} 
+                      activityAddress={location.address}
+                    />
                   </div>
                 ))}
               </div>
@@ -479,6 +485,11 @@ const LocationHistory = () => {
                         {location.user_name}
                       </div>
                     )}
+                    
+                    <ActivityMediaDisplay 
+                      activityId={location.id} 
+                      activityAddress={location.address}
+                    />
                   </div>
                 ))}
               </div>

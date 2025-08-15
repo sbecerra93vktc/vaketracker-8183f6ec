@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { CheckSquare, Loader2 } from 'lucide-react';
 import { sanitizeCoordinates, validateInput } from './SecurityLogger';
+import MediaRecorder, { MediaFile } from './MediaRecorder';
 
 interface LocationCaptureProps {
   onLocationCaptured?: () => void;
@@ -28,14 +29,11 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
   const [contactPerson, setContactPerson] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const { toast } = useToast();
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setPhotoFile(file);
-    }
+  const handleMediaFilesChange = (files: MediaFile[]) => {
+    setMediaFiles(files);
   };
 
   const getCurrentLocation = () => {
@@ -200,10 +198,14 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
         ? `${activityType} - ${subActivity}` 
         : activityType;
       
-      const { error } = await supabase
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) throw new Error('User not authenticated');
+      
+      // Insert the location first
+      const { data: locationData, error: locationError } = await supabase
         .from('locations')
         .insert({
-          user_id: (await supabase.auth.getUser()).data.user?.id,
+          user_id: user.user.id,
           latitude: lat,
           longitude: lng,
           accuracy: currentLocation.accuracy,
@@ -212,10 +214,17 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
           visit_type: visitType,
           country: country || null,
           state: state || null,
-        });
+        })
+        .select()
+        .single();
 
-      if (error) {
-        throw error;
+      if (locationError) {
+        throw locationError;
+      }
+
+      // Upload media files if any
+      if (mediaFiles.length > 0) {
+        await uploadMediaFiles(locationData.id, user.user.id);
       }
 
       toast({
@@ -232,7 +241,7 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
       setContactPerson('');
       setEmail('');
       setPhone('');
-      setPhotoFile(null);
+      setMediaFiles([]);
       
       if (onLocationCaptured) {
         onLocationCaptured();
@@ -254,6 +263,58 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const uploadMediaFiles = async (activityId: string, userId: string) => {
+    const uploadPromises = mediaFiles.map(async (mediaFile) => {
+      let bucket: string;
+      let filePath: string;
+
+      switch (mediaFile.type) {
+        case 'photo':
+          bucket = 'activity-photos';
+          break;
+        case 'video':
+          bucket = 'activity-videos';
+          break;
+        case 'audio':
+          bucket = 'activity-audio';
+          break;
+        default:
+          return;
+      }
+
+      filePath = `${userId}/${activityId}/${mediaFile.file.name}`;
+
+      // Upload file to storage
+      const { error: storageError } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, mediaFile.file);
+
+      if (storageError) {
+        console.error('Storage upload error:', storageError);
+        return;
+      }
+
+      // Insert file record into database
+      const { error: dbError } = await supabase
+        .from('activity_files')
+        .insert({
+          activity_id: activityId,
+          file_type: mediaFile.type,
+          file_path: filePath,
+          file_name: mediaFile.file.name,
+          file_size: mediaFile.file.size,
+          duration: mediaFile.duration,
+          user_id: userId,
+        });
+
+      if (dbError) {
+        console.error('Database insert error:', dbError);
+      }
+    });
+
+    await Promise.all(uploadPromises);
   };
 
   return (
@@ -343,24 +404,12 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="photo">Foto del lugar</Label>
-              <Input
-                id="photo"
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handlePhotoUpload}
-                className="cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/80"
-              />
-              {photoFile && (
-                <div className="mt-2 p-2 bg-secondary rounded-lg">
-                  <p className="text-sm text-muted-foreground">
-                    Foto seleccionada: {photoFile.name}
-                  </p>
-                </div>
-              )}
-            </div>
+            <MediaRecorder
+              onFilesChange={handleMediaFilesChange}
+              maxAudioFiles={5}
+              maxVideoFiles={5}
+              maxPhotoFiles={10}
+            />
           </div>
         )}
 
