@@ -361,7 +361,7 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
 
         {(activityType === 'Visita en frío' || activityType === 'Visita programada' || activityType === 'Visita de cortesía') && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="businessName">Nombre del negocio</Label>
                 <Input
@@ -382,7 +382,7 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -404,12 +404,14 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
               </div>
             </div>
 
-            <MediaRecorder
-              onFilesChange={handleMediaFilesChange}
-              maxAudioFiles={5}
-              maxVideoFiles={5}
-              maxPhotoFiles={10}
-            />
+            <div className="w-full">
+              <MediaRecorder
+                onFilesChange={handleMediaFilesChange}
+                maxAudioFiles={5}
+                maxVideoFiles={5}
+                maxPhotoFiles={10}
+              />
+            </div>
           </div>
         )}
 
