@@ -238,19 +238,34 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
     try {
       console.log('Requesting video permission for mobile...');
       
-      // Better constraints for mobile video recording
-      const constraints = {
-        video: { 
-          facingMode: 'environment',
-          width: { ideal: 1280, max: 1920 },
-          height: { ideal: 720, max: 1080 },
-          frameRate: { ideal: 30, max: 30 }
-        }, 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true
-        }
-      };
+      // Progressive fallback constraints for better mobile compatibility
+      let constraints;
+      const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        // Simplified constraints for mobile - often the issue is overcomplicated constraints
+        constraints = {
+          video: { 
+            facingMode: 'user', // Start with front camera for better compatibility
+            width: { ideal: 640, max: 1280 },
+            height: { ideal: 480, max: 720 }
+          }, 
+          audio: true
+        };
+      } else {
+        // Desktop constraints - be more specific about video source
+        constraints = {
+          video: { 
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
+            frameRate: { ideal: 30, max: 30 }
+          }, 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true
+          }
+        };
+      }
       
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       videoStreamRef.current = stream;
@@ -260,17 +275,19 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
         videoPreviewRef.current.play();
       }
       
-      // Try different video MIME types for mobile compatibility
-      let videoMimeType = 'video/webm';
+      // Try different video MIME types for better compatibility
+      let videoMimeType = '';
       const MediaRecorderClass = (window as any).MediaRecorder;
       if (MediaRecorderClass && MediaRecorderClass.isTypeSupported) {
-        if (!MediaRecorderClass.isTypeSupported('video/webm')) {
-          if (MediaRecorderClass.isTypeSupported('video/mp4')) {
-            videoMimeType = 'video/mp4';
-          } else {
-            videoMimeType = ''; // Let browser choose
-          }
+        // Prefer MP4 for better mobile compatibility and playback
+        if (MediaRecorderClass.isTypeSupported('video/mp4')) {
+          videoMimeType = 'video/mp4';
+        } else if (MediaRecorderClass.isTypeSupported('video/webm;codecs=vp8')) {
+          videoMimeType = 'video/webm;codecs=vp8';
+        } else if (MediaRecorderClass.isTypeSupported('video/webm')) {
+          videoMimeType = 'video/webm';
         }
+        // If none are supported, let browser choose
       }
       
       const videoOptions = videoMimeType ? { mimeType: videoMimeType } : {};
