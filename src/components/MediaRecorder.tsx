@@ -110,15 +110,8 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
   }, [onFilesChange]);
 
   const startAudioRecording = async () => {
-    if (!mediaSupport.isSupported) {
-      console.error('MediaRecorder not supported:', mediaSupport);
-      toast({
-        variant: "destructive",
-        title: "No soportado",
-        description: mediaSupport.errorMessage,
-      });
-      return;
-    }
+    // Always attempt recording - let the browser handle any issues
+    console.log('Starting audio recording...');
 
     try {
       console.log('Requesting audio permission for mobile...');
@@ -232,14 +225,8 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
   };
 
   const startVideoRecording = async () => {
-    if (!mediaSupport.isSupported) {
-      toast({
-        variant: "destructive",
-        title: "No soportado",
-        description: mediaSupport.errorMessage,
-      });
-      return;
-    }
+    // Always attempt recording - let the browser handle any issues
+    console.log('Starting video recording...');
 
     try {
       console.log('Requesting video permission for mobile...');
@@ -538,14 +525,15 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
           </div>
           
           <div className="space-y-3">
-            {isRecordingVideo && (
-              <video 
-                ref={videoPreviewRef}
-                className="w-full h-48 bg-black rounded-lg"
-                muted
-                playsInline
-              />
-            )}
+             {isRecordingVideo && (
+               <video 
+                 ref={videoPreviewRef}
+                 className="w-full h-48 bg-black rounded-lg"
+                 autoPlay
+                 muted
+                 playsInline
+               />
+             )}
             
             <Button
               type="button"
