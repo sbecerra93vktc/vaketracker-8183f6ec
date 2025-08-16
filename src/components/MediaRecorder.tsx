@@ -1,8 +1,9 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Mic, 
   Square, 
@@ -12,7 +13,9 @@ import {
   Camera, 
   Trash2, 
   Upload,
-  FileImage
+  FileImage,
+  AlertCircle,
+  Info
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -44,6 +47,13 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
   const [videoFiles, setVideoFiles] = useState<MediaFile[]>([]);
   const [photoFiles, setPhotoFiles] = useState<MediaFile[]>([]);
   const [playingAudio, setPlayingAudio] = useState<string | null>(null);
+  const [mediaSupport, setMediaSupport] = useState({
+    hasMediaRecorder: false,
+    hasGetUserMedia: false,
+    isHttps: false,
+    isSupported: false,
+    errorMessage: ''
+  });
   
   const audioRecorderRef = useRef<MediaRecorder | null>(null);
   const videoRecorderRef = useRef<MediaRecorder | null>(null);
@@ -54,16 +64,66 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
   
   const { toast } = useToast();
 
+  // Check media capabilities on component mount
+  useEffect(() => {
+    const checkMediaSupport = () => {
+      const isHttps = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
+      const hasGetUserMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+      const hasMediaRecorder = !!(window as any).MediaRecorder;
+      
+      console.log('MediaRecorder Support Check:', {
+        isHttps,
+        hasGetUserMedia,
+        hasMediaRecorder,
+        userAgent: navigator.userAgent,
+        protocol: window.location.protocol,
+        hostname: window.location.hostname
+      });
+
+      let errorMessage = '';
+      if (!isHttps) {
+        errorMessage = 'Se requiere HTTPS para acceder a cámara y micrófono';
+      } else if (!hasGetUserMedia) {
+        errorMessage = 'Tu navegador no soporta acceso a cámara/micrófono';
+      } else if (!hasMediaRecorder) {
+        errorMessage = 'Tu navegador no soporta grabación de medios';
+      }
+
+      const isSupported = isHttps && hasGetUserMedia && hasMediaRecorder;
+
+      setMediaSupport({
+        hasMediaRecorder,
+        hasGetUserMedia,
+        isHttps,
+        isSupported,
+        errorMessage
+      });
+    };
+
+    checkMediaSupport();
+  }, []);
+
   const updateAllFiles = useCallback((audio: MediaFile[], video: MediaFile[], photos: MediaFile[]) => {
     const allFiles = [...audio, ...video, ...photos];
     onFilesChange(allFiles);
   }, [onFilesChange]);
 
   const startAudioRecording = async () => {
+    if (!mediaSupport.isSupported) {
+      toast({
+        variant: "destructive",
+        title: "No soportado",
+        description: mediaSupport.errorMessage,
+      });
+      return;
+    }
+
     try {
+      console.log('Requesting audio permission...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioStreamRef.current = stream;
       
+      console.log('Audio stream obtained, creating MediaRecorder...');
       const mediaRecorder = new (window as any).MediaRecorder(stream);
       audioRecorderRef.current = mediaRecorder;
       
@@ -103,11 +163,22 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
         title: "Grabando nota de voz",
         description: "Toca el botón de parar cuando termines",
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Audio recording error:', error);
+      let errorMessage = "No se pudo acceder al micrófono";
+      
+      if (error.name === 'NotAllowedError') {
+        errorMessage = "Permisos de micrófono denegados. Por favor, permite el acceso en la configuración del navegador.";
+      } else if (error.name === 'NotFoundError') {
+        errorMessage = "No se encontró micrófono disponible";
+      } else if (error.name === 'NotSupportedError') {
+        errorMessage = "Grabación de audio no soportada en este dispositivo";
+      }
+      
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "No se pudo acceder al micrófono",
+        title: "Error de grabación",
+        description: errorMessage,
       });
     }
   };
@@ -120,7 +191,17 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
   };
 
   const startVideoRecording = async () => {
+    if (!mediaSupport.isSupported) {
+      toast({
+        variant: "destructive",
+        title: "No soportado",
+        description: mediaSupport.errorMessage,
+      });
+      return;
+    }
+
     try {
+      console.log('Requesting video permission...');
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: 'environment' }, 
         audio: true 
@@ -175,11 +256,22 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
         title: "Grabando video",
         description: "Toca el botón de parar cuando termines",
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Video recording error:', error);
+      let errorMessage = "No se pudo acceder a la cámara";
+      
+      if (error.name === 'NotAllowedError') {
+        errorMessage = "Permisos de cámara denegados. Por favor, permite el acceso en la configuración del navegador.";
+      } else if (error.name === 'NotFoundError') {
+        errorMessage = "No se encontró cámara disponible";
+      } else if (error.name === 'NotSupportedError') {
+        errorMessage = "Grabación de video no soportada en este dispositivo";
+      }
+      
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "No se pudo acceder a la cámara",
+        title: "Error de grabación",
+        description: errorMessage,
       });
     }
   };
@@ -250,9 +342,119 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
     }
   };
 
+  // Show compatibility warning if needed
+  if (!mediaSupport.isSupported) {
+    return (
+      <div className="space-y-4">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="text-sm">
+            {mediaSupport.errorMessage}
+            {!mediaSupport.isHttps && (
+              <div className="mt-2">
+                <strong>Nota:</strong> Las funciones de grabación requieren una conexión segura (HTTPS).
+              </div>
+            )}
+          </AlertDescription>
+        </Alert>
+        
+        {/* Photos still work without MediaRecorder */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <Label className="text-sm font-medium">Fotos del Negocio</Label>
+              <Badge variant="outline">
+                {photoFiles.length}/{maxPhotoFiles}
+              </Badge>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <label className="flex-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                    disabled={photoFiles.length >= maxPhotoFiles}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    disabled={photoFiles.length >= maxPhotoFiles}
+                    asChild
+                  >
+                    <span>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Subir Fotos
+                    </span>
+                  </Button>
+                </label>
+                
+                <label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                    disabled={photoFiles.length >= maxPhotoFiles}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={photoFiles.length >= maxPhotoFiles}
+                    asChild
+                  >
+                    <span>
+                      <Camera className="h-4 w-4" />
+                    </span>
+                  </Button>
+                </label>
+              </div>
+              
+              {photoFiles.length > 0 && (
+                <div className="grid grid-cols-2 gap-2">
+                  {photoFiles.map((photoFile) => (
+                    <div key={photoFile.id} className="relative group">
+                      <img
+                        src={photoFile.url}
+                        alt={photoFile.name}
+                        className="w-full h-24 object-cover rounded border"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => removeFile(photoFile.id, 'photo')}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <audio ref={audioPlayerRef} />
+      
+      {/* Debug info for mobile testing */}
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertDescription className="text-xs">
+          Funciones de medios disponibles: Audio ✓ Video ✓ Fotos ✓
+        </AlertDescription>
+      </Alert>
       
       {/* Voice Notes Section */}
       <Card>
