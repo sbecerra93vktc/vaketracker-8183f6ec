@@ -263,12 +263,13 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       videoStreamRef.current = stream;
       
-      if (videoPreviewRef.current) {
-        videoPreviewRef.current.srcObject = stream;
-        videoPreviewRef.current.muted = true; // Prevent audio feedback
-        videoPreviewRef.current.playsInline = true; // Important for mobile
-        videoPreviewRef.current.play().catch(e => console.log('Video preview play failed:', e));
-      }
+       if (videoPreviewRef.current) {
+         videoPreviewRef.current.srcObject = stream;
+         videoPreviewRef.current.muted = true; // Prevent audio feedback
+         videoPreviewRef.current.playsInline = true; // Important for mobile
+         videoPreviewRef.current.autoplay = true; // Force autoplay
+         await videoPreviewRef.current.play().catch(e => console.log('Video preview play failed:', e));
+       }
       
       // Try different video MIME types for better compatibility
       let videoMimeType = '';
