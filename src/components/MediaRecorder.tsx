@@ -435,10 +435,12 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
     }
   };
 
-  // Show compatibility warning if needed
-  if (!mediaSupport.isSupported) {
-    return (
-      <div className="space-y-4">
+  return (
+    <div className="space-y-6">
+      <audio ref={audioPlayerRef} />
+      
+      {/* Warning for unsupported features but show debug info */}
+      {(!mediaSupport.isSupported && mediaSupport.errorMessage) && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="text-sm">
@@ -448,101 +450,12 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
                 <strong>Nota:</strong> Las funciones de grabación requieren una conexión segura (HTTPS).
               </div>
             )}
+            <div className="mt-2">
+              <strong>Funciones disponibles:</strong> Subir fotos funcionará normalmente.
+            </div>
           </AlertDescription>
         </Alert>
-        
-        {/* Photos still work without MediaRecorder */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <Label className="text-sm font-medium">Fotos del Negocio</Label>
-              <Badge variant="outline">
-                {photoFiles.length}/{maxPhotoFiles}
-              </Badge>
-            </div>
-            
-            <div className="space-y-3">
-              <div className="flex gap-2">
-                <label className="flex-1">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handlePhotoUpload}
-                    className="hidden"
-                    disabled={photoFiles.length >= maxPhotoFiles}
-                  />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full text-base py-3 min-h-[48px]" // Better mobile touch target
-                  disabled={photoFiles.length >= maxPhotoFiles}
-                  asChild
-                  size="lg"
-                >
-                  <span>
-                    <Upload className="h-5 w-5 mr-2" />
-                    Subir Fotos
-                  </span>
-                </Button>
-              </label>
-              
-              <label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handlePhotoUpload}
-                  className="hidden"
-                  disabled={photoFiles.length >= maxPhotoFiles}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="min-h-[48px] px-4" // Better mobile touch target
-                  disabled={photoFiles.length >= maxPhotoFiles}
-                  asChild
-                  size="lg"
-                >
-                  <span>
-                    <Camera className="h-5 w-5" />
-                  </span>
-                </Button>
-                </label>
-              </div>
-              
-              {photoFiles.length > 0 && (
-                <div className="grid grid-cols-2 gap-2">
-                  {photoFiles.map((photoFile) => (
-                    <div key={photoFile.id} className="relative group">
-                      <img
-                        src={photoFile.url}
-                        alt={photoFile.name}
-                        className="w-full h-24 object-cover rounded border"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => removeFile(photoFile.id, 'photo')}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <audio ref={audioPlayerRef} />
+      )}
       
       {/* Debug info for mobile testing */}
       <Alert>
@@ -556,7 +469,7 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
         </AlertDescription>
       </Alert>
       
-      {/* Voice Notes Section */}
+      {/* Voice Notes Section - Always show */}
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-4">
@@ -614,7 +527,7 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
         </CardContent>
       </Card>
 
-      {/* Video Recording Section */}
+      {/* Video Recording Section - Always show */}
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-4">
@@ -630,6 +543,7 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
                 ref={videoPreviewRef}
                 className="w-full h-48 bg-black rounded-lg"
                 muted
+                playsInline
               />
             )}
             
@@ -670,7 +584,7 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
         </CardContent>
       </Card>
 
-      {/* Photos Section */}
+      {/* Photos Section - Always works */}
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-4">

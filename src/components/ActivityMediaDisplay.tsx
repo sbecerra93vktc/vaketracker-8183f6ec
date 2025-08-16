@@ -220,30 +220,41 @@ const ActivityMediaDisplay: React.FC<ActivityMediaDisplayProps> = ({
                 <Badge variant="outline">{photoFiles.length}</Badge>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 pl-6">
-                {photoFiles.map((file) => (
-                  <div key={file.id} className="relative group">
-                    <img
-                      src={`${supabase.storage.from('activity-photos').getPublicUrl(file.file_path).data.publicUrl}`}
-                      alt={file.file_name}
-                      className="w-full h-20 md:h-24 lg:h-28 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => setSelectedPhoto(`${supabase.storage.from('activity-photos').getPublicUrl(file.file_path).data.publicUrl}`)}
-                      loading="lazy"
-                    />
-                    <div className="absolute bottom-1 left-1 right-1">
-                      <div className="text-xs bg-black/50 text-white px-1 py-0.5 rounded truncate">
-                        {file.file_name}
+                {photoFiles.map((file) => {
+                  const photoUrl = `${supabase.storage.from('activity-photos').getPublicUrl(file.file_path).data.publicUrl}`;
+                  console.log('Photo file:', file, 'URL:', photoUrl);
+                  
+                  return (
+                    <div key={file.id} className="relative group">
+                      <img
+                        src={photoUrl}
+                        alt={file.file_name}
+                        className="w-full h-20 md:h-24 lg:h-28 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => setSelectedPhoto(photoUrl)}
+                        loading="lazy"
+                        onError={(e) => {
+                          console.error('Failed to load image:', photoUrl);
+                          e.currentTarget.style.backgroundColor = '#f3f4f6';
+                          e.currentTarget.style.border = '2px solid #ef4444';
+                        }}
+                        onLoad={() => console.log('Image loaded successfully:', photoUrl)}
+                      />
+                      <div className="absolute bottom-1 left-1 right-1">
+                        <div className="text-xs bg-black/50 text-white px-1 py-0.5 rounded truncate">
+                          {file.file_name}
+                        </div>
                       </div>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => setSelectedPhoto(photoUrl)}
+                      >
+                        <Eye className="h-3 w-3" />
+                      </Button>
                     </div>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => setSelectedPhoto(`${supabase.storage.from('activity-photos').getPublicUrl(file.file_path).data.publicUrl}`)}
-                    >
-                      <Eye className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
