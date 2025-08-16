@@ -138,19 +138,23 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
       console.log('Audio stream obtained, creating MediaRecorder...');
       
       // Try different MIME types for better mobile compatibility
-      let mimeType = 'audio/webm';
+      let mimeType = '';
       const MediaRecorderClass = (window as any).MediaRecorder;
       if (MediaRecorderClass && MediaRecorderClass.isTypeSupported) {
-        if (!MediaRecorderClass.isTypeSupported('audio/webm')) {
-          if (MediaRecorderClass.isTypeSupported('audio/mp4')) {
-            mimeType = 'audio/mp4';
-          } else if (MediaRecorderClass.isTypeSupported('audio/wav')) {
-            mimeType = 'audio/wav';
-          } else {
-            mimeType = ''; // Let browser choose
-          }
+        // Prefer MP4 for better mobile compatibility and playback
+        if (MediaRecorderClass.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4';
+        } else if (MediaRecorderClass.isTypeSupported('audio/webm;codecs=opus')) {
+          mimeType = 'audio/webm;codecs=opus';
+        } else if (MediaRecorderClass.isTypeSupported('audio/webm')) {
+          mimeType = 'audio/webm';
+        } else if (MediaRecorderClass.isTypeSupported('audio/wav')) {
+          mimeType = 'audio/wav';
         }
+        // If none are supported, let browser choose
       }
+      
+      console.log('Selected audio MIME type:', mimeType);
       
       const options = mimeType ? { mimeType } : {};
       const mediaRecorder = new (window as any).MediaRecorder(stream, options);
@@ -166,7 +170,8 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
       
       mediaRecorder.onstop = () => {
         const blob = new Blob(chunks, { type: mimeType || 'audio/webm' });
-        const file = new File([blob], `voice-note-${Date.now()}.${mimeType.includes('mp4') ? 'mp4' : 'webm'}`, { type: mimeType || 'audio/webm' });
+        const fileExtension = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('wav') ? 'wav' : 'webm';
+        const file = new File([blob], `voice-note-${Date.now()}.${fileExtension}`, { type: mimeType || 'audio/webm' });
         
         console.log('Audio recording completed:', {
           size: blob.size,
@@ -304,7 +309,8 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
       
       mediaRecorder.onstop = () => {
         const blob = new Blob(chunks, { type: videoMimeType || 'video/webm' });
-        const file = new File([blob], `video-${Date.now()}.${videoMimeType.includes('mp4') ? 'mp4' : 'webm'}`, { type: videoMimeType || 'video/webm' });
+        const fileExtension = videoMimeType.includes('mp4') ? 'mp4' : 'webm';
+        const file = new File([blob], `video-${Date.now()}.${fileExtension}`, { type: videoMimeType || 'video/webm' });
         
         console.log('Video recording completed:', {
           size: blob.size,
