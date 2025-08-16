@@ -110,6 +110,7 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
 
   const startAudioRecording = async () => {
     if (!mediaSupport.isSupported) {
+      console.error('MediaRecorder not supported:', mediaSupport);
       toast({
         variant: "destructive",
         title: "No soportado",
@@ -119,12 +120,40 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
     }
 
     try {
-      console.log('Requesting audio permission...');
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('Requesting audio permission for mobile...');
+      
+      // Use more specific constraints for mobile browsers
+      const constraints = {
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 44100
+        }
+      };
+      
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       audioStreamRef.current = stream;
       
       console.log('Audio stream obtained, creating MediaRecorder...');
-      const mediaRecorder = new (window as any).MediaRecorder(stream);
+      
+      // Try different MIME types for better mobile compatibility
+      let mimeType = 'audio/webm';
+      const MediaRecorderClass = (window as any).MediaRecorder;
+      if (MediaRecorderClass && MediaRecorderClass.isTypeSupported) {
+        if (!MediaRecorderClass.isTypeSupported('audio/webm')) {
+          if (MediaRecorderClass.isTypeSupported('audio/mp4')) {
+            mimeType = 'audio/mp4';
+          } else if (MediaRecorderClass.isTypeSupported('audio/wav')) {
+            mimeType = 'audio/wav';
+          } else {
+            mimeType = ''; // Let browser choose
+          }
+        }
+      }
+      
+      const options = mimeType ? { mimeType } : {};
+      const mediaRecorder = new (window as any).MediaRecorder(stream, options);
       audioRecorderRef.current = mediaRecorder;
       
       const chunks: Blob[] = [];
@@ -136,8 +165,14 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
       };
       
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        const file = new File([blob], `voice-note-${Date.now()}.webm`, { type: 'audio/webm' });
+        const blob = new Blob(chunks, { type: mimeType || 'audio/webm' });
+        const file = new File([blob], `voice-note-${Date.now()}.${mimeType.includes('mp4') ? 'mp4' : 'webm'}`, { type: mimeType || 'audio/webm' });
+        
+        console.log('Audio recording completed:', {
+          size: blob.size,
+          type: blob.type,
+          fileName: file.name
+        });
         
         const newAudioFile: MediaFile = {
           id: Date.now().toString(),
@@ -201,11 +236,23 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
     }
 
     try {
-      console.log('Requesting video permission...');
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' }, 
-        audio: true 
-      });
+      console.log('Requesting video permission for mobile...');
+      
+      // Better constraints for mobile video recording
+      const constraints = {
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 },
+          frameRate: { ideal: 30, max: 30 }
+        }, 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true
+        }
+      };
+      
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       videoStreamRef.current = stream;
       
       if (videoPreviewRef.current) {
@@ -213,7 +260,21 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
         videoPreviewRef.current.play();
       }
       
-      const mediaRecorder = new (window as any).MediaRecorder(stream);
+      // Try different video MIME types for mobile compatibility
+      let videoMimeType = 'video/webm';
+      const MediaRecorderClass = (window as any).MediaRecorder;
+      if (MediaRecorderClass && MediaRecorderClass.isTypeSupported) {
+        if (!MediaRecorderClass.isTypeSupported('video/webm')) {
+          if (MediaRecorderClass.isTypeSupported('video/mp4')) {
+            videoMimeType = 'video/mp4';
+          } else {
+            videoMimeType = ''; // Let browser choose
+          }
+        }
+      }
+      
+      const videoOptions = videoMimeType ? { mimeType: videoMimeType } : {};
+      const mediaRecorder = new (window as any).MediaRecorder(stream, videoOptions);
       videoRecorderRef.current = mediaRecorder;
       
       const chunks: Blob[] = [];
@@ -225,8 +286,14 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
       };
       
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'video/webm' });
-        const file = new File([blob], `video-${Date.now()}.webm`, { type: 'video/webm' });
+        const blob = new Blob(chunks, { type: videoMimeType || 'video/webm' });
+        const file = new File([blob], `video-${Date.now()}.${videoMimeType.includes('mp4') ? 'mp4' : 'webm'}`, { type: videoMimeType || 'video/webm' });
+        
+        console.log('Video recording completed:', {
+          size: blob.size,
+          type: blob.type,
+          fileName: file.name
+        });
         
         const newVideoFile: MediaFile = {
           id: Date.now().toString(),
@@ -379,39 +446,42 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
                     className="hidden"
                     disabled={photoFiles.length >= maxPhotoFiles}
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    disabled={photoFiles.length >= maxPhotoFiles}
-                    asChild
-                  >
-                    <span>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Subir Fotos
-                    </span>
-                  </Button>
-                </label>
-                
-                <label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handlePhotoUpload}
-                    className="hidden"
-                    disabled={photoFiles.length >= maxPhotoFiles}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={photoFiles.length >= maxPhotoFiles}
-                    asChild
-                  >
-                    <span>
-                      <Camera className="h-4 w-4" />
-                    </span>
-                  </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full text-base py-3 min-h-[48px]" // Better mobile touch target
+                  disabled={photoFiles.length >= maxPhotoFiles}
+                  asChild
+                  size="lg"
+                >
+                  <span>
+                    <Upload className="h-5 w-5 mr-2" />
+                    Subir Fotos
+                  </span>
+                </Button>
+              </label>
+              
+              <label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                  disabled={photoFiles.length >= maxPhotoFiles}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-[48px] px-4" // Better mobile touch target
+                  disabled={photoFiles.length >= maxPhotoFiles}
+                  asChild
+                  size="lg"
+                >
+                  <span>
+                    <Camera className="h-5 w-5" />
+                  </span>
+                </Button>
                 </label>
               </div>
               
@@ -452,7 +522,11 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription className="text-xs">
-          Funciones de medios disponibles: Audio ✓ Video ✓ Fotos ✓
+          Estado: Audio {mediaSupport.hasMediaRecorder ? '✓' : '✗'} | Video {mediaSupport.hasGetUserMedia ? '✓' : '✗'} | HTTPS {mediaSupport.isHttps ? '✓' : '✗'}
+          <br />
+          <span className="text-[10px] opacity-70">
+            {navigator.userAgent.includes('Mobile') ? 'Móvil detectado' : 'Escritorio detectado'}
+          </span>
         </AlertDescription>
       </Alert>
       
@@ -472,12 +546,13 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
               onClick={isRecordingAudio ? stopAudioRecording : startAudioRecording}
               disabled={!isRecordingAudio && audioFiles.length >= maxAudioFiles}
               variant={isRecordingAudio ? "destructive" : "outline"}
-              className="w-full"
+              className="w-full text-base py-3 min-h-[48px]" // Better mobile touch target
+              size="lg"
             >
               {isRecordingAudio ? (
-                <><Square className="h-4 w-4 mr-2" />Parar Grabación</>
+                <><Square className="h-5 w-5 mr-2" />Parar Grabación</>
               ) : (
-                <><Mic className="h-4 w-4 mr-2" />Grabar Nota de Voz</>
+                <><Mic className="h-5 w-5 mr-2" />Grabar Nota de Voz</>
               )}
             </Button>
             
@@ -537,12 +612,13 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
               onClick={isRecordingVideo ? stopVideoRecording : startVideoRecording}
               disabled={!isRecordingVideo && videoFiles.length >= maxVideoFiles}
               variant={isRecordingVideo ? "destructive" : "outline"}
-              className="w-full"
+              className="w-full text-base py-3 min-h-[48px]" // Better mobile touch target
+              size="lg"
             >
               {isRecordingVideo ? (
-                <><Square className="h-4 w-4 mr-2" />Parar Video</>
+                <><Square className="h-5 w-5 mr-2" />Parar Video</>
               ) : (
-                <><Video className="h-4 w-4 mr-2" />Grabar Video</>
+                <><Video className="h-5 w-5 mr-2" />Grabar Video</>
               )}
             </Button>
             
@@ -592,12 +668,13 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full"
+                  className="w-full text-base py-3 min-h-[48px]" // Better mobile touch target
                   disabled={photoFiles.length >= maxPhotoFiles}
                   asChild
+                  size="lg"
                 >
                   <span>
-                    <Upload className="h-4 w-4 mr-2" />
+                    <Upload className="h-5 w-5 mr-2" />
                     Subir Fotos
                   </span>
                 </Button>
@@ -615,11 +692,13 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
                 <Button
                   type="button"
                   variant="outline"
+                  className="min-h-[48px] px-4" // Better mobile touch target
                   disabled={photoFiles.length >= maxPhotoFiles}
                   asChild
+                  size="lg"
                 >
                   <span>
-                    <Camera className="h-4 w-4" />
+                    <Camera className="h-5 w-5" />
                   </span>
                 </Button>
               </label>
