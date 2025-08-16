@@ -80,24 +80,17 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
         hostname: window.location.hostname
       });
 
-      // For mobile browsers, be more permissive - let them try even if detection is unreliable
+      // For mobile browsers, be very permissive - always show the UI
       const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       
       let errorMessage = '';
-      let isSupported = true; // Default to supported for better mobile experience
+      let isSupported = true; // Always supported - let users try
       
       if (!isHttps) {
         errorMessage = 'Se requiere HTTPS para acceder a cámara y micrófono';
         isSupported = false;
-      } else if (!hasGetUserMedia && !isMobile) {
-        // Only block if we're sure it's not supported and not on mobile
-        errorMessage = 'Tu navegador no soporta acceso a cámara/micrófono';
-        isSupported = false;
-      } else if (!hasMediaRecorder && !isMobile) {
-        // Only block if we're sure it's not supported and not on mobile
-        errorMessage = 'Tu navegador no soporta grabación de medios';
-        isSupported = false;
       }
+      // Remove all other checks - let the actual recording attempt handle errors
 
       setMediaSupport({
         hasMediaRecorder,
@@ -285,7 +278,9 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
       
       if (videoPreviewRef.current) {
         videoPreviewRef.current.srcObject = stream;
-        videoPreviewRef.current.play();
+        videoPreviewRef.current.muted = true; // Prevent audio feedback
+        videoPreviewRef.current.playsInline = true; // Important for mobile
+        videoPreviewRef.current.play().catch(e => console.log('Video preview play failed:', e));
       }
       
       // Try different video MIME types for better compatibility
