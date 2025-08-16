@@ -219,14 +219,15 @@ const ActivityMediaDisplay: React.FC<ActivityMediaDisplayProps> = ({
                 <span className="text-sm font-medium">Fotos</span>
                 <Badge variant="outline">{photoFiles.length}</Badge>
               </div>
-              <div className="grid grid-cols-2 gap-2 pl-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 pl-6">
                 {photoFiles.map((file) => (
                   <div key={file.id} className="relative group">
                     <img
                       src={`${supabase.storage.from('activity-photos').getPublicUrl(file.file_path).data.publicUrl}`}
                       alt={file.file_name}
-                      className="w-full h-24 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
+                      className="w-full h-20 md:h-24 lg:h-28 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
                       onClick={() => setSelectedPhoto(`${supabase.storage.from('activity-photos').getPublicUrl(file.file_path).data.publicUrl}`)}
+                      loading="lazy"
                     />
                     <div className="absolute bottom-1 left-1 right-1">
                       <div className="text-xs bg-black/50 text-white px-1 py-0.5 rounded truncate">
@@ -252,10 +253,10 @@ const ActivityMediaDisplay: React.FC<ActivityMediaDisplayProps> = ({
       {/* Photo Modal */}
       {selectedPhoto && (
         <div 
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-2 md:p-4"
           onClick={() => setSelectedPhoto(null)}
         >
-          <div className="relative max-w-4xl max-h-[90vh]">
+          <div className="relative w-full h-full max-w-4xl max-h-[95vh] flex items-center justify-center">
             <img
               src={selectedPhoto}
               alt="Photo preview"
@@ -263,8 +264,11 @@ const ActivityMediaDisplay: React.FC<ActivityMediaDisplayProps> = ({
             />
             <Button
               variant="secondary"
-              className="absolute top-2 right-2"
-              onClick={() => setSelectedPhoto(null)}
+              className="absolute top-2 right-2 z-10"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedPhoto(null);
+              }}
             >
               ✕
             </Button>

@@ -80,16 +80,24 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
         hostname: window.location.hostname
       });
 
+      // For mobile browsers, be more permissive - let them try even if detection is unreliable
+      const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
       let errorMessage = '';
+      let isSupported = true; // Default to supported for better mobile experience
+      
       if (!isHttps) {
         errorMessage = 'Se requiere HTTPS para acceder a cámara y micrófono';
-      } else if (!hasGetUserMedia) {
+        isSupported = false;
+      } else if (!hasGetUserMedia && !isMobile) {
+        // Only block if we're sure it's not supported and not on mobile
         errorMessage = 'Tu navegador no soporta acceso a cámara/micrófono';
-      } else if (!hasMediaRecorder) {
+        isSupported = false;
+      } else if (!hasMediaRecorder && !isMobile) {
+        // Only block if we're sure it's not supported and not on mobile
         errorMessage = 'Tu navegador no soporta grabación de medios';
+        isSupported = false;
       }
-
-      const isSupported = isHttps && hasGetUserMedia && hasMediaRecorder;
 
       setMediaSupport({
         hasMediaRecorder,
@@ -728,13 +736,13 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
             </div>
             
             {photoFiles.length > 0 && (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                 {photoFiles.map((photoFile) => (
                   <div key={photoFile.id} className="relative group">
                     <img
                       src={photoFile.url}
                       alt={photoFile.name}
-                      className="w-full h-24 object-cover rounded border"
+                      className="w-full h-20 md:h-24 lg:h-28 object-cover rounded border"
                     />
                     <Button
                       type="button"
