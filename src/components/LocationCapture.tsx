@@ -266,7 +266,9 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
   };
 
   const uploadMediaFiles = async (activityId: string, userId: string) => {
-    const uploadPromises = mediaFiles.map(async (mediaFile) => {
+    const failedUploads: string[] = [];
+    
+    const uploadPromises = mediaFiles.map(async (mediaFile, index) => {
       let bucket: string;
       let filePath: string;
 
@@ -284,37 +286,70 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
           return;
       }
 
-      filePath = `${userId}/${activityId}/${mediaFile.file.name}`;
+      // Generate unique file path with timestamp
+      const timestamp = Date.now();
+      const uniqueFileName = `${timestamp}-${mediaFile.file.name}`;
+      filePath = `${userId}/${activityId}/${uniqueFileName}`;
 
-      // Upload file to storage
-      const { error: storageError } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, mediaFile.file);
+      // Retry logic for uploads
+      let attempt = 0;
+      const maxRetries = 2;
+      
+      while (attempt <= maxRetries) {
+        try {
+          // Upload file to storage
+          const { error: storageError } = await supabase.storage
+            .from(bucket)
+            .upload(filePath, mediaFile.file);
 
-      if (storageError) {
-        console.error('Storage upload error:', storageError);
-        return;
-      }
+          if (storageError) {
+            throw storageError;
+          }
 
-      // Insert file record into database
-      const { error: dbError } = await supabase
-        .from('activity_files')
-        .insert({
-          activity_id: activityId,
-          file_type: mediaFile.type,
-          file_path: filePath,
-          file_name: mediaFile.file.name,
-          file_size: mediaFile.file.size,
-          duration: mediaFile.duration,
-          user_id: userId,
-        });
+          // Insert file record into database
+          const { error: dbError } = await supabase
+            .from('activity_files')
+            .insert({
+              activity_id: activityId,
+              file_type: mediaFile.type,
+              file_path: filePath,
+              file_name: mediaFile.file.name,
+              file_size: mediaFile.file.size,
+              duration: mediaFile.duration,
+              user_id: userId,
+            });
 
-      if (dbError) {
-        console.error('Database insert error:', dbError);
+          if (dbError) {
+            throw dbError;
+          }
+
+          // Success - break out of retry loop
+          break;
+          
+        } catch (error) {
+          console.error(`Upload attempt ${attempt + 1} failed:`, error);
+          attempt++;
+          
+          if (attempt > maxRetries) {
+            failedUploads.push(mediaFile.file.name);
+          } else {
+            // Wait before retrying
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          }
+        }
       }
     });
 
     await Promise.all(uploadPromises);
+    
+    // Show toast for failed uploads
+    if (failedUploads.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "Algunos archivos no se pudieron cargar",
+        description: `Archivos fallidos: ${failedUploads.join(', ')}`,
+      });
+    }
   };
 
   return (

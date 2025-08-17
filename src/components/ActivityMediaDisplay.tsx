@@ -96,13 +96,18 @@ const ActivityMediaDisplay: React.FC<ActivityMediaDisplayProps> = ({
     }
 
     const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+    
+    // Add cache-busting parameter for mobile browsers
+    const cacheBuster = `?t=${Date.now()}&r=${Math.random()}`;
+    const finalUrl = data.publicUrl + cacheBuster;
+    
     console.log('🔗 GENERATED URL:', {
       bucket,
       filePath,
-      url: data.publicUrl,
+      url: finalUrl,
       fileType
     });
-    return data.publicUrl;
+    return finalUrl;
   };
 
   const playAudio = async (file: ActivityFile) => {
