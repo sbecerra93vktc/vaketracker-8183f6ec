@@ -141,6 +141,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
   const ensureFirstFrame = (videoEl: HTMLVideoElement) => {
     // Set essential props + attributes (iOS needs both)
     videoEl.muted = true;
+    videoEl.setAttribute('muted', 'true'); // extra nudge for iOS
     videoEl.playsInline = true;
     videoEl.setAttribute('playsinline', 'true');
     videoEl.setAttribute('webkit-playsinline', 'true');
@@ -204,9 +205,11 @@ const MediaRecorderWidget: React.FC<Props> = ({
           const alt = await tryConstraints('user');
           if (alt) {
             const vt = alt.getVideoTracks()[0];
-            const at = (stream!.getAudioTracks()[0] ?? alt.getAudioTracks()[0]);
-            const mixed = new MediaStream([vt, ...(at ? [at] : [])]);
+            // 🚫 Do NOT add audio to the preview stream (iOS will black out)
+            const mixed = new MediaStream([vt]); // preview stays VIDEO-ONLY
             streamRef.current = mixed;
+            v.srcObject = null;
+            v.load();
             v.srcObject = mixed;
             ensureFirstFrame(v);
           }
