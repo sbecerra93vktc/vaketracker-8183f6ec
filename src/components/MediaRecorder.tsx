@@ -1,786 +1,336 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { 
-  Mic, 
-  Square, 
-  Play, 
-  Pause, 
-  Video, 
-  Camera, 
-  Trash2, 
-  Upload,
-  FileImage,
-  AlertCircle,
-  Info,
-  ChevronDown,
-  CheckCircle2
-} from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import React, { useEffect, useRef, useState } from 'react';
 
-export interface MediaFile {
-  type: 'audio' | 'video' | 'photo';
+export type MediaFile = {
+  type: 'video' | 'audio' | 'photo';
   file: File;
   duration?: number;
-}
+};
 
-interface MediaRecorderProps {
-  onFilesChange: (files: MediaFile[]) => void;
+type Props = {
+  onFilesChange?: (files: MediaFile[]) => void;
   maxAudioFiles?: number;
   maxVideoFiles?: number;
   maxPhotoFiles?: number;
-}
+};
 
-const MediaRecorder: React.FC<MediaRecorderProps> = ({
+const pickSupportedMime = (candidates: string[], kind: 'video' | 'audio') => {
+  // @ts-ignore
+  const MR = window.MediaRecorder;
+  if (!MR || !MR.isTypeSupported) return undefined;
+  for (const t of candidates) {
+    try {
+      if (MR.isTypeSupported(t)) return t;
+    } catch {}
+  }
+  return undefined;
+};
+
+const MediaRecorderWidget: React.FC<Props> = ({
   onFilesChange,
   maxAudioFiles = 5,
   maxVideoFiles = 5,
-  maxPhotoFiles = 10
+  maxPhotoFiles = 10,
 }) => {
-  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
-  const [isRecordingVideo, setIsRecordingVideo] = useState(false);
-  const [audioFiles, setAudioFiles] = useState<MediaFile[]>([]);
-  const [videoFiles, setVideoFiles] = useState<MediaFile[]>([]);
-  const [photoFiles, setPhotoFiles] = useState<MediaFile[]>([]);
-  const [playingAudio, setPlayingAudio] = useState<string | null>(null);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [showDebug, setShowDebug] = useState(false);
-  const [videoReady, setVideoReady] = useState(false);
-  
-  const [compatibility, setCompatibility] = useState({
-    hasMediaRecorder: false,
-    hasGetUserMedia: false,
-    isHttps: false,
-    userAgent: '',
-    protocol: '',
-    chosenAudioMimeType: '',
-    chosenVideoMimeType: ''
-  });
-  
-  const audioRecorderRef = useRef<MediaRecorder | null>(null);
+  const videoPreviewRef = useRef<HTMLVideoElement | null>(null); // live preview
+  const playbackRef = useRef<HTMLVideoElement | null>(null);     // playback element
+  const streamRef = useRef<MediaStream | null>(null);
+
   const videoRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioStreamRef = useRef<MediaStream | null>(null);
-  const videoStreamRef = useRef<MediaStream | null>(null);
-  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
-  const videoPreviewRef = useRef<HTMLVideoElement | null>(null);
-  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
-  
-  const { toast } = useToast();
+  const audioRecorderRef = useRef<MediaRecorder | null>(null);
+  const videoChunksRef = useRef<Blob[]>([]);
+  const audioChunksRef = useRef<Blob[]>([]);
 
-  // Check compatibility on mount
+  const [files, setFiles] = useState<MediaFile[]>([]);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [recordingVideo, setRecordingVideo] = useState(false);
+  const [recordingAudio, setRecordingAudio] = useState(false);
+  const [debugOpen, setDebugOpen] = useState(false);
+  const [chosenVideoMime, setChosenVideoMime] = useState<string | undefined>();
+  const [chosenAudioMime, setChosenAudioMime] = useState<string | undefined>();
+
+  // Push up to parent
   useEffect(() => {
-    const checkCompatibility = () => {
-      const hasMediaRecorder = typeof MediaRecorder !== 'undefined';
-      const hasGetUserMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-      const isHttps = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
-      
-      setCompatibility({
-        hasMediaRecorder,
-        hasGetUserMedia,
-        isHttps,
-        userAgent: navigator.userAgent,
-        protocol: window.location.protocol,
-        chosenAudioMimeType: '',
-        chosenVideoMimeType: ''
-      });
-    };
+    onFilesChange?.(files);
+  }, [files, onFilesChange]);
 
-    checkCompatibility();
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopCameraTracks();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const updateAllFiles = useCallback((audio: MediaFile[], video: MediaFile[], photos: MediaFile[]) => {
-    const allFiles = [...audio, ...video, ...photos];
-    onFilesChange(allFiles);
-  }, [onFilesChange]);
-
-  const startRecordingTimer = () => {
-    setRecordingTime(0);
-    recordingTimerRef.current = setInterval(() => {
-      setRecordingTime(prev => prev + 1);
-    }, 1000);
-  };
-
-  const stopRecordingTimer = () => {
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
+  const stopCameraTracks = () => {
+    if (streamRef.current) {
+      for (const t of streamRef.current.getTracks()) t.stop();
+      streamRef.current = null;
+    }
+    setCameraReady(false);
+    if (videoPreviewRef.current) {
+      videoPreviewRef.current.srcObject = null;
     }
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const startAudioRecording = async () => {
-    if (!compatibility.hasGetUserMedia || !compatibility.hasMediaRecorder) {
-      toast({
-        variant: "destructive",
-        title: "Función no disponible",
-        description: "Tu dispositivo no soporta grabación en el navegador. Usa el cargador de archivos.",
-      });
-      return;
+  const ensureCamera = async () => {
+    if (streamRef.current) return streamRef.current;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error('getUserMedia not supported in this browser.');
     }
 
-    try {
-      const constraints = {
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 'ontouchstart' in window ? 22050 : 44100
-        }
+    const constraints: MediaStreamConstraints = {
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: true,
+    };
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    streamRef.current = stream;
+
+    // Attach to live preview
+    const v = videoPreviewRef.current;
+    if (v) {
+      v.srcObject = stream;
+      v.onloadedmetadata = () => {
+        // Important for iOS: must be muted + playsInline + autoplay
+        v.play().catch(() => {});
       };
-      
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      audioStreamRef.current = stream;
-      
-      // Choose best MIME type
-      let mimeType = '';
-      if ((window as any).MediaRecorder.isTypeSupported('audio/mp4')) {
-        mimeType = 'audio/mp4';
-      } else if ((window as any).MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-        mimeType = 'audio/webm;codecs=opus';
-      } else if ((window as any).MediaRecorder.isTypeSupported('audio/webm')) {
-        mimeType = 'audio/webm';
-      }
-      
-      setCompatibility(prev => ({ ...prev, chosenAudioMimeType: mimeType }));
-      
-      const options = mimeType ? { mimeType } : {};
-      const mediaRecorder = new (window as any).MediaRecorder(stream, options);
-      audioRecorderRef.current = mediaRecorder;
-      
-      const chunks: Blob[] = [];
-      const startTime = Date.now();
-      
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunks.push(event.data);
-        }
-      };
-      
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: mimeType || 'audio/webm' });
-        const duration = Math.round((Date.now() - startTime) / 1000);
-        
-        // Check file size (50MB limit)
-        if (blob.size > 50 * 1024 * 1024) {
-          toast({
-            variant: "destructive",
-            title: "Archivo muy grande",
-            description: "El archivo no puede exceder 50MB. Intenta grabar menos tiempo.",
-          });
-          return;
-        }
-        
-        const fileExtension = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('wav') ? 'wav' : 'webm';
-        const file = new File([blob], `audio-${Date.now()}.${fileExtension}`, { type: mimeType || 'audio/webm' });
-        
-        const newAudioFile: MediaFile = {
-          type: 'audio',
-          file,
-          duration
-        };
-        
-        const updatedAudioFiles = [...audioFiles, newAudioFile];
-        setAudioFiles(updatedAudioFiles);
-        updateAllFiles(updatedAudioFiles, videoFiles, photoFiles);
-        
-        stream.getTracks().forEach(track => track.stop());
-        audioStreamRef.current = null;
-      };
-      
-      mediaRecorder.start();
-      setIsRecordingAudio(true);
-      startRecordingTimer();
-      
-      toast({
-        title: "Grabando nota de voz",
-        description: "Toca el botón de parar cuando termines",
-      });
-    } catch (error: any) {
-      let errorMessage = "No se pudo acceder al micrófono";
-      
-      if (error.name === 'NotAllowedError') {
-        errorMessage = "Permisos de micrófono denegados. Por favor, permite el acceso en la configuración del navegador.";
-      } else if (error.name === 'NotFoundError') {
-        errorMessage = "No se encontró micrófono disponible";
-      }
-      
-      toast({
-        variant: "destructive",
-        title: "Error de grabación",
-        description: errorMessage,
-      });
+      v.onloadeddata = () => setCameraReady(true);
     }
-  };
 
-  const stopAudioRecording = () => {
-    if (audioRecorderRef.current && isRecordingAudio) {
-      audioRecorderRef.current.stop();
-      setIsRecordingAudio(false);
-      stopRecordingTimer();
-    }
+    return stream;
   };
 
   const startVideoRecording = async () => {
-    if (!compatibility.hasGetUserMedia || !compatibility.hasMediaRecorder) {
-      toast({
-        variant: "destructive",
-        title: "Función no disponible",
-        description: "Tu dispositivo no soporta grabación en el navegador. Usa el cargador de archivos.",
-      });
-      return;
-    }
+    if (recordingVideo) return;
+    const stream = await ensureCamera();
 
-    try {
-      const isMobile = 'ontouchstart' in window;
-      const constraints = {
-        video: { 
-          facingMode: 'environment',
-          width: isMobile ? { ideal: 640, max: 1280 } : { ideal: 640 },
-          height: isMobile ? { ideal: 480, max: 720 } : { ideal: 480 },
-          frameRate: isMobile ? { ideal: 15, max: 30 } : { ideal: 30 }
-        }, 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true
-        }
-      };
-      
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      videoStreamRef.current = stream;
-      
-      if (videoPreviewRef.current) {
-        const video = videoPreviewRef.current;
-        video.srcObject = stream;
-        video.muted = true;
-        video.playsInline = true;
-        video.setAttribute('webkit-playsinline', 'true');
-        
-        video.onloadedmetadata = () => {
-          setVideoReady(true);
-          
-          // Only autoplay on desktop
-          if (!isMobile) {
-            video.play().catch(console.warn);
-          }
-        };
-        
-        // Mobile: user-initiated play
-        if (isMobile) {
-          video.addEventListener('loadeddata', () => {
-            setVideoReady(true);
-          });
-        }
-      }
-      
-      // Choose best video MIME type
-      let mimeType = '';
-      if ((window as any).MediaRecorder.isTypeSupported('video/mp4')) {
-        mimeType = 'video/mp4';
-      } else if ((window as any).MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
-        mimeType = 'video/webm;codecs=vp8';
-      } else if ((window as any).MediaRecorder.isTypeSupported('video/webm')) {
-        mimeType = 'video/webm';
-      }
-      
-      setCompatibility(prev => ({ ...prev, chosenVideoMimeType: mimeType }));
-      
-      const options = mimeType ? { mimeType } : {};
-      const mediaRecorder = new (window as any).MediaRecorder(stream, options);
-      videoRecorderRef.current = mediaRecorder;
-      
-      const chunks: Blob[] = [];
-      const startTime = Date.now();
-      
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunks.push(event.data);
-        }
-      };
-      
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: mimeType || 'video/webm' });
-        const duration = Math.round((Date.now() - startTime) / 1000);
-        
-        // Check file size (50MB limit)
-        if (blob.size > 50 * 1024 * 1024) {
-          toast({
-            variant: "destructive",
-            title: "Archivo muy grande",
-            description: "El archivo no puede exceder 50MB. Intenta grabar menos tiempo.",
-          });
-          return;
-        }
-        
-        const fileExtension = mimeType.includes('mp4') ? 'mp4' : 'webm';
-        const file = new File([blob], `video-${Date.now()}.${fileExtension}`, { type: mimeType || 'video/webm' });
-        
-        const newVideoFile: MediaFile = {
-          type: 'video',
-          file,
-          duration
-        };
-        
-        const updatedVideoFiles = [...videoFiles, newVideoFile];
-        setVideoFiles(updatedVideoFiles);
-        updateAllFiles(audioFiles, updatedVideoFiles, photoFiles);
-        
-        stream.getTracks().forEach(track => track.stop());
-        videoStreamRef.current = null;
-        setVideoReady(false);
-        
-        if (videoPreviewRef.current) {
-          videoPreviewRef.current.srcObject = null;
-        }
-      };
-      
-      // On mobile, require user gesture to start preview
-      if (isMobile && videoPreviewRef.current) {
-        videoPreviewRef.current.addEventListener('click', () => {
-          if (videoPreviewRef.current) {
-            videoPreviewRef.current.play().catch(console.warn);
-          }
-        }, { once: true });
-      }
-      
-      mediaRecorder.start();
-      setIsRecordingVideo(true);
-      startRecordingTimer();
-      
-      toast({
-        title: "Grabando video",
-        description: "Toca el botón de parar cuando termines",
+    // Choose video MIME
+    const videoCandidates = [
+      'video/mp4;codecs=h264',
+      'video/webm;codecs=vp8',
+      'video/webm',
+    ];
+    const picked = pickSupportedMime(videoCandidates, 'video');
+    setChosenVideoMime(picked);
+    const options: MediaRecorderOptions = picked ? { mimeType: picked } : {};
+
+    // Some browsers require *only video tracks* for video recorder to avoid echo
+    const videoOnlyStream = new MediaStream(stream.getVideoTracks());
+    const rec = new MediaRecorder(videoOnlyStream, options);
+    videoRecorderRef.current = rec;
+    videoChunksRef.current = [];
+
+    rec.ondataavailable = (e) => {
+      if (e.data && e.data.size) videoChunksRef.current.push(e.data);
+    };
+
+    rec.onstop = () => {
+      const blob = new Blob(videoChunksRef.current, { type: picked || 'video/webm' });
+      const filename = `video-${Date.now()}.${(picked || 'video/webm').includes('mp4') ? 'mp4' : 'webm'}`;
+      const file = new File([blob], filename, { type: blob.type });
+      setFiles((prev) => {
+        if (prev.filter((f) => f.type === 'video').length >= maxVideoFiles) return prev;
+        return [...prev, { type: 'video', file }];
       });
-    } catch (error: any) {
-      let errorMessage = "No se pudo acceder a la cámara";
-      
-      if (error.name === 'NotAllowedError') {
-        errorMessage = "Permisos de cámara denegados. Por favor, permite el acceso en la configuración del navegador.";
-      } else if (error.name === 'NotFoundError') {
-        errorMessage = "No se encontró cámara disponible";
+
+      // Play back recorded result in a dedicated element
+      if (playbackRef.current) {
+        playbackRef.current.src = URL.createObjectURL(blob);
+        playbackRef.current.load();
       }
-      
-      toast({
-        variant: "destructive",
-        title: "Error de grabación",
-        description: errorMessage,
-      });
-    }
+    };
+
+    rec.start(250); // gather chunks
+    setRecordingVideo(true);
   };
 
-  const stopVideoRecording = () => {
-    if (videoRecorderRef.current && isRecordingVideo) {
-      videoRecorderRef.current.stop();
-      setIsRecordingVideo(false);
-      stopRecordingTimer();
-    }
+  const stopVideoRecording = async () => {
+    if (!recordingVideo) return;
+    const rec = videoRecorderRef.current;
+    if (rec && rec.state !== 'inactive') rec.stop();
+    setRecordingVideo(false);
+
+    // NOTE: do NOT stop camera tracks here (we keep preview alive).
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>, type: 'audio' | 'video' | 'photo') => {
-    const files = event.target.files;
-    if (!files) return;
+  const closeCamera = () => {
+    // Allow user to close camera explicitly; this will blank the live preview
+    stopCameraTracks();
+  };
 
-    Array.from(files).forEach(file => {
-      // Check file size (50MB limit)
-      if (file.size > 50 * 1024 * 1024) {
-        toast({
-          variant: "destructive",
-          title: "Archivo muy grande",
-          description: `El archivo "${file.name}" excede 50MB. Por favor selecciona un archivo más pequeño.`,
-        });
-        return;
-      }
+  const startAudioRecording = async () => {
+    if (recordingAudio) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error('getUserMedia not supported in this browser.');
+    }
 
-      const newFile: MediaFile = {
-        type,
-        file
-      };
+    const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const audioCandidates = ['audio/mp4', 'audio/webm', 'audio/ogg'];
+    const picked = pickSupportedMime(audioCandidates, 'audio');
+    setChosenAudioMime(picked);
+    const options: MediaRecorderOptions = picked ? { mimeType: picked } : {};
 
-      if (type === 'photo') {
-        if (photoFiles.length >= maxPhotoFiles) {
-          toast({
-            variant: "destructive",
-            title: "Límite alcanzado",
-            description: `Máximo ${maxPhotoFiles} fotos permitidas`,
-          });
-          return;
-        }
-        const updatedPhotoFiles = [...photoFiles, newFile];
-        setPhotoFiles(updatedPhotoFiles);
-        updateAllFiles(audioFiles, videoFiles, updatedPhotoFiles);
-      } else if (type === 'audio') {
-        if (audioFiles.length >= maxAudioFiles) {
-          toast({
-            variant: "destructive",
-            title: "Límite alcanzado", 
-            description: `Máximo ${maxAudioFiles} audios permitidos`,
-          });
-          return;
-        }
-        const updatedAudioFiles = [...audioFiles, newFile];
-        setAudioFiles(updatedAudioFiles);
-        updateAllFiles(updatedAudioFiles, videoFiles, photoFiles);
-      } else if (type === 'video') {
-        if (videoFiles.length >= maxVideoFiles) {
-          toast({
-            variant: "destructive",
-            title: "Límite alcanzado",
-            description: `Máximo ${maxVideoFiles} videos permitidos`,
-          });
-          return;
-        }
-        const updatedVideoFiles = [...videoFiles, newFile];
-        setVideoFiles(updatedVideoFiles);
-        updateAllFiles(audioFiles, updatedVideoFiles, photoFiles);
-      }
+    const rec = new MediaRecorder(audioStream, options);
+    audioRecorderRef.current = rec;
+    audioChunksRef.current = [];
+
+    rec.ondataavailable = (e) => {
+      if (e.data && e.data.size) audioChunksRef.current.push(e.data);
+    };
+
+    rec.onstop = () => {
+      const blob = new Blob(audioChunksRef.current, { type: picked || 'audio/webm' });
+      const filename = `audio-${Date.now()}.${(picked || 'audio/webm').includes('mp4') ? 'm4a' : (picked?.includes('ogg') ? 'ogg' : 'webm')}`;
+      const file = new File([blob], filename, { type: blob.type });
+
+      setFiles((prev) => {
+        if (prev.filter((f) => f.type === 'audio').length >= maxAudioFiles) return prev;
+        return [...prev, { type: 'audio', file }];
+      });
+
+      // Stop audio tracks after we finish (no preview to keep)
+      for (const t of audioStream.getTracks()) t.stop();
+    };
+
+    rec.start(250);
+    setRecordingAudio(true);
+  };
+
+  const stopAudioRecording = () => {
+    if (!recordingAudio) return;
+    const rec = audioRecorderRef.current;
+    if (rec && rec.state !== 'inactive') rec.stop();
+    setRecordingAudio(false);
+  };
+
+  const handlePhotoPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFiles((prev) => {
+      if (prev.filter((f) => f.type === 'photo').length >= maxPhotoFiles) return prev;
+      return [...prev, { type: 'photo', file }];
     });
-
-    // Reset input
-    event.target.value = '';
+    // Reset input so same photo can be re-selected later if needed
+    e.currentTarget.value = '';
   };
-
-  const playAudio = (audioFile: MediaFile) => {
-    const audioId = audioFile.file.name + audioFile.file.size;
-    
-    if (playingAudio === audioId) {
-      audioPlayerRef.current?.pause();
-      setPlayingAudio(null);
-    } else {
-      if (audioPlayerRef.current) {
-        audioPlayerRef.current.src = URL.createObjectURL(audioFile.file);
-        audioPlayerRef.current.play();
-        setPlayingAudio(audioId);
-        
-        audioPlayerRef.current.onended = () => setPlayingAudio(null);
-      }
-    }
-  };
-
-  const removeFile = (fileIndex: number, type: 'audio' | 'video' | 'photo') => {
-    if (type === 'audio') {
-      const updated = audioFiles.filter((_, index) => index !== fileIndex);
-      setAudioFiles(updated);
-      updateAllFiles(updated, videoFiles, photoFiles);
-    } else if (type === 'video') {
-      const updated = videoFiles.filter((_, index) => index !== fileIndex);
-      setVideoFiles(updated);
-      updateAllFiles(audioFiles, updated, photoFiles);
-    } else {
-      const updated = photoFiles.filter((_, index) => index !== fileIndex);
-      setPhotoFiles(updated);
-      updateAllFiles(audioFiles, videoFiles, updated);
-    }
-  };
-
-  const useNativeRecording = compatibility.hasGetUserMedia && compatibility.hasMediaRecorder;
 
   return (
-    <div className="space-y-6">
-      <audio ref={audioPlayerRef} />
-      
-      {/* Compatibility Debug Panel */}
-      <Collapsible>
-        <CollapsibleTrigger asChild>
-          <Button variant="ghost" size="sm" className="text-xs" onClick={() => setShowDebug(!showDebug)}>
-            <Info className="h-3 w-3 mr-1" />
-            Mostrar diagnóstico
-            <ChevronDown className="h-3 w-3 ml-1" />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <Card className="mt-2">
-            <CardContent className="pt-4 text-xs space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <div>MediaRecorder: {compatibility.hasMediaRecorder ? '✅' : '❌'}</div>
-                <div>getUserMedia: {compatibility.hasGetUserMedia ? '✅' : '❌'}</div>
-                <div>Protocol: {compatibility.protocol}</div>
-                <div>HTTPS: {compatibility.isHttps ? '✅' : '❌'}</div>
-              </div>
-              {compatibility.chosenAudioMimeType && (
-                <div>Audio MIME: {compatibility.chosenAudioMimeType}</div>
-              )}
-              {compatibility.chosenVideoMimeType && (
-                <div>Video MIME: {compatibility.chosenVideoMimeType}</div>
-              )}
-              <div className="text-xs text-muted-foreground mt-2">
-                User Agent: {compatibility.userAgent}
-              </div>
-            </CardContent>
-          </Card>
-        </CollapsibleContent>
-      </Collapsible>
+    <div className="space-y-3">
+      {/* Live camera preview */}
+      <div className="relative rounded-lg overflow-hidden bg-black">
+        <video
+          ref={videoPreviewRef}
+          autoPlay
+          muted
+          playsInline
+          // @ts-ignore needed for older iOS
+          webkit-playsinline="true"
+          preload="metadata"
+          className="w-full"
+          style={{ minHeight: 240, objectFit: 'cover' }}
+        />
+        {cameraReady && (
+          <span className="absolute top-2 left-2 text-xs px-2 py-1 rounded bg-green-600/80 text-white">
+            Camera Ready
+          </span>
+        )}
+      </div>
 
-      {/* Fallback Warning */}
-      {!useNativeRecording && (
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Tu dispositivo no soporta grabación en el navegador. Usa el cargador de archivos.
-          </AlertDescription>
-        </Alert>
-      )}
+      {/* Controls */}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          className="h-11 rounded-lg border px-3 text-sm font-medium hover:bg-accent active:scale-[0.98]"
+          onClick={ensureCamera}
+          type="button"
+        >
+          Open Camera
+        </button>
 
-      {/* Audio Recording Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Mic className="h-5 w-5" />
-            Notas de Voz
-            {audioFiles.length > 0 && (
-              <Badge variant="secondary">{audioFiles.length}/{maxAudioFiles}</Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {useNativeRecording ? (
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button
-                onClick={isRecordingAudio ? stopAudioRecording : startAudioRecording}
-                variant={isRecordingAudio ? "destructive" : "default"}
-                size="lg"
-                disabled={!isRecordingAudio && audioFiles.length >= maxAudioFiles}
-                className="min-h-[48px]"
-              >
-                {isRecordingAudio ? (
-                  <>
-                    <Square className="h-5 w-5 mr-2" />
-                    Detener ({formatTime(recordingTime)})
-                  </>
-                ) : (
-                  <>
-                    <Mic className="h-5 w-5 mr-2" />
-                    Grabar audio
-                  </>
-                )}
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <Label htmlFor="audio-upload" className="cursor-pointer">
-                <div className="flex items-center justify-center min-h-[48px] px-4 py-2 border-2 border-dashed border-muted-foreground/25 rounded-lg hover:border-muted-foreground/50 transition-colors">
-                  <Upload className="h-5 w-5 mr-2" />
-                  Cargar archivo de audio
-                </div>
-              </Label>
-              <input
-                id="audio-upload"
-                type="file"
-                accept="audio/*"
-                capture="user"
-                multiple
-                onChange={(e) => handleFileUpload(e, 'audio')}
-                className="hidden"
-              />
-            </div>
-          )}
+        {!recordingVideo ? (
+          <button
+            className="h-11 rounded-lg bg-red-600 text-white px-3 text-sm font-semibold hover:bg-red-700 active:scale-[0.98]"
+            onClick={startVideoRecording}
+            type="button"
+          >
+            Start Video
+          </button>
+        ) : (
+          <button
+            className="h-11 rounded-lg bg-red-600 text-white px-3 text-sm font-semibold hover:bg-red-700 active:scale-[0.98]"
+            onClick={stopVideoRecording}
+            type="button"
+          >
+            Stop Video
+          </button>
+        )}
 
-          {audioFiles.length > 0 && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Archivos de audio:</Label>
-              {audioFiles.map((audioFile, index) => (
-                <div key={index} className="flex items-center gap-2 p-2 border rounded">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => playAudio(audioFile)}
-                  >
-                    {playingAudio === audioFile.file.name + audioFile.file.size ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                  </Button>
-                  <span className="text-sm flex-1 truncate">{audioFile.file.name}</span>
-                  {audioFile.duration && (
-                    <Badge variant="outline">{formatTime(audioFile.duration)}</Badge>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeFile(index, 'audio')}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        <button
+          className="h-11 rounded-lg border px-3 text-sm font-medium hover:bg-accent active:scale-[0.98]"
+          onClick={closeCamera}
+          type="button"
+        >
+          Close Camera
+        </button>
 
-      {/* Video Recording Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Video className="h-5 w-5" />
-            Videos
-            {videoFiles.length > 0 && (
-              <Badge variant="secondary">{videoFiles.length}/{maxVideoFiles}</Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {useNativeRecording ? (
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Button
-                  onClick={isRecordingVideo ? stopVideoRecording : startVideoRecording}
-                  variant={isRecordingVideo ? "destructive" : "default"}
-                  size="lg"
-                  disabled={!isRecordingVideo && videoFiles.length >= maxVideoFiles}
-                  className="min-h-[48px]"
-                >
-                  {isRecordingVideo ? (
-                    <>
-                      <Square className="h-5 w-5 mr-2" />
-                      Detener ({formatTime(recordingTime)})
-                    </>
-                  ) : (
-                    <>
-                      <Video className="h-5 w-5 mr-2" />
-                      Grabar video
-                    </>
-                  )}
-                </Button>
-              </div>
+        {!recordingAudio ? (
+          <button
+            className="h-11 rounded-lg border px-3 text-sm font-medium hover:bg-accent active:scale-[0.98]"
+            onClick={startAudioRecording}
+            type="button"
+          >
+            Start Voice Note
+          </button>
+        ) : (
+          <button
+            className="h-11 rounded-lg border px-3 text-sm font-medium hover:bg-accent active:scale-[0.98]"
+            onClick={stopAudioRecording}
+            type="button"
+          >
+            Stop Voice Note
+          </button>
+        )}
+      </div>
 
-              {(isRecordingVideo || videoReady) && (
-                <div className="relative">
-                  <video
-                    ref={videoPreviewRef}
-                    className="w-full h-48 bg-black rounded-lg object-cover"
-                    playsInline
-                    muted
-                  />
-                  {videoReady && !isRecordingVideo && 'ontouchstart' in window && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => videoPreviewRef.current?.play()}
-                      >
-                        <Play className="h-4 w-4 mr-2" />
-                        Toca para ver vista previa
-                      </Button>
-                    </div>
-                  )}
-                  {videoReady && (
-                    <div className="absolute top-2 right-2">
-                      <Badge variant="default" className="bg-green-500">
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        Cámara lista
-                      </Badge>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <Label htmlFor="video-upload" className="cursor-pointer">
-                <div className="flex items-center justify-center min-h-[48px] px-4 py-2 border-2 border-dashed border-muted-foreground/25 rounded-lg hover:border-muted-foreground/50 transition-colors">
-                  <Upload className="h-5 w-5 mr-2" />
-                  Cargar archivo de video
-                </div>
-              </Label>
-              <input
-                id="video-upload"
-                type="file"
-                accept="video/*"
-                capture="environment"
-                multiple
-                onChange={(e) => handleFileUpload(e, 'video')}
-                className="hidden"
-              />
-            </div>
-          )}
+      {/* Photo picker (best cross-device fallback) */}
+      <div>
+        <label className="block text-sm font-medium mb-1">Take/Upload Photo</label>
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handlePhotoPick}
+          className="block w-full text-sm"
+        />
+      </div>
 
-          {videoFiles.length > 0 && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Archivos de video:</Label>
-              {videoFiles.map((videoFile, index) => (
-                <div key={index} className="flex items-center gap-2 p-2 border rounded">
-                  <Video className="h-4 w-4" />
-                  <span className="text-sm flex-1 truncate">{videoFile.file.name}</span>
-                  {videoFile.duration && (
-                    <Badge variant="outline">{formatTime(videoFile.duration)}</Badge>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeFile(index, 'video')}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Playback for the last recorded video */}
+      <div className="rounded-lg overflow-hidden bg-muted/30 p-2">
+        <label className="block text-sm font-medium mb-1">Recorded Video Preview</label>
+        <video
+          ref={playbackRef}
+          controls
+          playsInline
+          preload="metadata"
+          className="w-full rounded"
+          style={{ minHeight: 160, background: '#000' }}
+        />
+      </div>
 
-      {/* Photo Upload Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Camera className="h-5 w-5" />
-            Fotos
-            {photoFiles.length > 0 && (
-              <Badge variant="secondary">{photoFiles.length}/{maxPhotoFiles}</Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="photo-upload" className="cursor-pointer">
-              <div className="flex items-center justify-center min-h-[48px] px-4 py-2 border-2 border-dashed border-muted-foreground/25 rounded-lg hover:border-muted-foreground/50 transition-colors">
-                <Camera className="h-5 w-5 mr-2" />
-                Tomar o cargar foto
-              </div>
-            </Label>
-            <input
-              id="photo-upload"
-              type="file"
-              accept="image/*"
-              capture="environment"
-              multiple
-              onChange={(e) => handleFileUpload(e, 'photo')}
-              className="hidden"
-            />
-          </div>
-
-          {photoFiles.length > 0 && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Fotos:</Label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {photoFiles.map((photoFile, index) => (
-                  <div key={index} className="relative group">
-                    <img
-                      src={URL.createObjectURL(photoFile.file)}
-                      alt={`Foto ${index + 1}`}
-                      className="w-full h-24 object-cover rounded border"
-                    />
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-                      onClick={() => removeFile(index, 'photo')}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Small debug panel */}
+      <details className="text-xs text-muted-foreground" open={debugOpen} onToggle={(e) => setDebugOpen((e.target as HTMLDetailsElement).open)}>
+        <summary className="cursor-pointer select-none">Mostrar diagnóstico</summary>
+        <div className="mt-2 space-y-1">
+          <div>UserAgent: {navigator.userAgent}</div>
+          <div>Protocol: {location.protocol}</div>
+          <div>MediaRecorder: {typeof window !== 'undefined' && 'MediaRecorder' in window ? 'YES' : 'NO'}</div>
+          <div>getUserMedia: {navigator.mediaDevices?.getUserMedia ? 'YES' : 'NO'}</div>
+          <div>Chosen Video MIME: {chosenVideoMime || '(default)'}</div>
+          <div>Chosen Audio MIME: {chosenAudioMime || '(default)'}</div>
+          <div>Tracks Alive: {streamRef.current ? streamRef.current.getTracks().filter(t => t.readyState === 'live').length : 0}</div>
+        </div>
+      </details>
     </div>
   );
 };
 
-export default MediaRecorder;
+export default MediaRecorderWidget;
