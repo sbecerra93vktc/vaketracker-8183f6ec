@@ -77,27 +77,17 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
         hasMediaRecorder,
         userAgent: navigator.userAgent,
         protocol: window.location.protocol,
-        hostname: window.location.hostname
+        hostname: window.location.hostname,
+        isMobile: 'ontouchstart' in window || navigator.maxTouchPoints > 0
       });
 
-      // For mobile browsers, be very permissive - always show the UI
-      const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      
-      let errorMessage = '';
-      let isSupported = true; // Always supported - let users try
-      
-      if (!isHttps) {
-        errorMessage = 'Se requiere HTTPS para acceder a cámara y micrófono';
-        isSupported = false;
-      }
-      // Remove all other checks - let the actual recording attempt handle errors
-
+      // Always show UI - let users try recording regardless of device
       setMediaSupport({
         hasMediaRecorder,
         hasGetUserMedia,
         isHttps,
-        isSupported,
-        errorMessage
+        isSupported: true, // Always true - show all fields
+        errorMessage: ''
       });
     };
 
@@ -231,44 +221,39 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
     try {
       console.log('Requesting video permission for mobile...');
       
-      // Progressive fallback constraints for better mobile compatibility
-      let constraints;
-      const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      
-      if (isMobile) {
-        // Simplified constraints for mobile - often the issue is overcomplicated constraints
-        constraints = {
-          video: { 
-            facingMode: 'user', // Start with front camera for better compatibility
-            width: { ideal: 640, max: 1280 },
-            height: { ideal: 480, max: 720 }
-          }, 
-          audio: true
-        };
-      } else {
-        // Desktop constraints - be more specific about video source
-        constraints = {
-          video: { 
-            width: { ideal: 1280, max: 1920 },
-            height: { ideal: 720, max: 1080 },
-            frameRate: { ideal: 30, max: 30 }
-          }, 
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true
-          }
-        };
-      }
+      // Use simple constraints that work across all devices
+      const constraints = {
+        video: { 
+          facingMode: 'user',
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        }, 
+        audio: true
+      };
       
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       videoStreamRef.current = stream;
       
        if (videoPreviewRef.current) {
          videoPreviewRef.current.srcObject = stream;
-         videoPreviewRef.current.muted = true; // Prevent audio feedback
-         videoPreviewRef.current.playsInline = true; // Important for mobile
-         videoPreviewRef.current.autoplay = true; // Force autoplay
-         await videoPreviewRef.current.play().catch(e => console.log('Video preview play failed:', e));
+         videoPreviewRef.current.muted = true;
+         videoPreviewRef.current.playsInline = true;
+         videoPreviewRef.current.autoplay = true;
+         // Force play and handle any autoplay issues
+         const playPromise = videoPreviewRef.current.play();
+         if (playPromise !== undefined) {
+           playPromise.then(() => {
+             console.log('Video preview started successfully');
+           }).catch(error => {
+             console.log('Video preview autoplay failed, but this is normal:', error);
+             // Try to trigger play again
+             setTimeout(() => {
+               if (videoPreviewRef.current) {
+                 videoPreviewRef.current.play().catch(() => {});
+               }
+             }, 100);
+           });
+         }
        }
       
       // Try different video MIME types for better compatibility
@@ -427,20 +412,12 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
     <div className="space-y-6">
       <audio ref={audioPlayerRef} />
       
-      {/* Warning for unsupported features but show debug info */}
-      {(!mediaSupport.isSupported && mediaSupport.errorMessage) && (
+      {/* Only show warning for HTTPS issues */}
+      {!mediaSupport.isHttps && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="text-sm">
-            {mediaSupport.errorMessage}
-            {!mediaSupport.isHttps && (
-              <div className="mt-2">
-                <strong>Nota:</strong> Las funciones de grabación requieren una conexión segura (HTTPS).
-              </div>
-            )}
-            <div className="mt-2">
-              <strong>Funciones disponibles:</strong> Subir fotos funcionará normalmente.
-            </div>
+            Las funciones de grabación requieren una conexión segura (HTTPS).
           </AlertDescription>
         </Alert>
       )}
