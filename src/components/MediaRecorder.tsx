@@ -74,7 +74,8 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       const isAndroid = /Android/.test(navigator.userAgent);
       
-      console.log('🔍 MOBILE MEDIA DEBUG:', {
+      // Enhanced mobile debugging
+      console.log('🔍 ENHANCED MOBILE MEDIA DEBUG:', {
         isHttps,
         hasGetUserMedia,
         hasMediaRecorder,
@@ -93,20 +94,41 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
         viewport: {
           width: window.innerWidth,
           height: window.innerHeight
+        },
+        mediaDevices: !!navigator.mediaDevices,
+        constraints: {
+          audio: hasGetUserMedia,
+          video: hasGetUserMedia
+        },
+        permissions: {
+          query: !!(navigator.permissions && navigator.permissions.query)
         }
       });
 
-      // Force show all fields regardless of device detection
+      // ALWAYS show fields on mobile - force true for all conditions
       setMediaSupport({
-        hasMediaRecorder,
-        hasGetUserMedia,
+        hasMediaRecorder: true, // Force true on mobile
+        hasGetUserMedia: true,  // Force true on mobile
         isHttps,
-        isSupported: true, // ALWAYS true - force show fields
+        isSupported: true,      // ALWAYS true
         errorMessage: ''
       });
     };
 
     checkMediaSupport();
+    
+    // Re-check on orientation change (mobile specific)
+    const handleOrientationChange = () => {
+      setTimeout(checkMediaSupport, 100);
+    };
+    
+    window.addEventListener('orientationchange', handleOrientationChange);
+    window.addEventListener('resize', handleOrientationChange);
+    
+    return () => {
+      window.removeEventListener('orientationchange', handleOrientationChange);
+      window.removeEventListener('resize', handleOrientationChange);
+    };
   }, []);
 
   const updateAllFiles = useCallback((audio: MediaFile[], video: MediaFile[], photos: MediaFile[]) => {
@@ -121,8 +143,16 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
     try {
       console.log('Requesting audio permission for mobile...');
       
-      // Use more specific constraints for mobile browsers
-      const constraints = {
+       // Mobile-optimized audio constraints
+      const isMobile = 'ontouchstart' in window;
+      const constraints = isMobile ? {
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 22050 // Lower for mobile compatibility
+        }
+      } : {
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
@@ -236,8 +266,20 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
     try {
       console.log('Requesting video permission for mobile...');
       
-      // Use simple constraints that work across all devices
-      const constraints = {
+       // Mobile-optimized video constraints
+      const isMobile = 'ontouchstart' in window;
+      const constraints = isMobile ? {
+        video: { 
+          facingMode: 'user',
+          width: { ideal: 640, max: 1280 },
+          height: { ideal: 480, max: 720 },
+          frameRate: { ideal: 15, max: 30 } // Lower framerate for mobile
+        }, 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true
+        }
+      } : {
         video: { 
           facingMode: 'user',
           width: { ideal: 640 },
@@ -249,41 +291,56 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       videoStreamRef.current = stream;
       
-       if (videoPreviewRef.current) {
-         console.log('🎥 Setting up video preview...');
+        if (videoPreviewRef.current) {
+         console.log('🎥 Setting up video preview for mobile...');
          const video = videoPreviewRef.current;
          
-         // Set video properties for better mobile compatibility
+         // Enhanced mobile video setup
          video.srcObject = stream;
          video.muted = true;
          video.playsInline = true;
-         video.autoplay = true;
+         video.autoplay = false; // Disable autoplay on mobile initially
          video.controls = false;
-         video.style.background = '#000'; // Black background instead of transparent
+         video.style.background = '#000';
+         video.style.objectFit = 'cover';
          
-         // Add load event listener
-         video.addEventListener('loadedmetadata', () => {
-           console.log('📹 Video metadata loaded, dimensions:', video.videoWidth, 'x', video.videoHeight);
+         // Mobile-specific video attributes
+         video.setAttribute('webkit-playsinline', 'true');
+         video.setAttribute('playsinline', 'true');
+         
+         // Enhanced load handling
+         const handleVideoLoad = () => {
+           console.log('📹 Video metadata loaded:', {
+             dimensions: `${video.videoWidth}x${video.videoHeight}`,
+             readyState: video.readyState,
+             duration: video.duration
+           });
+         };
+         
+         video.addEventListener('loadedmetadata', handleVideoLoad);
+         video.addEventListener('canplay', () => {
+           console.log('📹 Video can play');
          });
          
-         // Force play with better error handling
-         const playPromise = video.play();
-         if (playPromise !== undefined) {
-           playPromise.then(() => {
-             console.log('✅ Video preview playing successfully');
-           }).catch(error => {
-             console.warn('⚠️ Video preview autoplay failed:', error);
-             // Try manual play after a short delay
-             setTimeout(() => {
-               if (video && video.srcObject) {
-                 video.play().then(() => {
-                   console.log('✅ Manual video play successful');
-                 }).catch((retryError) => {
-                   console.error('❌ Manual video play failed:', retryError);
-                 });
-               }
-             }, 500);
+         // Mobile-friendly play strategy
+         const isMobile = 'ontouchstart' in window;
+         if (isMobile) {
+           // On mobile, wait for user interaction
+           video.addEventListener('loadeddata', () => {
+             // Show visual feedback that video is ready
+             video.style.border = '2px solid #10b981';
+             console.log('📱 Mobile video ready - user can start recording');
            });
+         } else {
+           // Desktop autoplay
+           const playPromise = video.play();
+           if (playPromise !== undefined) {
+             playPromise.then(() => {
+               console.log('✅ Desktop video preview playing');
+             }).catch(error => {
+               console.warn('⚠️ Desktop autoplay failed:', error);
+             });
+           }
          }
        }
       

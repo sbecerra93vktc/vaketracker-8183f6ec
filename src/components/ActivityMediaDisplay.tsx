@@ -238,15 +238,22 @@ const ActivityMediaDisplay: React.FC<ActivityMediaDisplayProps> = ({
                 <span className="text-sm font-medium">Fotos</span>
                 <Badge variant="outline">{photoFiles.length}</Badge>
               </div>
-               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 pl-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 pl-6">
                  {photoFiles.map((file) => {
-                   const photoUrl = `${supabase.storage.from('activity-photos').getPublicUrl(file.file_path).data.publicUrl}`;
-                   console.log('🖼️ PHOTO DISPLAY:', {
+                   // Enhanced mobile-friendly URL generation with cache busting
+                   const timestamp = Date.now();
+                   const isMobile = 'ontouchstart' in window;
+                   const photoUrl = `${supabase.storage.from('activity-photos').getPublicUrl(file.file_path).data.publicUrl}${isMobile ? `?t=${timestamp}&mobile=1` : ''}`;
+                   
+                   console.log('🖼️ ENHANCED PHOTO DISPLAY:', {
                      file: file.file_name,
                      path: file.file_path,
                      url: photoUrl,
                      size: file.file_size,
-                     created: file.created_at
+                     created: file.created_at,
+                     isMobile,
+                     timestamp,
+                     userAgent: navigator.userAgent.slice(0, 50)
                    });
                    
                    return (
@@ -257,15 +264,24 @@ const ActivityMediaDisplay: React.FC<ActivityMediaDisplayProps> = ({
                          className="w-full h-20 md:h-24 lg:h-28 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
                          onClick={() => setSelectedPhoto(photoUrl)}
                          loading="lazy"
-                         style={{ backgroundColor: '#f3f4f6' }}
+                         style={{ 
+                           backgroundColor: '#f3f4f6',
+                           minHeight: '80px',
+                           minWidth: '80px'
+                         }}
                          onError={(e) => {
-                           console.error('❌ IMAGE LOAD ERROR:', {
+                           console.error('❌ ENHANCED IMAGE LOAD ERROR:', {
                              url: photoUrl,
                              file: file.file_name,
                              error: e,
                              userAgent: navigator.userAgent,
-                             mobile: 'ontouchstart' in window
+                             mobile: isMobile,
+                             connection: (navigator as any).connection,
+                             onLine: navigator.onLine,
+                             protocol: window.location.protocol,
+                             timestamp: new Date().toISOString()
                            });
+                           
                            const img = e.currentTarget as HTMLImageElement;
                            img.style.backgroundColor = '#fee2e2';
                            img.style.border = '2px solid #ef4444';
@@ -276,20 +292,50 @@ const ActivityMediaDisplay: React.FC<ActivityMediaDisplayProps> = ({
                            img.style.lineHeight = '1.2';
                            img.alt = `❌ Error: ${file.file_name}`;
                            
-                           // Try to reload the image after a delay
-                           setTimeout(() => {
-                             console.log('🔄 RETRYING IMAGE LOAD:', photoUrl);
-                             img.src = photoUrl + `?t=${Date.now()}`;
-                           }, 1000);
+                           // Enhanced retry strategy for mobile
+                           let retryCount = 0;
+                           const maxRetries = isMobile ? 3 : 1;
+                           
+                           const retryLoad = () => {
+                             if (retryCount < maxRetries) {
+                               retryCount++;
+                               const retryTimestamp = Date.now();
+                               const retryUrl = `${supabase.storage.from('activity-photos').getPublicUrl(file.file_path).data.publicUrl}?retry=${retryCount}&t=${retryTimestamp}`;
+                               
+                               console.log(`🔄 RETRY ${retryCount}/${maxRetries} IMAGE LOAD:`, retryUrl);
+                               
+                               setTimeout(() => {
+                                 img.src = retryUrl;
+                               }, retryCount * 1000); // Progressive delay
+                             } else {
+                               console.error('❌ MAX RETRIES REACHED for:', file.file_name);
+                               img.style.backgroundColor = '#fef2f2';
+                               img.style.color = '#991b1b';
+                               img.innerHTML = `<div style="display: flex; flex-direction: column; justify-content: center; height: 100%; text-align: center;"><div>❌</div><div style="font-size: 8px;">Error cargando</div></div>`;
+                             }
+                           };
+                           
+                           retryLoad();
                          }}
-                          onLoad={(e) => {
-                            console.log('✅ IMAGE LOADED:', {
-                              url: photoUrl,
-                              file: file.file_name,
-                              naturalWidth: (e.currentTarget as HTMLImageElement).naturalWidth,
-                              naturalHeight: (e.currentTarget as HTMLImageElement).naturalHeight
-                            });
-                          }}
+                         onLoad={(e) => {
+                           console.log('✅ ENHANCED IMAGE LOADED:', {
+                             url: photoUrl,
+                             file: file.file_name,
+                             naturalWidth: (e.currentTarget as HTMLImageElement).naturalWidth,
+                             naturalHeight: (e.currentTarget as HTMLImageElement).naturalHeight,
+                             loadTime: Date.now() - timestamp,
+                             isMobile
+                           });
+                           
+                           // Visual success feedback on mobile
+                           if (isMobile) {
+                             const img = e.currentTarget as HTMLImageElement;
+                             img.style.border = '1px solid #10b981';
+                             setTimeout(() => {
+                               img.style.border = '1px solid #d1d5db';
+                             }, 1000);
+                           }
+                         }}
                        />
                        <div className="absolute bottom-1 left-1 right-1">
                          <div className="text-xs bg-black/50 text-white px-1 py-0.5 rounded truncate">
@@ -299,7 +345,7 @@ const ActivityMediaDisplay: React.FC<ActivityMediaDisplayProps> = ({
                        <Button
                          variant="secondary"
                          size="sm"
-                         className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                         className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity touch-manipulation min-h-[32px] min-w-[32px]"
                          onClick={() => setSelectedPhoto(photoUrl)}
                        >
                          <Eye className="h-3 w-3" />
