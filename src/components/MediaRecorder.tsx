@@ -113,46 +113,89 @@ const MediaRecorderWidget: React.FC<Props> = ({
     }
   };
 
+  const ensureFirstFrame = (videoEl: HTMLVideoElement) => {
+    // Set essential props + attributes (iOS needs both)
+    videoEl.muted = true;
+    videoEl.playsInline = true;
+    videoEl.setAttribute('playsinline', 'true');
+    videoEl.setAttribute('webkit-playsinline', 'true');
+    videoEl.autoplay = true;
+
+    const tryPlay = () => videoEl.play().catch(() => { /* ignore */ });
+
+    // When metadata is ready, try to play
+    videoEl.onloadedmetadata = () => {
+      tryPlay();
+    };
+
+    // Confirm the first painted frame (best effort) 
+    if ('requestVideoFrameCallback' in videoEl) {
+      (videoEl as any).requestVideoFrameCallback(() => {
+        setCameraReady(true);
+      });
+    } else {
+      // Fallback: mark ready after a delay
+      setTimeout(() => setCameraReady(true), 500);
+    }
+
+    // Safety retry: if we still haven't painted, poke again
+    let attempts = 0;
+    const pump = () => {
+      if (videoEl.readyState >= 2 && videoEl.videoWidth > 0) return;
+      attempts += 1;
+      tryPlay();
+      if (attempts < 10) requestAnimationFrame(pump);
+    };
+    requestAnimationFrame(pump);
+  };
+
+  const openCameraWithFallback = async () => {
+    const base = { width: { ideal: 1280 }, height: { ideal: 720 } };
+
+    const tryConstraints = async (videoFacingMode: 'environment' | 'user') => {
+      return navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: videoFacingMode }, ...base },
+        audio: true,
+      });
+    };
+
+    let stream = await tryConstraints('environment').catch(() => null);
+    if (!stream) stream = await tryConstraints('user'); // fallback if environment fails
+    if (!stream) throw new Error('No camera available');
+
+    streamRef.current = stream;
+    const v = videoPreviewRef.current!;
+    v.srcObject = stream;
+    ensureFirstFrame(v);
+
+    // If no first frame after 1200ms, swap to user camera once
+    setTimeout(async () => {
+      if (!v.videoWidth || v.readyState < 2) {
+        // keep audio from the first stream, just swap video track
+        try {
+          const alt = await tryConstraints('user');
+          if (alt) {
+            const vt = alt.getVideoTracks()[0];
+            const at = (stream!.getAudioTracks()[0] ?? alt.getAudioTracks()[0]);
+            const mixed = new MediaStream([vt, ...(at ? [at] : [])]);
+            streamRef.current = mixed;
+            v.srcObject = mixed;
+            ensureFirstFrame(v);
+          }
+        } catch {/* ignore */}
+      }
+    }, 1200);
+
+    return streamRef.current;
+  };
+
   const ensureCamera = async () => {
     if (streamRef.current) return streamRef.current;
     if (!navigator.mediaDevices?.getUserMedia) {
       throw new Error('getUserMedia not supported in this browser.');
     }
 
-    const constraints: MediaStreamConstraints = {
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
-      audio: true,
-    };
-
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    streamRef.current = stream;
-
-    // Attach to live preview with iOS Safari specific handling
-    const v = videoPreviewRef.current;
-    if (v) {
-      // Set essential props for iOS Safari
-      v.muted = true;
-      v.playsInline = true;
-      v.setAttribute('playsinline', 'true');
-      v.setAttribute('webkit-playsinline', 'true');
-      
-      v.srcObject = stream;
-      
-      // Wait for loadedmetadata, then play (iOS requirement)
-      v.onloadedmetadata = () => {
-        v.play().catch(() => {});
-      };
-      
-      // Use requestVideoFrameCallback for first frame detection (fallback to loadeddata)
-      if ('requestVideoFrameCallback' in v) {
-        (v as any).requestVideoFrameCallback(() => setCameraReady(true));
-      } else {
-        // Use a timeout to ensure camera is ready after stream is attached
-        setTimeout(() => setCameraReady(true), 500);
-      }
-    }
-
-    return stream;
+    return openCameraWithFallback();
   };
 
   const startVideoRecording = async () => {
@@ -319,20 +362,23 @@ const MediaRecorderWidget: React.FC<Props> = ({
 
   return (
     <div className="space-y-3">
-      {/* Live camera preview with proper iOS Safari styling */}
-      <div className="relative rounded-lg overflow-hidden" style={{ background: '#000' }}>
+      {/* Always-mounted preview video with hard CSS guardrails */}
+      <div className="relative min-h-[240px]" style={{ background: '#000' }}>
         <video
           ref={videoPreviewRef}
           autoPlay
           muted
           playsInline
-          webkit-playsinline="true"
           preload="metadata"
-          className="w-full"
-          style={{ 
-            minHeight: 220, 
+          className="block"
+          style={{
+            width: '100%',
+            minHeight: 240,
+            background: '#000',
             objectFit: 'cover',
-            background: '#000'
+            borderRadius: 8,
+            transform: 'translateZ(0)',
+            contain: 'paint',
           }}
         />
         {cameraReady && (
@@ -346,6 +392,13 @@ const MediaRecorderWidget: React.FC<Props> = ({
             REC {formatTime(recordingTime)}
           </div>
         )}
+      </div>
+
+      {/* Inline diagnostics */}
+      <div className="text-[11px] opacity-70 mt-1">
+        Tracks: {streamRef.current ? streamRef.current.getTracks().filter(t => t.readyState === 'live').length : 0} •
+        readyState: {videoPreviewRef.current?.readyState} •
+        size: {videoPreviewRef.current?.videoWidth ?? 0}×{videoPreviewRef.current?.videoHeight ?? 0}
       </div>
 
       {/* Controls */}
