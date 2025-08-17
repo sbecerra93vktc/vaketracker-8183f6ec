@@ -72,6 +72,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
   const videoPreviewRef = useRef<HTMLVideoElement | null>(null); // live preview
   const playbackRef = useRef<HTMLVideoElement | null>(null);     // playback element
   const streamRef = useRef<MediaStream | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
   const recordingStartTimeRef = useRef<number>(0);
 
   const videoRecorderRef = useRef<MediaRecorder | null>(null);
@@ -177,9 +178,10 @@ const MediaRecorderWidget: React.FC<Props> = ({
     const base = { width: { ideal: 1280 }, height: { ideal: 720 } };
 
     const tryConstraints = async (videoFacingMode: 'environment' | 'user') => {
+      // PREVIEW stream must be VIDEO ONLY
       return navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: videoFacingMode }, ...base },
-        audio: true,
+        audio: false,
       });
     };
 
@@ -189,6 +191,8 @@ const MediaRecorderWidget: React.FC<Props> = ({
 
     streamRef.current = stream;
     const v = videoPreviewRef.current!;
+    v.srcObject = null;
+    v.load();
     v.srcObject = stream;
     ensureFirstFrame(v);
 
@@ -239,10 +243,19 @@ const MediaRecorderWidget: React.FC<Props> = ({
       setChosenVideoMime(picked);
       const options: MediaRecorderOptions = picked ? { mimeType: picked } : {};
 
-      // IMPORTANT: build recorder from CLONED tracks (video + audio).
-      // This keeps the original stream exclusively for the <video> preview,
-      // preventing iOS Safari from blanking the preview during recording.
-      const recorderStream = makeRecorderStream(stream, /* withAudio */ true);
+      // IMPORTANT: For iOS, keep PREVIEW stream video-only.
+      // Build the RECORDER stream from:
+      //   - cloned video track from the preview stream
+      //   - a FRESH mic stream (audio: true)
+      const videoTrack = stream.getVideoTracks()[0];
+      if (!videoTrack) throw new Error('No video track available');
+      const clonedVideo = videoTrack.clone();
+
+      // request mic ONLY for the recorder
+      micStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const micTrack = micStreamRef.current.getAudioTracks()[0];
+
+      const recorderStream = new MediaStream([clonedVideo, ...(micTrack ? [micTrack] : [])]);
 
       const rec = new MediaRecorder(recorderStream, options);
       videoRecorderRef.current = rec;
@@ -286,8 +299,14 @@ const MediaRecorderWidget: React.FC<Props> = ({
           playbackRef.current.load();
         }
 
-        // Clean up cloned tracks used for recording
-        recorderStream.getTracks().forEach(t => t.stop());
+        // Clean up only the RECORDER tracks (cloned video + temp mic)
+        try { recorderStream.getTracks().forEach(t => t.stop()); } catch {}
+        try {
+          if (micStreamRef.current) {
+            micStreamRef.current.getTracks().forEach(t => t.stop());
+            micStreamRef.current = null;
+          }
+        } catch {}
       };
 
       rec.start(250); // gather chunks every 250ms
