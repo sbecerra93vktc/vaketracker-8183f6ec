@@ -359,6 +359,11 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
           </div>
         )}
 
+        {/* Enhanced debugging for activity type selection */}
+        <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+          📝 Debug: Activity Type = "{activityType}" | Show Media = {(activityType === 'Visita en frío' || activityType === 'Visita programada' || activityType === 'Visita de cortesía') ? 'YES ✅' : 'NO ❌'}
+        </div>
+
         {(activityType === 'Visita en frío' || activityType === 'Visita programada' || activityType === 'Visita de cortesía') && (
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

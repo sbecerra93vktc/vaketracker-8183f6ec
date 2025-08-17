@@ -50,6 +50,8 @@ const ActivityMediaDisplay: React.FC<ActivityMediaDisplayProps> = ({
 
   const fetchActivityFiles = async () => {
     try {
+      console.log('🔍 FETCHING FILES for activity:', activityId);
+      
       const { data, error } = await supabase
         .from('activity_files')
         .select('*')
@@ -57,12 +59,23 @@ const ActivityMediaDisplay: React.FC<ActivityMediaDisplayProps> = ({
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setFiles((data || []).map(file => ({
+      
+      const processedFiles = (data || []).map(file => ({
         ...file,
         file_type: file.file_type as 'photo' | 'video' | 'audio'
-      })));
+      }));
+      
+      console.log('📁 FILES FETCHED:', {
+        total: processedFiles.length,
+        photos: processedFiles.filter(f => f.file_type === 'photo').length,
+        videos: processedFiles.filter(f => f.file_type === 'video').length,
+        audio: processedFiles.filter(f => f.file_type === 'audio').length,
+        files: processedFiles.map(f => ({ name: f.file_name, type: f.file_type, path: f.file_path }))
+      });
+      
+      setFiles(processedFiles);
     } catch (error) {
-      console.error('Error fetching activity files:', error);
+      console.error('❌ Error fetching activity files:', error);
     } finally {
       setLoading(false);
     }
@@ -83,6 +96,12 @@ const ActivityMediaDisplay: React.FC<ActivityMediaDisplayProps> = ({
     }
 
     const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+    console.log('🔗 GENERATED URL:', {
+      bucket,
+      filePath,
+      url: data.publicUrl,
+      fileType
+    });
     return data.publicUrl;
   };
 
@@ -219,10 +238,16 @@ const ActivityMediaDisplay: React.FC<ActivityMediaDisplayProps> = ({
                 <span className="text-sm font-medium">Fotos</span>
                 <Badge variant="outline">{photoFiles.length}</Badge>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 pl-6">
+               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 pl-6">
                  {photoFiles.map((file) => {
                    const photoUrl = `${supabase.storage.from('activity-photos').getPublicUrl(file.file_path).data.publicUrl}`;
-                   console.log('Photo file:', file, 'URL:', photoUrl);
+                   console.log('🖼️ PHOTO DISPLAY:', {
+                     file: file.file_name,
+                     path: file.file_path,
+                     url: photoUrl,
+                     size: file.file_size,
+                     created: file.created_at
+                   });
                    
                    return (
                      <div key={file.id} className="relative group">
@@ -232,19 +257,39 @@ const ActivityMediaDisplay: React.FC<ActivityMediaDisplayProps> = ({
                          className="w-full h-20 md:h-24 lg:h-28 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
                          onClick={() => setSelectedPhoto(photoUrl)}
                          loading="lazy"
-                         crossOrigin="anonymous"
-                         referrerPolicy="no-referrer"
+                         style={{ backgroundColor: '#f3f4f6' }}
                          onError={(e) => {
-                           console.error('Failed to load image:', photoUrl);
+                           console.error('❌ IMAGE LOAD ERROR:', {
+                             url: photoUrl,
+                             file: file.file_name,
+                             error: e,
+                             userAgent: navigator.userAgent,
+                             mobile: 'ontouchstart' in window
+                           });
                            const img = e.currentTarget as HTMLImageElement;
-                           img.style.backgroundColor = '#f3f4f6';
+                           img.style.backgroundColor = '#fee2e2';
                            img.style.border = '2px solid #ef4444';
-                           img.style.display = 'flex';
-                           img.style.alignItems = 'center';
-                           img.style.justifyContent = 'center';
-                           img.innerHTML = '❌ Error loading image';
+                           img.style.color = '#dc2626';
+                           img.style.fontSize = '10px';
+                           img.style.textAlign = 'center';
+                           img.style.padding = '4px';
+                           img.style.lineHeight = '1.2';
+                           img.alt = `❌ Error: ${file.file_name}`;
+                           
+                           // Try to reload the image after a delay
+                           setTimeout(() => {
+                             console.log('🔄 RETRYING IMAGE LOAD:', photoUrl);
+                             img.src = photoUrl + `?t=${Date.now()}`;
+                           }, 1000);
                          }}
-                         onLoad={() => console.log('Image loaded successfully:', photoUrl)}
+                          onLoad={(e) => {
+                            console.log('✅ IMAGE LOADED:', {
+                              url: photoUrl,
+                              file: file.file_name,
+                              naturalWidth: (e.currentTarget as HTMLImageElement).naturalWidth,
+                              naturalHeight: (e.currentTarget as HTMLImageElement).naturalHeight
+                            });
+                          }}
                        />
                        <div className="absolute bottom-1 left-1 right-1">
                          <div className="text-xs bg-black/50 text-white px-1 py-0.5 rounded truncate">
@@ -262,7 +307,7 @@ const ActivityMediaDisplay: React.FC<ActivityMediaDisplayProps> = ({
                      </div>
                    );
                  })}
-              </div>
+               </div>
             </div>
           )}
         </CardContent>

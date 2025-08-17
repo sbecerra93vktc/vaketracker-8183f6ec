@@ -70,23 +70,38 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
       const isHttps = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
       const hasGetUserMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
       const hasMediaRecorder = !!(window as any).MediaRecorder;
+      const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isAndroid = /Android/.test(navigator.userAgent);
       
-      console.log('MediaRecorder Support Check:', {
+      console.log('🔍 MOBILE MEDIA DEBUG:', {
         isHttps,
         hasGetUserMedia,
         hasMediaRecorder,
+        isMobile,
+        isIOS,
+        isAndroid,
         userAgent: navigator.userAgent,
         protocol: window.location.protocol,
         hostname: window.location.hostname,
-        isMobile: 'ontouchstart' in window || navigator.maxTouchPoints > 0
+        touchPoints: navigator.maxTouchPoints,
+        screen: {
+          width: screen.width,
+          height: screen.height,
+          orientation: screen.orientation?.type
+        },
+        viewport: {
+          width: window.innerWidth,
+          height: window.innerHeight
+        }
       });
 
-      // Always show UI - let users try recording regardless of device
+      // Force show all fields regardless of device detection
       setMediaSupport({
         hasMediaRecorder,
         hasGetUserMedia,
         isHttps,
-        isSupported: true, // Always true - show all fields
+        isSupported: true, // ALWAYS true - force show fields
         errorMessage: ''
       });
     };
@@ -235,23 +250,39 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
       videoStreamRef.current = stream;
       
        if (videoPreviewRef.current) {
-         videoPreviewRef.current.srcObject = stream;
-         videoPreviewRef.current.muted = true;
-         videoPreviewRef.current.playsInline = true;
-         videoPreviewRef.current.autoplay = true;
-         // Force play and handle any autoplay issues
-         const playPromise = videoPreviewRef.current.play();
+         console.log('🎥 Setting up video preview...');
+         const video = videoPreviewRef.current;
+         
+         // Set video properties for better mobile compatibility
+         video.srcObject = stream;
+         video.muted = true;
+         video.playsInline = true;
+         video.autoplay = true;
+         video.controls = false;
+         video.style.background = '#000'; // Black background instead of transparent
+         
+         // Add load event listener
+         video.addEventListener('loadedmetadata', () => {
+           console.log('📹 Video metadata loaded, dimensions:', video.videoWidth, 'x', video.videoHeight);
+         });
+         
+         // Force play with better error handling
+         const playPromise = video.play();
          if (playPromise !== undefined) {
            playPromise.then(() => {
-             console.log('Video preview started successfully');
+             console.log('✅ Video preview playing successfully');
            }).catch(error => {
-             console.log('Video preview autoplay failed, but this is normal:', error);
-             // Try to trigger play again
+             console.warn('⚠️ Video preview autoplay failed:', error);
+             // Try manual play after a short delay
              setTimeout(() => {
-               if (videoPreviewRef.current) {
-                 videoPreviewRef.current.play().catch(() => {});
+               if (video && video.srcObject) {
+                 video.play().then(() => {
+                   console.log('✅ Manual video play successful');
+                 }).catch((retryError) => {
+                   console.error('❌ Manual video play failed:', retryError);
+                 });
                }
-             }, 100);
+             }, 500);
            });
          }
        }
@@ -426,10 +457,16 @@ const MediaRecorder: React.FC<MediaRecorderProps> = ({
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription className="text-xs">
-          Estado: Audio {mediaSupport.hasMediaRecorder ? '✓' : '✗'} | Video {mediaSupport.hasGetUserMedia ? '✓' : '✗'} | HTTPS {mediaSupport.isHttps ? '✓' : '✗'}
+          📱 Estado: Audio {mediaSupport.hasMediaRecorder ? '✅' : '❌'} | Video {mediaSupport.hasGetUserMedia ? '✅' : '❌'} | HTTPS {mediaSupport.isHttps ? '✅' : '❌'}
           <br />
           <span className="text-[10px] opacity-70">
-            {navigator.userAgent.includes('Mobile') ? 'Móvil detectado' : 'Escritorio detectado'}
+            📲 Dispositivo: {'ontouchstart' in window ? 'Táctil' : 'No táctil'} | 
+            🖐️ Touch: {navigator.maxTouchPoints || 0} | 
+            📐 {window.innerWidth}x{window.innerHeight}
+          </span>
+          <br />
+          <span className="text-[8px] opacity-50">
+            🌐 {navigator.userAgent.slice(0, 80)}...
           </span>
         </AlertDescription>
       </Alert>
