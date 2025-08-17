@@ -37,6 +37,32 @@ const generateUniqueFileName = (type: string, extension: string) => {
   return `${type}-${timestamp}-${random}.${extension}`;
 };
 
+const isIOS = () =>
+  typeof navigator !== 'undefined' &&
+  /iPad|iPhone|iPod/.test(navigator.userAgent) &&
+  // iPadOS 13+ reports as Mac; also check for touch support
+  ('ontouchend' in document);
+
+const isLive = (s: MediaStream | null) =>
+  !!s && s.getTracks().some(t => t.readyState === 'live');
+
+/**
+ * Build a recorder stream from CLONED tracks so the preview keeps its originals.
+ * This prevents iOS Safari from blanking the <video> while recording.
+ */
+const makeRecorderStream = (src: MediaStream, withAudio: boolean) => {
+  const videoTrack = src.getVideoTracks()[0];
+  if (!videoTrack) throw new Error('No video track available');
+  const clonedVideo = videoTrack.clone();
+
+  let tracks: MediaStreamTrack[] = [clonedVideo];
+  if (withAudio) {
+    const audioTrack = src.getAudioTracks()[0];
+    if (audioTrack) tracks.push(audioTrack.clone());
+  }
+  return new MediaStream(tracks);
+};
+
 const MediaRecorderWidget: React.FC<Props> = ({
   onFilesChange,
   maxAudioFiles = 5,
@@ -67,17 +93,15 @@ const MediaRecorderWidget: React.FC<Props> = ({
     onFilesChange?.(files);
   }, [files, onFilesChange]);
 
-  // Recording timer
+  // Recording timer (browser-safe typing)
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (recordingVideo || recordingAudio) {
-      interval = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
+      interval = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
     } else {
       setRecordingTime(0);
     }
-    return () => clearInterval(interval);
+    return () => { if (interval) clearInterval(interval); };
   }, [recordingVideo, recordingAudio]);
 
   // Handle page visibility change - pause preview but don't stop tracks
@@ -200,7 +224,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
 
   const startVideoRecording = async () => {
     if (recordingVideo) return;
-    
+
     try {
       const stream = await ensureCamera();
       recordingStartTimeRef.current = Date.now();
@@ -215,9 +239,12 @@ const MediaRecorderWidget: React.FC<Props> = ({
       setChosenVideoMime(picked);
       const options: MediaRecorderOptions = picked ? { mimeType: picked } : {};
 
-      // Some browsers require *only video tracks* for video recorder to avoid echo
-      const videoOnlyStream = new MediaStream(stream.getVideoTracks());
-      const rec = new MediaRecorder(videoOnlyStream, options);
+      // IMPORTANT: build recorder from CLONED tracks (video + audio).
+      // This keeps the original stream exclusively for the <video> preview,
+      // preventing iOS Safari from blanking the preview during recording.
+      const recorderStream = makeRecorderStream(stream, /* withAudio */ true);
+
+      const rec = new MediaRecorder(recorderStream, options);
       videoRecorderRef.current = rec;
       videoChunksRef.current = [];
 
@@ -225,20 +252,28 @@ const MediaRecorderWidget: React.FC<Props> = ({
         if (e.data && e.data.size) videoChunksRef.current.push(e.data);
       };
 
+      rec.onstart = () => {
+        // Safari can pause the preview when recording starts; poke it to keep playing
+        const v = videoPreviewRef.current;
+        if (v) {
+          v.play().catch(() => {});
+        }
+      };
+
       rec.onstop = () => {
         const blob = new Blob(videoChunksRef.current, { type: picked || 'video/webm' });
         const duration = Math.round((Date.now() - recordingStartTimeRef.current) / 1000);
-        
+
         // Check file size (50MB limit)
         if (blob.size > 50 * 1024 * 1024) {
           alert('Archivo muy grande (>50MB). Intenta grabar menos tiempo.');
           return;
         }
-        
+
         const extension = (picked || 'video/webm').includes('mp4') ? 'mp4' : 'webm';
         const filename = generateUniqueFileName('video', extension);
         const file = new File([blob], filename, { type: blob.type });
-        
+
         setFiles((prev) => {
           if (prev.filter((f) => f.type === 'video').length >= maxVideoFiles) return prev;
           return [...prev, { type: 'video', file, duration }];
@@ -246,9 +281,13 @@ const MediaRecorderWidget: React.FC<Props> = ({
 
         // Play back recorded result in a dedicated element
         if (playbackRef.current) {
+          // (Optional) revoke old URL if you store it; for now just set a fresh one
           playbackRef.current.src = URL.createObjectURL(blob);
           playbackRef.current.load();
         }
+
+        // Clean up cloned tracks used for recording
+        recorderStream.getTracks().forEach(t => t.stop());
       };
 
       rec.start(250); // gather chunks every 250ms
