@@ -74,6 +74,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
   const streamRef = useRef<MediaStream | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const recordingStartTimeRef = useRef<number>(0);
+  const previewKeepAliveRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const videoRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRecorderRef = useRef<MediaRecorder | null>(null);
@@ -123,6 +124,11 @@ const MediaRecorderWidget: React.FC<Props> = ({
   useEffect(() => {
     return () => {
       stopCameraTracks();
+      // new:
+      if (previewKeepAliveRef.current) {
+        clearInterval(previewKeepAliveRef.current);
+        previewKeepAliveRef.current = null;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -269,14 +275,49 @@ const MediaRecorderWidget: React.FC<Props> = ({
       };
 
       rec.onstart = () => {
-        // Safari can pause the preview when recording starts; poke it to keep playing
+        // Nudge preview to keep playing
         const v = videoPreviewRef.current;
-        if (v) {
-          v.play().catch(() => {});
+        if (v) v.play().catch(() => {});
+
+        // Clear any previous interval
+        if (previewKeepAliveRef.current) {
+          clearInterval(previewKeepAliveRef.current);
+          previewKeepAliveRef.current = null;
         }
+
+        // Every second, check for "black" preview and re-attach srcObject if needed
+        previewKeepAliveRef.current = setInterval(() => {
+          const vEl = videoPreviewRef.current;
+          const liveStream = streamRef.current;
+          if (!vEl || !liveStream) return;
+
+          const black =
+            vEl.readyState < 2 ||
+            vEl.videoWidth === 0 ||
+            vEl.videoHeight === 0;
+
+          const trackLive = liveStream.getVideoTracks().some(t => t.readyState === 'live');
+
+          if (black || !trackLive || (vEl.srcObject !== liveStream)) {
+            vEl.srcObject = liveStream;
+            vEl.play().catch(() => {});
+          }
+        }, 1000);
       };
 
       rec.onstop = () => {
+        // clear keep-alive
+        if (previewKeepAliveRef.current) {
+          clearInterval(previewKeepAliveRef.current);
+          previewKeepAliveRef.current = null;
+        }
+        // re-prime the preview stream
+        const v = videoPreviewRef.current;
+        if (v && streamRef.current) {
+          if (v.srcObject !== streamRef.current) v.srcObject = streamRef.current;
+          v.play().catch(() => {});
+        }
+
         const blob = new Blob(videoChunksRef.current, { type: picked || 'video/webm' });
         const duration = Math.round((Date.now() - recordingStartTimeRef.current) / 1000);
 
@@ -325,6 +366,11 @@ const MediaRecorderWidget: React.FC<Props> = ({
     const rec = videoRecorderRef.current;
     if (rec && rec.state !== 'inactive') rec.stop();
     setRecordingVideo(false);
+    
+    if (previewKeepAliveRef.current) {
+      clearInterval(previewKeepAliveRef.current);
+      previewKeepAliveRef.current = null;
+    }
     // NOTE: do NOT stop camera tracks here (we keep preview alive)
   };
 
@@ -438,8 +484,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
             background: '#000',
             objectFit: 'cover',
             borderRadius: 8,
-            transform: 'translateZ(0)',
-            contain: 'paint',
+            // Avoid GPU/contain on iOS—can cause black preview layers
           }}
         />
         {cameraReady && (
