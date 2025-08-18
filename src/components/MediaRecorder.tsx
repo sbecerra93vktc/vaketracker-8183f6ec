@@ -46,6 +46,31 @@ const isIOS = () =>
 const isLive = (s: MediaStream | null) =>
   !!s && s.getTracks().some(t => t.readyState === 'live');
 
+// Device detection utilities for diagnostics
+const getIOSVersion = () => {
+  const match = navigator.userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/);
+  return match ? `${match[1]}.${match[2]}${match[3] ? `.${match[3]}` : ''}` : 'N/A';
+};
+
+const getSafariVersion = () => {
+  const match = navigator.userAgent.match(/Version\/(\d+\.\d+)/);
+  return match ? match[1] : 'N/A';
+};
+
+const getDeviceInfo = () => {
+  const ua = navigator.userAgent;
+  const isIOSDevice = /iPad|iPhone|iPod/.test(ua);
+  const isSafari = /Safari/.test(ua) && !/Chrome/.test(ua);
+  
+  return {
+    isIOS: isIOSDevice,
+    isSafari,
+    iosVersion: isIOSDevice ? getIOSVersion() : 'N/A',
+    safariVersion: isSafari ? getSafariVersion() : 'N/A',
+    userAgent: ua.slice(0, 80) + (ua.length > 80 ? '...' : ''),
+  };
+};
+
 /**
  * Build a recorder stream from CLONED tracks so the preview keeps its originals.
  * This prevents iOS Safari from blanking the <video> while recording.
@@ -89,6 +114,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
   const [debugOpen, setDebugOpen] = useState(false);
   const [chosenVideoMime, setChosenVideoMime] = useState<string | undefined>();
   const [chosenAudioMime, setChosenAudioMime] = useState<string | undefined>();
+  const [diagnosticsTick, setDiagnosticsTick] = useState(0);
 
   // Push up to parent
   useEffect(() => {
@@ -119,6 +145,15 @@ const MediaRecorderWidget: React.FC<Props> = ({
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
+
+  // Live diagnostics updater (only during recording)
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | undefined;
+    if (recordingVideo || recordingAudio) {
+      interval = setInterval(() => setDiagnosticsTick(prev => prev + 1), 500);
+    }
+    return () => { if (interval) clearInterval(interval); };
+  }, [recordingVideo, recordingAudio]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -500,11 +535,83 @@ const MediaRecorderWidget: React.FC<Props> = ({
         )}
       </div>
 
-      {/* Inline diagnostics */}
-      <div className="text-[11px] opacity-70 mt-1">
-        Tracks: {streamRef.current ? streamRef.current.getTracks().filter(t => t.readyState === 'live').length : 0} •
-        readyState: {videoPreviewRef.current?.readyState} •
-        size: {videoPreviewRef.current?.videoWidth ?? 0}×{videoPreviewRef.current?.videoHeight ?? 0}
+      {/* Live iOS Safari Diagnostics Panel */}
+      <div className={`text-sm rounded-lg border p-3 space-y-2 transition-colors ${
+        (recordingVideo || recordingAudio) ? 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800' : 'bg-muted/50 border-muted-foreground/20'
+      }`}>
+        <div className="font-semibold text-foreground">
+          🔍 Live iOS Safari Debug Panel {(recordingVideo || recordingAudio) ? '(RECORDING)' : ''}
+        </div>
+        
+        {/* Section 1: Camera Tracks ReadyState */}
+        <div className="space-y-1">
+          <div className="font-medium text-sm">1. Camera Tracks ReadyState:</div>
+          <div className="text-xs font-mono pl-3">
+            {streamRef.current ? (
+              streamRef.current.getTracks().map((track, i) => {
+                const status = track.readyState === 'live' ? '🟢' : '🔴';
+                return (
+                  <div key={i}>
+                    {status} {track.kind}: {track.readyState}
+                  </div>
+                );
+              })
+            ) : (
+              <div>🔴 No tracks available</div>
+            )}
+          </div>
+        </div>
+
+        {/* Section 2: Video Element ReadyState */}
+        <div className="space-y-1">
+          <div className="font-medium text-sm">2. Video Element ReadyState:</div>
+          <div className="text-xs font-mono pl-3">
+            {(() => {
+              const readyState = videoPreviewRef.current?.readyState ?? -1;
+              const status = readyState >= 2 ? '🟢' : '🔴';
+              const context = readyState >= 2 ? 'READY' : readyState === 1 ? 'metadata' : readyState === 0 ? 'no-data' : 'null';
+              return `${status} ${readyState} (${context}) ${readyState >= 2 ? '✓' : '⚠️ Need ≥2'}`;
+            })()}
+          </div>
+        </div>
+
+        {/* Section 3: Video Dimensions */}
+        <div className="space-y-1">
+          <div className="font-medium text-sm">3. Video Dimensions:</div>
+          <div className="text-xs font-mono pl-3">
+            {(() => {
+              const width = videoPreviewRef.current?.videoWidth ?? 0;
+              const height = videoPreviewRef.current?.videoHeight ?? 0;
+              const status = (width > 0 && height > 0) ? '🟢' : '🔴';
+              const warning = (width === 0 && height === 0) ? ' ⚠️ BLACK SCREEN!' : '';
+              return `${status} ${width}×${height}${warning}`;
+            })()}
+          </div>
+        </div>
+
+        {/* Section 4: Device Info */}
+        <div className="space-y-1">
+          <div className="font-medium text-sm">4. Device Info:</div>
+          <div className="text-xs font-mono pl-3 space-y-0.5">
+            {(() => {
+              const info = getDeviceInfo();
+              return (
+                <>
+                  <div>🍎 iOS: {info.isIOS ? '✅' : '❌'} {info.iosVersion}</div>
+                  <div>🧭 Safari: {info.isSafari ? '✅' : '❌'} {info.safariVersion}</div>
+                  <div>📱 UA: {info.userAgent}</div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+        
+        {/* Update indicator during recording */}
+        {(recordingVideo || recordingAudio) && (
+          <div className="text-xs text-muted-foreground pt-1 border-t border-muted-foreground/20">
+            Updates every 500ms • Tick: {diagnosticsTick}
+          </div>
+        )}
       </div>
 
       {/* Controls */}
