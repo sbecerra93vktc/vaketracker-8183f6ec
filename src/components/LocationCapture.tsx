@@ -227,6 +227,15 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
         await uploadMediaFiles(locationData.id, user.user.id);
       }
 
+      // Production logging for activity save success
+      if (import.meta.env.VITE_PRODUCTION_MODE === 'true') {
+        console.log('Activity saved successfully', {
+          activity_id: locationData.id,
+          media_files_count: mediaFiles.length,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       toast({
         title: '¡Actividad guardada!',
         description: 'Tu actividad ha sido registrada exitosamente.',
@@ -254,6 +263,14 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
           description: error.message || 'Por favor verifica los datos ingresados.',
         });
       } else {
+        // Production logging for activity save failure
+        if (import.meta.env.VITE_PRODUCTION_MODE === 'true') {
+          console.error('Activity save failed', {
+            error_type: 'activity_save_error',
+            timestamp: new Date().toISOString(),
+          });
+        }
+
         toast({
           variant: 'destructive',
           title: 'Error al guardar actividad',
@@ -323,11 +340,31 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
             throw dbError;
           }
 
+          // Production logging for media upload success
+          if (import.meta.env.VITE_PRODUCTION_MODE === 'true') {
+            console.log('Media upload successful', {
+              file_type: mediaFile.type,
+              file_size: mediaFile.file.size,
+              timestamp: new Date().toISOString(),
+            });
+          }
+
           // Success - break out of retry loop
           break;
           
         } catch (error) {
           console.error(`Upload attempt ${attempt + 1} failed:`, error);
+          
+          // Production logging for media upload failure
+          if (import.meta.env.VITE_PRODUCTION_MODE === 'true') {
+            console.error('Media upload failed', {
+              file_type: mediaFile.type,
+              file_size: mediaFile.file.size,
+              attempt: attempt + 1,
+              timestamp: new Date().toISOString(),
+            });
+          }
+          
           attempt++;
           
           if (attempt > maxRetries) {
@@ -394,13 +431,15 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
           </div>
         )}
 
-        {/* Enhanced debugging for activity type selection */}
-        <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs space-y-1">
-          <div>📝 Debug Activity: "{activityType}" | Show Media = {(activityType === 'Visita en frío' || activityType === 'Visita programada' || activityType === 'Visita de cortesía') ? 'YES ✅' : 'NO ❌'}</div>
-          <div>📱 Device: {'ontouchstart' in window ? 'Mobile' : 'Desktop'} | Touch Points: {navigator.maxTouchPoints || 0}</div>
-          <div>🌐 Browser: {navigator.userAgent.includes('Mobile') ? 'Mobile Browser' : 'Desktop Browser'}</div>
-          <div>📐 Screen: {window.innerWidth}x{window.innerHeight}</div>
-        </div>
+        {/* Enhanced debugging for activity type selection - development only */}
+        {import.meta.env.DEV && (
+          <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs space-y-1">
+            <div>📝 Debug Activity: "{activityType}" | Show Media = {(activityType === 'Visita en frío' || activityType === 'Visita programada' || activityType === 'Visita de cortesía') ? 'YES ✅' : 'NO ❌'}</div>
+            <div>📱 Device: {'ontouchstart' in window ? 'Mobile' : 'Desktop'} | Touch Points: {navigator.maxTouchPoints || 0}</div>
+            <div>🌐 Browser: {navigator.userAgent.includes('Mobile') ? 'Mobile Browser' : 'Desktop Browser'}</div>
+            <div>📐 Screen: {window.innerWidth}x{window.innerHeight}</div>
+          </div>
+        )}
 
         {(activityType === 'Visita en frío' || activityType === 'Visita programada' || activityType === 'Visita de cortesía') && (
           <div className="space-y-4">

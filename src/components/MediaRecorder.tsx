@@ -502,169 +502,189 @@ const MediaRecorderWidget: React.FC<Props> = ({
     e.currentTarget.value = '';
   };
 
+  const ENABLE_VIDEO = import.meta.env.VITE_ENABLE_VIDEO === 'true';
+  const IS_PRODUCTION = import.meta.env.VITE_PRODUCTION_MODE === 'true';
+
   return (
     <div className="space-y-3">
-      {/* Always-mounted preview video with hard CSS guardrails */}
-      <div className="relative min-h-[240px]" style={{ background: '#000' }}>
-        <video
-          ref={videoPreviewRef}
-          autoPlay
-          muted
-          playsInline
-          preload="metadata"
-          className="block"
-          style={{
-            width: '100%',
-            minHeight: 240,
-            background: '#000',
-            objectFit: 'cover',
-            borderRadius: 8,
-            // Avoid GPU/contain on iOS—can cause black preview layers
-          }}
-        />
-        {cameraReady && (
-          <span className="absolute top-2 left-2 text-xs px-2 py-1 rounded bg-green-600/80 text-white">
-            Camera Ready
-          </span>
-        )}
-        {(recordingVideo || recordingAudio) && (
-          <div className="absolute top-2 right-2 flex items-center gap-2 text-xs px-2 py-1 rounded bg-red-600/80 text-white">
-            <div className="w-2 h-2 bg-red-300 rounded-full animate-pulse"></div>
-            REC {formatTime(recordingTime)}
-          </div>
-        )}
-      </div>
-
-      {/* Live iOS Safari Diagnostics Panel */}
-      <div className={`text-sm rounded-lg border p-3 space-y-2 transition-colors ${
-        (recordingVideo || recordingAudio) ? 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800' : 'bg-muted/50 border-muted-foreground/20'
-      }`}>
-        <div className="font-semibold text-foreground">
-          🔍 Live iOS Safari Debug Panel {(recordingVideo || recordingAudio) ? '(RECORDING)' : ''}
+      {/* Video preview section - hide in production */}
+      {ENABLE_VIDEO ? (
+        <div className="relative min-h-[240px]" style={{ background: '#000' }}>
+          <video
+            ref={videoPreviewRef}
+            autoPlay
+            muted
+            playsInline
+            preload="metadata"
+            className="block"
+            style={{
+              width: '100%',
+              minHeight: 240,
+              background: '#000',
+              objectFit: 'cover',
+              borderRadius: 8,
+              // Avoid GPU/contain on iOS—can cause black preview layers
+            }}
+          />
+          {cameraReady && (
+            <span className="absolute top-2 left-2 text-xs px-2 py-1 rounded bg-green-600/80 text-white">
+              Camera Ready
+            </span>
+          )}
+          {(recordingVideo || recordingAudio) && (
+            <div className="absolute top-2 right-2 flex items-center gap-2 text-xs px-2 py-1 rounded bg-red-600/80 text-white">
+              <div className="w-2 h-2 bg-red-300 rounded-full animate-pulse"></div>
+              REC {formatTime(recordingTime)}
+            </div>
+          )}
         </div>
-        
-        {/* Section 1: Camera Tracks ReadyState */}
-        <div className="space-y-1">
-          <div className="font-medium text-sm">1. Camera Tracks ReadyState:</div>
-          <div className="text-xs font-mono pl-3">
-            {streamRef.current ? (
-              streamRef.current.getTracks().map((track, i) => {
-                const status = track.readyState === 'live' ? '🟢' : '🔴';
+      ) : (
+        <div className="flex items-center justify-center p-6 bg-muted/30 rounded-lg border-2 border-dashed border-muted-foreground/30">
+          <div className="text-center text-muted-foreground">
+            <div className="text-sm font-medium mb-1">📹 Captura de video</div>
+            <div className="text-xs">(en mejora, próximamente)</div>
+          </div>
+        </div>
+      )}
+
+      {/* Live iOS Safari Diagnostics Panel - development only */}
+      {!IS_PRODUCTION && (
+        <div className={`text-sm rounded-lg border p-3 space-y-2 transition-colors ${
+          (recordingVideo || recordingAudio) ? 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800' : 'bg-muted/50 border-muted-foreground/20'
+        }`}>
+          <div className="font-semibold text-foreground">
+            🔍 Live iOS Safari Debug Panel {(recordingVideo || recordingAudio) ? '(RECORDING)' : ''}
+          </div>
+          
+          {/* Section 1: Camera Tracks ReadyState */}
+          <div className="space-y-1">
+            <div className="font-medium text-sm">1. Camera Tracks ReadyState:</div>
+            <div className="text-xs font-mono pl-3">
+              {streamRef.current ? (
+                streamRef.current.getTracks().map((track, i) => {
+                  const status = track.readyState === 'live' ? '🟢' : '🔴';
+                  return (
+                    <div key={i}>
+                      {status} {track.kind}: {track.readyState}
+                    </div>
+                  );
+                })
+              ) : (
+                <div>🔴 No tracks available</div>
+              )}
+            </div>
+          </div>
+
+          {/* Section 2: Video Element ReadyState */}
+          <div className="space-y-1">
+            <div className="font-medium text-sm">2. Video Element ReadyState:</div>
+            <div className="text-xs font-mono pl-3">
+              {(() => {
+                const readyState = videoPreviewRef.current?.readyState ?? -1;
+                const status = readyState >= 2 ? '🟢' : '🔴';
+                const context = readyState >= 2 ? 'READY' : readyState === 1 ? 'metadata' : readyState === 0 ? 'no-data' : 'null';
+                return `${status} ${readyState} (${context}) ${readyState >= 2 ? '✓' : '⚠️ Need ≥2'}`;
+              })()}
+            </div>
+          </div>
+
+          {/* Section 3: Video Dimensions */}
+          <div className="space-y-1">
+            <div className="font-medium text-sm">3. Video Dimensions:</div>
+            <div className="text-xs font-mono pl-3">
+              {(() => {
+                const width = videoPreviewRef.current?.videoWidth ?? 0;
+                const height = videoPreviewRef.current?.videoHeight ?? 0;
+                const status = (width > 0 && height > 0) ? '🟢' : '🔴';
+                const warning = (width === 0 && height === 0) ? ' ⚠️ BLACK SCREEN!' : '';
+                return `${status} ${width}×${height}${warning}`;
+              })()}
+            </div>
+          </div>
+
+          {/* Section 4: Device Info */}
+          <div className="space-y-1">
+            <div className="font-medium text-sm">4. Device Info:</div>
+            <div className="text-xs font-mono pl-3 space-y-0.5">
+              {(() => {
+                const info = getDeviceInfo();
                 return (
-                  <div key={i}>
-                    {status} {track.kind}: {track.readyState}
-                  </div>
+                  <>
+                    <div>🍎 iOS: {info.isIOS ? '✅' : '❌'} {info.iosVersion}</div>
+                    <div>🧭 Safari: {info.isSafari ? '✅' : '❌'} {info.safariVersion}</div>
+                    <div>📱 UA: {info.userAgent}</div>
+                  </>
                 );
-              })
-            ) : (
-              <div>🔴 No tracks available</div>
-            )}
+              })()}
+            </div>
           </div>
+          
+          {/* Update indicator during recording */}
+          {(recordingVideo || recordingAudio) && (
+            <div className="text-xs text-muted-foreground pt-1 border-t border-muted-foreground/20">
+              Updates every 500ms • Tick: {diagnosticsTick}
+            </div>
+          )}
         </div>
-
-        {/* Section 2: Video Element ReadyState */}
-        <div className="space-y-1">
-          <div className="font-medium text-sm">2. Video Element ReadyState:</div>
-          <div className="text-xs font-mono pl-3">
-            {(() => {
-              const readyState = videoPreviewRef.current?.readyState ?? -1;
-              const status = readyState >= 2 ? '🟢' : '🔴';
-              const context = readyState >= 2 ? 'READY' : readyState === 1 ? 'metadata' : readyState === 0 ? 'no-data' : 'null';
-              return `${status} ${readyState} (${context}) ${readyState >= 2 ? '✓' : '⚠️ Need ≥2'}`;
-            })()}
-          </div>
-        </div>
-
-        {/* Section 3: Video Dimensions */}
-        <div className="space-y-1">
-          <div className="font-medium text-sm">3. Video Dimensions:</div>
-          <div className="text-xs font-mono pl-3">
-            {(() => {
-              const width = videoPreviewRef.current?.videoWidth ?? 0;
-              const height = videoPreviewRef.current?.videoHeight ?? 0;
-              const status = (width > 0 && height > 0) ? '🟢' : '🔴';
-              const warning = (width === 0 && height === 0) ? ' ⚠️ BLACK SCREEN!' : '';
-              return `${status} ${width}×${height}${warning}`;
-            })()}
-          </div>
-        </div>
-
-        {/* Section 4: Device Info */}
-        <div className="space-y-1">
-          <div className="font-medium text-sm">4. Device Info:</div>
-          <div className="text-xs font-mono pl-3 space-y-0.5">
-            {(() => {
-              const info = getDeviceInfo();
-              return (
-                <>
-                  <div>🍎 iOS: {info.isIOS ? '✅' : '❌'} {info.iosVersion}</div>
-                  <div>🧭 Safari: {info.isSafari ? '✅' : '❌'} {info.safariVersion}</div>
-                  <div>📱 UA: {info.userAgent}</div>
-                </>
-              );
-            })()}
-          </div>
-        </div>
-        
-        {/* Update indicator during recording */}
-        {(recordingVideo || recordingAudio) && (
-          <div className="text-xs text-muted-foreground pt-1 border-t border-muted-foreground/20">
-            Updates every 500ms • Tick: {diagnosticsTick}
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Controls */}
       <div className="grid grid-cols-2 gap-2">
-        <button
-          className="h-11 rounded-lg border px-3 text-sm font-medium hover:bg-accent active:scale-[0.98] transition-all"
-          onClick={ensureCamera}
-          type="button"
-        >
-          Abrir Cámara
-        </button>
+        {/* Video controls - only show in development */}
+        {ENABLE_VIDEO && (
+          <>
+            <button
+              className="h-11 rounded-lg border px-3 text-sm font-medium hover:bg-accent active:scale-[0.98] transition-all"
+              onClick={ensureCamera}
+              type="button"
+            >
+              Abrir Cámara
+            </button>
 
-        {!recordingVideo ? (
-          <button
-            className="h-11 rounded-lg bg-red-600 text-white px-3 text-sm font-semibold hover:bg-red-700 active:scale-[0.98] transition-all"
-            onClick={startVideoRecording}
-            type="button"
-          >
-            Grabar Video
-          </button>
-        ) : (
-          <button
-            className="h-11 rounded-lg bg-red-600 text-white px-3 text-sm font-semibold hover:bg-red-700 active:scale-[0.98] transition-all"
-            onClick={stopVideoRecording}
-            type="button"
-          >
-            Detener Video
-          </button>
+            {!recordingVideo ? (
+              <button
+                className="h-11 rounded-lg bg-red-600 text-white px-3 text-sm font-semibold hover:bg-red-700 active:scale-[0.98] transition-all"
+                onClick={startVideoRecording}
+                type="button"
+              >
+                Grabar Video
+              </button>
+            ) : (
+              <button
+                className="h-11 rounded-lg bg-red-600 text-white px-3 text-sm font-semibold hover:bg-red-700 active:scale-[0.98] transition-all"
+                onClick={stopVideoRecording}
+                type="button"
+              >
+                Detener Video
+              </button>
+            )}
+
+            <button
+              className="h-11 rounded-lg border px-3 text-sm font-medium hover:bg-accent active:scale-[0.98] transition-all"
+              onClick={closeCamera}
+              type="button"
+            >
+              Cerrar Cámara
+            </button>
+          </>
         )}
 
-        <button
-          className="h-11 rounded-lg border px-3 text-sm font-medium hover:bg-accent active:scale-[0.98] transition-all"
-          onClick={closeCamera}
-          type="button"
-        >
-          Cerrar Cámara
-        </button>
-
+        {/* Audio controls - always visible */}
         {!recordingAudio ? (
           <button
-            className="h-11 rounded-lg border px-3 text-sm font-medium hover:bg-accent active:scale-[0.98] transition-all"
+            className={`h-11 rounded-lg bg-primary text-primary-foreground px-3 text-sm font-semibold hover:bg-primary/90 active:scale-[0.98] transition-all ${!ENABLE_VIDEO ? 'col-span-2' : ''}`}
             onClick={startAudioRecording}
             type="button"
           >
-            Grabar Audio
+            📱 Grabar Audio
           </button>
         ) : (
           <button
-            className="h-11 rounded-lg border px-3 text-sm font-medium hover:bg-accent active:scale-[0.98] transition-all"
+            className={`h-11 rounded-lg bg-destructive text-destructive-foreground px-3 text-sm font-semibold hover:bg-destructive/90 active:scale-[0.98] transition-all ${!ENABLE_VIDEO ? 'col-span-2' : ''}`}
             onClick={stopAudioRecording}
             type="button"
           >
-            Detener Audio
+            ⏹️ Detener Audio
           </button>
         )}
       </div>
@@ -681,35 +701,39 @@ const MediaRecorderWidget: React.FC<Props> = ({
         />
       </div>
 
-      {/* Playback for the last recorded video */}
-      <div className="rounded-lg overflow-hidden bg-muted/30 p-2">
-        <label className="block text-sm font-medium mb-1">Vista Previa del Video Grabado</label>
-        <video
-          ref={playbackRef}
-          controls
-          playsInline
-          preload="metadata"
-          className="w-full rounded"
-          style={{ minHeight: 160, background: '#000' }}
-        />
-      </div>
-
-      {/* Enhanced debug panel */}
-      <details className="text-xs text-muted-foreground" open={debugOpen} onToggle={(e) => setDebugOpen((e.target as HTMLDetailsElement).open)}>
-        <summary className="cursor-pointer select-none hover:text-foreground transition-colors">
-          Mostrar diagnóstico
-        </summary>
-        <div className="mt-2 space-y-1 p-3 rounded-lg bg-muted/50">
-          <div><strong>UserAgent:</strong> {navigator.userAgent.slice(0, 100)}...</div>
-          <div><strong>Protocol:</strong> {location.protocol}</div>
-          <div><strong>MediaRecorder:</strong> {typeof window !== 'undefined' && 'MediaRecorder' in window ? '✅ YES' : '❌ NO'}</div>
-          <div><strong>getUserMedia:</strong> {navigator.mediaDevices?.getUserMedia ? '✅ YES' : '❌ NO'}</div>
-          <div><strong>Chosen Video MIME:</strong> {chosenVideoMime || '(default)'}</div>
-          <div><strong>Chosen Audio MIME:</strong> {chosenAudioMime || '(default)'}</div>
-          <div><strong>Tracks Alive:</strong> {streamRef.current ? streamRef.current.getTracks().filter(t => t.readyState === 'live').length : 0}</div>
-          <div><strong>requestVideoFrameCallback:</strong> {videoPreviewRef.current && 'requestVideoFrameCallback' in videoPreviewRef.current ? '✅ YES' : '❌ NO'}</div>
+      {/* Playback for the last recorded video - development only */}
+      {ENABLE_VIDEO && (
+        <div className="rounded-lg overflow-hidden bg-muted/30 p-2">
+          <label className="block text-sm font-medium mb-1">Vista Previa del Video Grabado</label>
+          <video
+            ref={playbackRef}
+            controls
+            playsInline
+            preload="metadata"
+            className="w-full rounded"
+            style={{ minHeight: 160, background: '#000' }}
+          />
         </div>
-      </details>
+      )}
+
+      {/* Enhanced debug panel - development only */}
+      {!IS_PRODUCTION && (
+        <details className="text-xs text-muted-foreground" open={debugOpen} onToggle={(e) => setDebugOpen((e.target as HTMLDetailsElement).open)}>
+          <summary className="cursor-pointer select-none hover:text-foreground transition-colors">
+            Mostrar diagnóstico
+          </summary>
+          <div className="mt-2 space-y-1 p-3 rounded-lg bg-muted/50">
+            <div><strong>UserAgent:</strong> {navigator.userAgent.slice(0, 100)}...</div>
+            <div><strong>Protocol:</strong> {location.protocol}</div>
+            <div><strong>MediaRecorder:</strong> {typeof window !== 'undefined' && 'MediaRecorder' in window ? '✅ YES' : '❌ NO'}</div>
+            <div><strong>getUserMedia:</strong> {navigator.mediaDevices?.getUserMedia ? '✅ YES' : '❌ NO'}</div>
+            <div><strong>Chosen Video MIME:</strong> {chosenVideoMime || '(default)'}</div>
+            <div><strong>Chosen Audio MIME:</strong> {chosenAudioMime || '(default)'}</div>
+            <div><strong>Tracks Alive:</strong> {streamRef.current ? streamRef.current.getTracks().filter(t => t.readyState === 'live').length : 0}</div>
+            <div><strong>requestVideoFrameCallback:</strong> {videoPreviewRef.current && 'requestVideoFrameCallback' in videoPreviewRef.current ? '✅ YES' : '❌ NO'}</div>
+          </div>
+        </details>
+      )}
       
       {/* File list summary */}
       {files.length > 0 && (
