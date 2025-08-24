@@ -214,6 +214,10 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
           visit_type: visitType,
           country: country || null,
           state: state || null,
+          business_name: sanitizedBusinessName || null,
+          contact_person: sanitizedContactPerson || null,
+          email: email.trim() || null,
+          phone: phone.trim() || null,
         })
         .select()
         .single();

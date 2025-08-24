@@ -147,12 +147,16 @@ export type Database = {
         Row: {
           accuracy: number | null
           address: string | null
+          business_name: string | null
+          contact_person: string | null
           country: string | null
           created_at: string
+          email: string | null
           id: string
           latitude: number
           longitude: number
           notes: string | null
+          phone: string | null
           state: string | null
           user_id: string
           visit_type: string | null
@@ -160,12 +164,16 @@ export type Database = {
         Insert: {
           accuracy?: number | null
           address?: string | null
+          business_name?: string | null
+          contact_person?: string | null
           country?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           latitude: number
           longitude: number
           notes?: string | null
+          phone?: string | null
           state?: string | null
           user_id: string
           visit_type?: string | null
@@ -173,12 +181,16 @@ export type Database = {
         Update: {
           accuracy?: number | null
           address?: string | null
+          business_name?: string | null
+          contact_person?: string | null
           country?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           latitude?: number
           longitude?: number
           notes?: string | null
+          phone?: string | null
           state?: string | null
           user_id?: string
           visit_type?: string | null

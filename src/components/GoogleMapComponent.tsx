@@ -6,9 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { MapPin, Users, Activity, Filter, Calendar, MapIcon } from 'lucide-react';
+import { MapPin, Users, Activity, Filter, Calendar, MapIcon, ChevronDown, ChevronUp, Download, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import * as XLSX from 'xlsx';
+import ActivityMediaDisplay from '@/components/ActivityMediaDisplay';
 
 interface TeamLocation {
   id: string;
@@ -22,6 +28,11 @@ interface TeamLocation {
   created_at: string;
   address: string;
   region?: string;
+  business_name?: string;
+  contact_person?: string;
+  contact_email?: string;
+  phone?: string;
+  photos?: string[];
 }
 
 const GoogleMapComponent = () => {
@@ -39,7 +50,9 @@ const GoogleMapComponent = () => {
   const [selectedDateTo, setSelectedDateTo] = useState<string>('');
   const [selectedCountry, setSelectedCountry] = useState<string>('all');
   const [selectedState, setSelectedState] = useState<string>('all');
+  const [isTeamPanelCollapsed, setIsTeamPanelCollapsed] = useState(false);
   const { userRole } = useAuth();
+  const { toast } = useToast();
 
   // Reset state filter when country changes
   useEffect(() => {
@@ -463,6 +476,77 @@ const GoogleMapComponent = () => {
     return [...new Set(states)];
   };
 
+  // Excel export functionality for admins
+  const exportToExcel = useCallback(async () => {
+    if (userRole !== 'admin') return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get all locations for export
+      const { data: locationsData, error } = await supabase
+        .from('locations')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Get profiles data
+      const userIds = [...new Set(locationsData?.map(loc => loc.user_id) || [])];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name, email')
+        .in('user_id', userIds);
+
+      const profilesMap = new Map(profilesData?.map(p => [p.user_id, p]) || []);
+
+      // Transform data for Excel
+      const excelData = locationsData?.map(location => {
+        const profile = profilesMap.get(location.user_id);
+        return {
+          'Usuario': profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : 'Unknown',
+          'Email Usuario': profile?.email || '',
+          'Fecha': new Date(location.created_at).toLocaleDateString(),
+          'Tipo de Actividad': location.visit_type || '',
+          'Negocio': location.business_name || '',
+          'Contacto': location.contact_person || '',
+          'Email Contacto': location.email || '',
+          'Teléfono': location.phone || '',
+          'Notas': location.notes || '',
+          'Dirección': location.address || '',
+          'País': location.country || '',
+          'Estado/Región': location.state || '',
+          'Latitud': location.latitude,
+          'Longitud': location.longitude,
+        };
+      }) || [];
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      XLSX.utils.book_append_sheet(wb, ws, 'Actividades');
+
+      // Generate filename with current date
+      const filename = `actividades_equipo_${new Date().toISOString().split('T')[0]}.xlsx`;
+      
+      // Save file
+      XLSX.writeFile(wb, filename);
+
+      toast({
+        title: 'Exportación completada',
+        description: `Se han exportado ${excelData.length} actividades a Excel.`,
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error en exportación',
+        description: 'No se pudo exportar los datos a Excel.',
+      });
+    }
+  }, [userRole, toast]);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -473,6 +557,17 @@ const GoogleMapComponent = () => {
             <h1 className="text-xl font-semibold text-warning">Actividades del Equipo</h1>
           </div>
           <div className="ml-auto flex items-center gap-4">
+            {userRole === 'admin' && (
+              <Button
+                onClick={exportToExcel}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Exportar Excel
+              </Button>
+            )}
             {isLoadingKey && !isMapLoaded && (
               <div className="flex items-center gap-2">
                 <span className="text-sm">Cargando Google Maps...</span>
@@ -623,62 +718,106 @@ const GoogleMapComponent = () => {
           </div>
         )}
         
-        {/* Team Panel */}
+        {/* Collapsible Team Panel */}
         {isMapLoaded && filteredLocations.length > 0 && (
-          <div className="absolute right-4 top-4 w-80 max-h-[70vh] overflow-y-auto">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm text-warning">Actividades del Equipo</CardTitle>
-                <CardDescription className="text-xs">
-                  {filteredLocations.length} actividades encontradas
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {filteredLocations
-                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                  .map((location) => (
-                  <div key={location.id} className="flex items-start justify-between p-3 bg-muted rounded-lg">
-                    <div className="flex items-start gap-3 flex-1">
-                      <div className="w-3 h-3 rounded-full bg-warning mt-1" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{location.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {location.visit_type}
-                        </p>
-                        {location.region && (
-                          <p className="text-xs text-muted-foreground">
-                            {location.region}
-                          </p>
-                        )}
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(location.created_at).toLocaleDateString()}
-                        </p>
-                        {location.notes && (
-                          <p className="text-xs text-muted-foreground mt-1 truncate">
-                            {location.notes}
-                          </p>
-                        )}
+          <div className={`absolute right-4 top-4 transition-all duration-300 ${isTeamPanelCollapsed ? 'w-12' : 'w-80'} max-h-[70vh]`}>
+            <Collapsible open={!isTeamPanelCollapsed} onOpenChange={(open) => setIsTeamPanelCollapsed(!open)}>
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    {!isTeamPanelCollapsed && (
+                      <div>
+                        <CardTitle className="text-sm text-warning">Actividades del Equipo</CardTitle>
+                        <CardDescription className="text-xs">
+                          {filteredLocations.length} actividades encontradas
+                        </CardDescription>
                       </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        if (mapInstanceRef.current) {
-                          mapInstanceRef.current.setCenter({ 
-                            lat: location.latitude, 
-                            lng: location.longitude 
-                          });
-                          mapInstanceRef.current.setZoom(15);
-                        }
-                      }}
-                    >
-                      <MapPin className="h-4 w-4" />
-                    </Button>
+                    )}
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        {isTeamPanelCollapsed ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                      </Button>
+                    </CollapsibleTrigger>
                   </div>
-                ))}
-              </CardContent>
-            </Card>
+                </CardHeader>
+                <CollapsibleContent>
+                  <CardContent className="pt-0">
+                    <ScrollArea className="max-h-[50vh]">
+                      <div className="space-y-3 pr-4">
+                        {filteredLocations
+                          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                          .map((location) => (
+                          <div key={location.id} className="p-3 bg-muted rounded-lg">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{location.name}</p>
+                                <Badge variant="outline" className="text-xs mt-1">
+                                  {location.visit_type}
+                                </Badge>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  if (mapInstanceRef.current) {
+                                    mapInstanceRef.current.setCenter({ 
+                                      lat: location.latitude, 
+                                      lng: location.longitude 
+                                    });
+                                    mapInstanceRef.current.setZoom(15);
+                                  }
+                                }}
+                              >
+                                <MapPin className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            
+                            {location.business_name && (
+                              <p className="text-xs text-muted-foreground">
+                                <strong>Negocio:</strong> {location.business_name}
+                              </p>
+                            )}
+                            {location.contact_person && (
+                              <p className="text-xs text-muted-foreground">
+                                <strong>Contacto:</strong> {location.contact_person}
+                              </p>
+                            )}
+                            {location.contact_email && (
+                              <p className="text-xs text-muted-foreground">
+                                <strong>Email:</strong> {location.contact_email}
+                              </p>
+                            )}
+                            {location.phone && (
+                              <p className="text-xs text-muted-foreground">
+                                <strong>Teléfono:</strong> {location.phone}
+                              </p>
+                            )}
+                            
+                            <p className="text-xs text-muted-foreground mt-2">
+                              {new Date(location.created_at).toLocaleDateString()}
+                            </p>
+                            {location.region && (
+                              <p className="text-xs text-muted-foreground">
+                                {location.region}
+                              </p>
+                            )}
+                            {location.notes && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                <strong>Notas:</strong> {location.notes}
+                              </p>
+                            )}
+                            
+                            <div className="mt-3">
+                              <ActivityMediaDisplay activityId={location.id} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
           </div>
         )}
       </div>
