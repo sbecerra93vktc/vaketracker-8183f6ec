@@ -345,6 +345,39 @@ const Admin = () => {
 
       if (error) throw error;
       
+      // Build registration link and send email via Edge Function
+      const appBaseUrl = import.meta.env.VITE_APP_BASE_URL || window.location.origin;
+      const registerLink = `${appBaseUrl}/auth?token=${encodeURIComponent(token)}`;
+      try {
+        const { error: sendError } = await supabase.functions.invoke('send-invite-email', {
+          body: {
+            to: email,
+            token,
+            link: registerLink,
+          },
+        });
+        if (sendError) {
+          console.error('Email send error:', sendError);
+          toast({
+            variant: 'destructive',
+            title: 'No se pudo enviar el email',
+            description: 'La invitación fue creada, pero el correo falló. Copia el token manualmente.',
+          });
+        } else {
+          toast({
+            title: 'Invitación enviada',
+            description: `Se envió un email a ${email} con el token y el enlace de registro.`,
+          });
+        }
+      } catch (sendErr: any) {
+        console.error('Email send exception:', sendErr);
+        toast({
+          variant: 'destructive',
+          title: 'Error enviando correo',
+          description: 'La invitación fue creada, pero no se pudo enviar el correo.',
+        });
+      }
+
       // Log the security event
       await supabase
         .from('admin_action_logs')
@@ -364,7 +397,7 @@ const Admin = () => {
       setTimeout(() => {
         toast({
           title: 'Invitation Token',
-          description: `Email: ${email}\nToken: ${token}\n\nShare this token with the user to register.`,
+          description: `Email: ${email}\nToken: ${token}\nLink: ${registerLink}\n\nShare this token or the link with the user to register.`,
         });
       }, 1000);
       
