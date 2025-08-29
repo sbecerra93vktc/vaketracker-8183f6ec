@@ -651,12 +651,19 @@ const LocationHistory = () => {
                                         href={getDialHref(selectedActivity.phone)}
                                         aria-label={`Llamar al ${selectedActivity.phone}`}
                                         onClick={(e) => {
+                                          e.preventDefault();
                                           e.stopPropagation();
                                           const href = getDialHref(selectedActivity.phone);
                                           if (href) {
-                                            setTimeout(() => {
-                                              window.location.href = href;
-                                            }, 0);
+                                            window.location.href = href;
+                                          }
+                                        }}
+                                        onTouchEnd={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          const href = getDialHref(selectedActivity.phone);
+                                          if (href) {
+                                            window.location.href = href;
                                           }
                                         }}
                                       >
