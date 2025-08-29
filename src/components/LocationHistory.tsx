@@ -350,6 +350,13 @@ const LocationHistory = () => {
     return 'bg-gray-600 text-white';
   };
 
+  // Ensure we pass a safe tel: URL. Keeps leading + and digits only
+  const getDialHref = (rawPhone?: string) => {
+    if (!rawPhone) return '';
+    const sanitized = String(rawPhone).replace(/[^\d+]/g, '');
+    return `tel:${sanitized}`;
+  };
+
   const formatVisitType = (visitType: string) => {
     return visitType || 'Actividad';
   };
@@ -633,14 +640,26 @@ const LocationHistory = () => {
                                 </div>
                               )}
                               {selectedActivity.phone && (
-                                <div className="flex items-center justify-between gap-2 text-sm">
+                                <div className="flex flex-col items-start gap-2 text-sm">
                                   <div className="flex items-center gap-2">
                                     <span className="font-medium text-blue-700">Teléfono:</span>
                                     <span className="text-blue-800">{selectedActivity.phone}</span>
                                   </div>
                                   {isMobile && (
-                                    <Button asChild className="bg-green-600 text-white hover:bg-green-700">
-                                      <a href={`tel:${selectedActivity.phone}`} aria-label={`Llamar al ${selectedActivity.phone}`}>
+                                    <Button asChild className="mt-1 bg-green-600 text-white hover:bg-green-700">
+                                      <a
+                                        href={getDialHref(selectedActivity.phone)}
+                                        aria-label={`Llamar al ${selectedActivity.phone}`}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const href = getDialHref(selectedActivity.phone);
+                                          if (href) {
+                                            setTimeout(() => {
+                                              window.location.href = href;
+                                            }, 0);
+                                          }
+                                        }}
+                                      >
                                         <Phone className="h-4 w-4 mr-2" /> Llamar
                                       </a>
                                     </Button>
