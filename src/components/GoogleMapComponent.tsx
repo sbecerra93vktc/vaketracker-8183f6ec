@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import ActivityMediaDisplay from '@/components/ActivityMediaDisplay';
+import { useActivityStore } from '@/stores/activityStore';
 
 interface TeamLocation {
   id: string;
@@ -27,6 +28,8 @@ interface TeamLocation {
   notes: string;
   created_at: string;
   address: string;
+  country?: string;
+  state?: string;
   region?: string;
   business_name?: string;
   contact_person?: string;
@@ -53,6 +56,7 @@ const GoogleMapComponent = () => {
   const [isTeamPanelCollapsed, setIsTeamPanelCollapsed] = useState(false);
   const { userRole } = useAuth();
   const { toast } = useToast();
+  const { selectedActivity, setSelectedActivity, clearSelectedActivity, mapCamera, clearMapCamera } = useActivityStore();
 
   // Reset state filter when country changes
   useEffect(() => {
@@ -247,7 +251,13 @@ const GoogleMapComponent = () => {
           notes: location.notes || '',
           created_at: location.created_at,
           address: location.address || '',
-          region: location.state || location.country || getRegionFromCoordinates(lat, lng)
+          country: location.country || detectCountryFromCoordinates(lat, lng),
+          state: location.state || detectStateFromCoordinates(lat, lng, location.country || detectCountryFromCoordinates(lat, lng)),
+          region: location.state || location.country || getRegionFromCoordinates(lat, lng),
+          business_name: location.business_name,
+          contact_person: location.contact_person,
+          contact_email: location.email, // Map email to contact_email
+          phone: location.phone
         };
       });
 
@@ -318,6 +328,7 @@ const GoogleMapComponent = () => {
 
     // Add markers for all filtered locations
     filteredLocations.forEach((location) => {
+      const isSelected = selectedActivity?.id === location.id;
       const marker = new google.maps.Marker({
         position: { lat: location.latitude, lng: location.longitude },
         map: mapInstanceRef.current,
@@ -325,9 +336,9 @@ const GoogleMapComponent = () => {
         icon: {
           url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
             <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="16" cy="16" r="15" fill="#3B82F6" stroke="white" stroke-width="2"/>
+              <circle cx="16" cy="16" r="15" fill="${isSelected ? '#F59E0B' : '#3B82F6'}" stroke="white" stroke-width="2"/>
               <circle cx="16" cy="16" r="8" fill="white"/>
-              <circle cx="16" cy="16" r="4" fill="#3B82F6"/>
+              <circle cx="16" cy="16" r="4" fill="${isSelected ? '#F59E0B' : '#3B82F6'}"/>
             </svg>
           `),
           scaledSize: new google.maps.Size(32, 32)
@@ -348,6 +359,9 @@ const GoogleMapComponent = () => {
       });
 
       marker.addListener('click', () => {
+        // Select this activity
+        handleActivitySelect(location);
+        
         // Close other info windows first
         markersRef.current.forEach((otherMarker, otherKey) => {
           if (otherKey !== location.id) {
@@ -387,12 +401,14 @@ const GoogleMapComponent = () => {
         }, 100);
       }
     }
-  }, [filteredLocations, isMapLoaded]);
+  }, [filteredLocations, isMapLoaded, selectedActivity]);
 
   // Apply filters when dependencies change
   useEffect(() => {
     applyFilters();
-  }, [applyFilters]);
+    // Clear selected activity when filters change
+    clearSelectedActivity();
+  }, [applyFilters, clearSelectedActivity]);
 
 
   // Load the map when component mounts
@@ -411,6 +427,20 @@ const GoogleMapComponent = () => {
   useEffect(() => {
     updateMapMarkers();
   }, [updateMapMarkers]);
+
+  // Handle map camera movement from Zustand store
+  useEffect(() => {
+    if (mapCamera && mapInstanceRef.current && isMapLoaded) {
+      mapInstanceRef.current.setCenter({ 
+        lat: mapCamera.latitude, 
+        lng: mapCamera.longitude 
+      });
+      mapInstanceRef.current.setZoom(mapCamera.zoom);
+      
+      // Clear the camera command after executing it
+      setTimeout(() => clearMapCamera(), 100);
+    }
+  }, [mapCamera, isMapLoaded, clearMapCamera]);
 
   // Set up real-time subscription
   useEffect(() => {
@@ -474,6 +504,30 @@ const GoogleMapComponent = () => {
     }).filter(Boolean);
     
     return [...new Set(states)];
+  };
+
+  // Handle activity selection
+  const handleActivitySelect = (activity: TeamLocation) => {
+    // Map TeamLocation to Activity interface with all fields
+    const mappedActivity = {
+      ...activity,
+      // Map name to user_name for consistency
+      user_name: activity.name,
+      user_email: activity.email,
+      // Map country/state from region if not already present
+      country: activity.country || detectCountryFromCoordinates(activity.latitude, activity.longitude),
+      state: activity.state || detectStateFromCoordinates(activity.latitude, activity.longitude, activity.country || detectCountryFromCoordinates(activity.latitude, activity.longitude)),
+    };
+    setSelectedActivity(mappedActivity);
+    
+    // Center map on selected activity
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setCenter({ 
+        lat: activity.latitude, 
+        lng: activity.longitude 
+      });
+      mapInstanceRef.current.setZoom(15);
+    }
   };
 
   // Excel export functionality for admins
@@ -742,78 +796,164 @@ const GoogleMapComponent = () => {
                 </CardHeader>
                 <CollapsibleContent>
                   <CardContent className="pt-0">
-                    <ScrollArea className="max-h-[50vh]">
-                      <div className="space-y-3 pr-4">
-                        {filteredLocations
-                          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                          .map((location) => (
-                          <div key={location.id} className="p-3 bg-muted rounded-lg">
-                            <div className="flex items-start justify-between mb-2">
-                              <div className="flex-1">
-                                <p className="font-medium text-sm">{location.name}</p>
-                                <Badge variant="outline" className="text-xs mt-1">
-                                  {location.visit_type}
-                                </Badge>
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  if (mapInstanceRef.current) {
-                                    mapInstanceRef.current.setCenter({ 
-                                      lat: location.latitude, 
-                                      lng: location.longitude 
-                                    });
-                                    mapInstanceRef.current.setZoom(15);
-                                  }
-                                }}
-                              >
-                                <MapPin className="h-4 w-4" />
-                              </Button>
+                    {selectedActivity ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-medium text-warning">Detalles de Actividad</h3>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={clearSelectedActivity}
+                            className="text-xs"
+                          >
+                            Cerrar
+                          </Button>
+                        </div>
+                        
+                        <div className="p-3 bg-muted rounded-lg">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">{selectedActivity.name}</p>
+                              <Badge variant="outline" className="text-xs mt-1">
+                                {selectedActivity.visit_type}
+                              </Badge>
                             </div>
-                            
-                            {location.business_name && (
-                              <p className="text-xs text-muted-foreground">
-                                <strong>Negocio:</strong> {location.business_name}
-                              </p>
-                            )}
-                            {location.contact_person && (
-                              <p className="text-xs text-muted-foreground">
-                                <strong>Contacto:</strong> {location.contact_person}
-                              </p>
-                            )}
-                            {location.contact_email && (
-                              <p className="text-xs text-muted-foreground">
-                                <strong>Email:</strong> {location.contact_email}
-                              </p>
-                            )}
-                            {location.phone && (
-                              <p className="text-xs text-muted-foreground">
-                                <strong>Teléfono:</strong> {location.phone}
-                              </p>
-                            )}
-                            
-                            <p className="text-xs text-muted-foreground mt-2">
-                              {new Date(location.created_at).toLocaleDateString()}
-                            </p>
-                            {location.region && (
-                              <p className="text-xs text-muted-foreground">
-                                {location.region}
-                              </p>
-                            )}
-                            {location.notes && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                <strong>Notas:</strong> {location.notes}
-                              </p>
-                            )}
-                            
-                            <div className="mt-3">
-                              <ActivityMediaDisplay activityId={location.id} />
-                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                if (mapInstanceRef.current) {
+                                  mapInstanceRef.current.setCenter({ 
+                                    lat: selectedActivity.latitude, 
+                                    lng: selectedActivity.longitude 
+                                  });
+                                  mapInstanceRef.current.setZoom(15);
+                                }
+                              }}
+                            >
+                              <MapPin className="h-4 w-4" />
+                            </Button>
                           </div>
-                        ))}
+                          
+                          {selectedActivity.business_name && (
+                            <p className="text-xs text-muted-foreground">
+                              <strong>Negocio:</strong> {selectedActivity.business_name}
+                            </p>
+                          )}
+                          {selectedActivity.contact_person && (
+                            <p className="text-xs text-muted-foreground">
+                              <strong>Contacto:</strong> {selectedActivity.contact_person}
+                            </p>
+                          )}
+                          {selectedActivity.contact_email && (
+                            <p className="text-xs text-muted-foreground">
+                              <strong>Email:</strong> {selectedActivity.contact_email}
+                            </p>
+                          )}
+                          {selectedActivity.phone && (
+                            <p className="text-xs text-muted-foreground">
+                              <strong>Teléfono:</strong> {selectedActivity.phone}
+                            </p>
+                          )}
+                          
+                          <p className="text-xs text-muted-foreground mt-2">
+                            {new Date(selectedActivity.created_at).toLocaleDateString()}
+                          </p>
+                          {selectedActivity.region && (
+                            <p className="text-xs text-muted-foreground">
+                              {selectedActivity.region}
+                            </p>
+                          )}
+                          {selectedActivity.notes && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              <strong>Notas:</strong> {selectedActivity.notes}
+                            </p>
+                          )}
+                          
+                          <div className="mt-3">
+                            <ActivityMediaDisplay activityId={selectedActivity.id} />
+                          </div>
+                        </div>
                       </div>
-                    </ScrollArea>
+                    ) : (
+                      <ScrollArea className="max-h-[50vh]">
+                        <div className="space-y-3 pr-4">
+                          {filteredLocations
+                            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                            .map((location) => (
+                            <div 
+                              key={location.id} 
+                              className="p-3 bg-muted rounded-lg cursor-pointer hover:bg-muted/80 transition-colors"
+                              onClick={() => handleActivitySelect(location)}
+                            >
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex-1">
+                                  <p className="font-medium text-sm">{location.name}</p>
+                                  <Badge variant="outline" className="text-xs mt-1">
+                                    {location.visit_type}
+                                  </Badge>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (mapInstanceRef.current) {
+                                      mapInstanceRef.current.setCenter({ 
+                                        lat: location.latitude, 
+                                        lng: location.longitude 
+                                      });
+                                      mapInstanceRef.current.setZoom(15);
+                                    }
+                                  }}
+                                >
+                                  <MapPin className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              
+                              {location.business_name && (
+                                <p className="text-xs text-muted-foreground">
+                                  <strong>Negocio:</strong> {location.business_name}
+                                </p>
+                              )}
+                              {location.contact_person && (
+                                <p className="text-xs text-muted-foreground">
+                                  <strong>Contacto:</strong> {location.contact_person}
+                                </p>
+                              )}
+                              {location.contact_email && (
+                                <p className="text-xs text-muted-foreground">
+                                  <strong>Email:</strong> {location.contact_email}
+                                </p>
+                              )}
+                              {location.phone && (
+                                <p className="text-xs text-muted-foreground">
+                                  <strong>Teléfono:</strong> {location.phone}
+                                </p>
+                              )}
+                              
+                              <p className="text-xs text-muted-foreground mt-2">
+                                {new Date(location.created_at).toLocaleDateString()}
+                              </p>
+                              {location.region && (
+                                <p className="text-xs text-muted-foreground">
+                                  {location.region}
+                                </p>
+                              )}
+                              {location.notes && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  <strong>Notas:</strong> {location.notes}
+                                </p>
+                              )}
+                              
+                              <div className="mt-3">
+                                <ActivityMediaDisplay activityId={location.id} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    )}
                   </CardContent>
                 </CollapsibleContent>
               </Card>
