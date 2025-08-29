@@ -6,9 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { MapPin, Clock, User, Filter, Globe, List, Grid3X3, Loader2 } from 'lucide-react';
+import { MapPin, Clock, User, Filter, Globe, List, Grid3X3, Loader2, Phone } from 'lucide-react';
 import ActivityMediaDisplay from './ActivityMediaDisplay';
 import { useActivityStore } from '@/stores/activityStore';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Location {
   id: string;
@@ -26,6 +27,7 @@ interface Location {
 }
 
 const LocationHistory = () => {
+  const isMobile = useIsMobile();
   const [locations, setLocations] = useState<Location[]>([]);
   const [filteredLocations, setFilteredLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
@@ -609,9 +611,18 @@ const LocationHistory = () => {
                                 </div>
                               )}
                               {selectedActivity.phone && (
-                                <div className="flex items-center gap-2 text-sm">
-                                  <span className="font-medium text-blue-700">Teléfono:</span>
-                                  <span className="text-blue-800">{selectedActivity.phone}</span>
+                                <div className="flex items-center justify-between gap-2 text-sm">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium text-blue-700">Teléfono:</span>
+                                    <span className="text-blue-800">{selectedActivity.phone}</span>
+                                  </div>
+                                  {isMobile && (
+                                    <Button asChild className="bg-green-600 text-white hover:bg-green-700">
+                                      <a href={`tel:${selectedActivity.phone}`} aria-label={`Llamar al ${selectedActivity.phone}`}>
+                                        <Phone className="h-4 w-4 mr-2" /> Llamar
+                                      </a>
+                                    </Button>
+                                  )}
                                 </div>
                               )}
                             </div>
