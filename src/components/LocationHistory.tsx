@@ -24,6 +24,13 @@ interface Location {
   user_name?: string;
   user_email?: string;
   user_id: string;
+  // Optional business/contact fields if present
+  phone?: string;
+  business_name?: string;
+  contact_person?: string;
+  contact_email?: string;
+  // Enriched from profile when available
+  user_phone?: string;
 }
 
 const LocationHistory = () => {
@@ -121,7 +128,7 @@ const LocationHistory = () => {
         const userIds = [...new Set(locationsData.map(loc => loc.user_id))];
         const { data: profilesData } = await supabase
           .from('profiles')
-          .select('user_id, first_name, last_name, email')
+          .select('user_id, first_name, last_name, email, phone')
           .in('user_id', userIds);
 
         const profilesMap = new Map(
@@ -134,6 +141,19 @@ const LocationHistory = () => {
             ? `${profilesMap.get(location.user_id)?.first_name} ${profilesMap.get(location.user_id)?.last_name}`
             : 'Unknown User',
           user_email: profilesMap.get(location.user_id)?.email || '',
+          user_phone: profilesMap.get(location.user_id)?.phone || undefined,
+        }));
+      } else if (userRole !== 'admin' && locationsData && locationsData.length > 0) {
+        // For non-admin (own activities), enrich with the current user's profile phone
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('user_id, phone')
+          .eq('user_id', user.id)
+          .single();
+
+        enrichedLocations = locationsData.map(location => ({
+          ...location,
+          user_phone: profileData?.phone || undefined,
         }));
       }
 
@@ -214,6 +234,8 @@ const LocationHistory = () => {
       email: activity.user_email,
       // Map region from country/state
       region: activity.state || activity.country || detectCountryFromCoordinates(activity.latitude, activity.longitude),
+      // Prefer activity phone, fall back to user profile phone if present
+      phone: activity.phone || activity.user_phone,
     };
     setSelectedActivity(mappedActivity);
     
