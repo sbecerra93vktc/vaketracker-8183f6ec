@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { MapPin, Clock, User, Filter, Globe, List, Grid3X3, Loader2, Phone } from 'lucide-react';
+import { MapPin, Clock, User, Filter, Globe, List, Grid3X3, Loader2, Phone, Search, MessageCircle } from 'lucide-react';
 import ActivityMediaDisplay from './ActivityMediaDisplay';
 import { useActivityStore } from '@/stores/activityStore';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -48,6 +48,7 @@ const LocationHistory = () => {
   const [selectedCountry, setSelectedCountry] = useState<string>('all');
   const [selectedState, setSelectedState] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const { userRole } = useAuth();
   const { selectedActivity, setSelectedActivity, clearSelectedActivity, moveMapToLocation } = useActivityStore();
@@ -106,6 +107,11 @@ const LocationHistory = () => {
         query = query
           .gte('created_at', filterDate.toISOString())
           .lt('created_at', nextDay.toISOString());
+      }
+
+      // Apply search query if present
+      if (searchQuery.trim()) {
+        query = query.or(`address.ilike.%${searchQuery}%,notes.ilike.%${searchQuery}%,visit_type.ilike.%${searchQuery}%`);
       }
 
       // Apply pagination
@@ -216,6 +222,25 @@ const LocationHistory = () => {
     fetchLocations(true);
     // Clear selected activity when filters change
     clearSelectedActivity();
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+  };
+
+  const handleSearch = () => {
+    // Clear selected activity when search changes
+    clearSelectedActivity();
+    setLoadingFilters(true);
+    fetchLocations(true);
+  };
+
+  const handleResetSearch = () => {
+    setSearchQuery('');
+    clearSelectedActivity();
+    setLoadingFilters(true);
+    fetchLocations(true);
   };
 
   // Handle activity selection
@@ -357,6 +382,13 @@ const LocationHistory = () => {
     return `tel:${sanitized}`;
   };
 
+  // Get WhatsApp URL with phone number
+  const getWhatsAppHref = (rawPhone?: string) => {
+    if (!rawPhone) return '';
+    const sanitized = String(rawPhone).replace(/[^\d+]/g, '');
+    return `https://wa.me/${sanitized}`;
+  };
+
   const formatVisitType = (visitType: string) => {
     return visitType || 'Actividad';
   };
@@ -384,6 +416,42 @@ const LocationHistory = () => {
             {userRole === 'admin' ? 'Actividades del Equipo' : 'Historial de Ubicaciones'}
           </div>
           <div className="flex items-center gap-2">
+            {/* Search field */}
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Buscar actividades..."
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSearch();
+                    }
+                  }}
+                  className="pl-10 w-64"
+                />
+              </div>
+              <Button
+                onClick={handleSearch}
+                className="bg-warning text-white border-warning hover:bg-warning/90"
+                size="sm"
+              >
+                <Search className="h-4 w-4 mr-2" />
+                Buscar
+              </Button>
+              {searchQuery && (
+                <Button
+                  onClick={handleResetSearch}
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 border-red-300 hover:bg-red-50"
+                >
+                  Limpiar
+                </Button>
+              )}
+            </div>
             <div className="flex border rounded-lg p-1">
               <Button
                 variant={viewMode === 'list' ? 'default' : 'ghost'}
@@ -418,7 +486,12 @@ const LocationHistory = () => {
         {showFilters && (
           <div className="mb-6 p-4 border rounded-lg bg-warning/5 space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-sm font-medium">Filtros aplicados</h3>
+              <h3 className="text-sm font-medium">
+                Filtros aplicados
+                {searchQuery && (
+                  <span className="ml-2 text-warning">• Búsqueda: "{searchQuery}"</span>
+                )}
+              </h3>
               <Button
                 variant="outline"
                 size="sm"
@@ -427,6 +500,7 @@ const LocationHistory = () => {
                   setSelectedDate('');
                   setSelectedCountry('all');
                   setSelectedState('all');
+                  setSearchQuery('');
                   setTimeout(handleFilterChange, 100);
                 }}
                 className="text-xs"
@@ -646,30 +720,56 @@ const LocationHistory = () => {
                                     <span className="text-blue-800">{selectedActivity.phone}</span>
                                   </div>
                                   {isMobile && (
-                                    <Button asChild className="mt-1 bg-green-600 text-white hover:bg-green-700">
-                                      <a
-                                        href={getDialHref(selectedActivity.phone)}
-                                        aria-label={`Llamar al ${selectedActivity.phone}`}
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          const href = getDialHref(selectedActivity.phone);
-                                          if (href) {
-                                            window.location.href = href;
-                                          }
-                                        }}
-                                        onTouchEnd={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          const href = getDialHref(selectedActivity.phone);
-                                          if (href) {
-                                            window.location.href = href;
-                                          }
-                                        }}
-                                      >
-                                        <Phone className="h-4 w-4 mr-2" /> Llamar
-                                      </a>
-                                    </Button>
+                                    <div className="flex gap-2 mt-1">
+                                      <Button asChild className="bg-green-600 text-white hover:bg-green-700">
+                                        <a
+                                          href={getDialHref(selectedActivity.phone)}
+                                          aria-label={`Llamar al ${selectedActivity.phone}`}
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            const href = getDialHref(selectedActivity.phone);
+                                            if (href) {
+                                              window.location.href = href;
+                                            }
+                                          }}
+                                          onTouchEnd={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            const href = getDialHref(selectedActivity.phone);
+                                            if (href) {
+                                              window.location.href = href;
+                                            }
+                                          }}
+                                        >
+                                          <Phone className="h-4 w-4 mr-2" /> Llamar
+                                        </a>
+                                      </Button>
+                                      <Button asChild className="bg-green-500 text-white hover:bg-green-600">
+                                        <a
+                                          href={getWhatsAppHref(selectedActivity.phone)}
+                                          aria-label={`Enviar WhatsApp a ${selectedActivity.phone}`}
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            const href = getWhatsAppHref(selectedActivity.phone);
+                                            if (href) {
+                                              window.open(href, '_blank');
+                                            }
+                                          }}
+                                          onTouchEnd={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            const href = getWhatsAppHref(selectedActivity.phone);
+                                            if (href) {
+                                              window.open(href, '_blank');
+                                            }
+                                          }}
+                                        >
+                                          <MessageCircle className="h-4 w-4 mr-2" /> WhatsApp
+                                        </a>
+                                      </Button>
+                                    </div>
                                   )}
                                 </div>
                               )}
