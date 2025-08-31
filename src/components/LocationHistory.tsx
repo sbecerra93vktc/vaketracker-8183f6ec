@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { MapPin, Clock, User, Filter, Globe, List, Grid3X3, Loader2, Phone, Search, MessageCircle } from 'lucide-react';
+import { MapPin, Clock, User, Filter, Globe, List, Grid3X3, Loader2, Phone, Search, MessageCircle, Navigation } from 'lucide-react';
 import ActivityMediaDisplay from './ActivityMediaDisplay';
 import { useActivityStore } from '@/stores/activityStore';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -389,6 +389,20 @@ const LocationHistory = () => {
     return `https://wa.me/${sanitized}`;
   };
 
+  // Get Google Maps URL for address
+  const getGoogleMapsHref = (address: string, latitude?: number, longitude?: number) => {
+    if (!address) return '';
+    
+    // If we have coordinates, use them for more precise navigation
+    if (latitude && longitude) {
+      return `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+    }
+    
+    // Otherwise use the address
+    const encodedAddress = encodeURIComponent(address);
+    return `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+  };
+
   const formatVisitType = (visitType: string) => {
     return visitType || 'Actividad';
   };
@@ -686,6 +700,37 @@ const LocationHistory = () => {
                                   </span>
                                 </div>
                               </div>
+                              {/* Google Maps Navigation Button */}
+                              <div className="mt-3">
+                                <Button asChild className="bg-blue-600 text-white hover:bg-blue-700 w-full sm:w-auto">
+                                  <a
+                                    href={getGoogleMapsHref(selectedActivity.address, selectedActivity.latitude, selectedActivity.longitude)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    aria-label={`Abrir ${selectedActivity.address} en Google Maps`}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      const href = getGoogleMapsHref(selectedActivity.address, selectedActivity.latitude, selectedActivity.longitude);
+                                      if (href) {
+                                        window.open(href, '_blank');
+                                      }
+                                    }}
+                                    onTouchEnd={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      const href = getGoogleMapsHref(selectedActivity.address, selectedActivity.latitude, selectedActivity.longitude);
+                                      if (href) {
+                                        window.open(href, '_blank');
+                                      }
+                                    }}
+                                  >
+                                    <Navigation className="h-4 w-4 mr-2" />
+                                    <span className="hidden sm:inline">Abrir en Google Maps</span>
+                                    <span className="sm:hidden">Google Maps</span>
+                                  </a>
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -877,6 +922,37 @@ const LocationHistory = () => {
                                     </span>
                                   </div>
                                 </div>
+                                {/* Google Maps Navigation Button */}
+                                <div className="mt-3">
+                                  <Button asChild className="bg-blue-600 text-white hover:bg-blue-700 w-full sm:w-auto">
+                                    <a
+                                      href={getGoogleMapsHref(location.address, location.latitude, location.longitude)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      aria-label={`Abrir ${location.address} en Google Maps`}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        const href = getGoogleMapsHref(location.address, location.latitude, location.longitude);
+                                        if (href) {
+                                          window.open(href, '_blank');
+                                        }
+                                      }}
+                                      onTouchEnd={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        const href = getGoogleMapsHref(location.address, location.latitude, location.longitude);
+                                        if (href) {
+                                          window.open(href, '_blank');
+                                        }
+                                      }}
+                                    >
+                                      <Navigation className="h-4 w-4 mr-2" />
+                                      <span className="hidden sm:inline">Abrir en Google Maps</span>
+                                      <span className="sm:hidden">Google Maps</span>
+                                    </a>
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -976,6 +1052,37 @@ const LocationHistory = () => {
                                   )}
                                 </span>
                               </div>
+                            </div>
+                            {/* Google Maps Navigation Button */}
+                            <div className="mt-2">
+                              <Button asChild className="bg-blue-600 text-white hover:bg-blue-700 w-full text-xs h-8">
+                                <a
+                                  href={getGoogleMapsHref(location.address, location.latitude, location.longitude)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  aria-label={`Abrir ${location.address} en Google Maps`}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const href = getGoogleMapsHref(location.address, location.latitude, location.longitude);
+                                    if (href) {
+                                      window.open(href, '_blank');
+                                    }
+                                  }}
+                                  onTouchEnd={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const href = getGoogleMapsHref(location.address, location.latitude, location.longitude);
+                                    if (href) {
+                                      window.open(href, '_blank');
+                                    }
+                                  }}
+                                >
+                                  <Navigation className="h-3 w-3 mr-1" />
+                                  <span className="hidden sm:inline">Google Maps</span>
+                                  <span className="sm:hidden">Maps</span>
+                                </a>
+                              </Button>
                             </div>
                           </div>
                         </div>
