@@ -410,15 +410,17 @@ const LocationHistory = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 justify-between">
+        <CardTitle className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-center gap-2">
             <MapPin className="h-5 w-5 text-warning" />
             {userRole === 'admin' ? 'Actividades del Equipo' : 'Historial de Ubicaciones'}
           </div>
-          <div className="flex items-center gap-2">
-            {/* Search field */}
-            <div className="flex items-center gap-2">
-              <div className="relative">
+          
+          {/* Mobile-first responsive controls */}
+          <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+            {/* Search section */}
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <div className="relative flex-1 sm:flex-none">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
@@ -430,62 +432,69 @@ const LocationHistory = () => {
                       handleSearch();
                     }
                   }}
-                  className="pl-10 w-64"
+                  className="pl-10 w-full sm:w-64"
                 />
               </div>
-              <Button
-                onClick={handleSearch}
-                className="bg-warning text-white border-warning hover:bg-warning/90"
-                size="sm"
-              >
-                <Search className="h-4 w-4 mr-2" />
-                Buscar
-              </Button>
-              {searchQuery && (
+              <div className="flex gap-2">
                 <Button
-                  onClick={handleResetSearch}
-                  variant="outline"
+                  onClick={handleSearch}
+                  className="bg-warning text-white border-warning hover:bg-warning/90 flex-1 sm:flex-none"
                   size="sm"
-                  className="text-red-600 border-red-300 hover:bg-red-50"
                 >
-                  Limpiar
+                  <Search className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Buscar</span>
                 </Button>
-              )}
+                {searchQuery && (
+                  <Button
+                    onClick={handleResetSearch}
+                    variant="outline"
+                    size="sm"
+                    className="text-red-600 border-red-300 hover:bg-red-50 flex-1 sm:flex-none"
+                  >
+                    <span className="hidden sm:inline">Limpiar</span>
+                    <span className="sm:hidden">×</span>
+                  </Button>
+                )}
+              </div>
             </div>
-            <div className="flex border rounded-lg p-1">
+            
+            {/* View mode and filters */}
+            <div className="flex gap-2">
+              <div className="flex border rounded-lg p-1">
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('list')}
+                  className="h-8 px-2"
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('grid')}
+                  className="h-8 px-2"
+                >
+                  <Grid3X3 className="h-4 w-4" />
+                </Button>
+              </div>
               <Button
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                variant="outline"
                 size="sm"
-                onClick={() => setViewMode('list')}
-                className="h-8 px-2"
+                onClick={() => setShowFilters(!showFilters)}
+                className="text-warning border-warning/20 hover:bg-warning/10"
               >
-                <List className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('grid')}
-                className="h-8 px-2"
-              >
-                <Grid3X3 className="h-4 w-4" />
+                <Filter className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Filtros</span>
               </Button>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-              className="text-warning border-warning/20 hover:bg-warning/10"
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Filtros
-            </Button>
           </div>
         </CardTitle>
       </CardHeader>
       <CardContent>
         {showFilters && (
           <div className="mb-6 p-4 border rounded-lg bg-warning/5 space-y-4">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
               <h3 className="text-sm font-medium">
                 Filtros aplicados
                 {searchQuery && (
@@ -503,12 +512,12 @@ const LocationHistory = () => {
                   setSearchQuery('');
                   setTimeout(handleFilterChange, 100);
                 }}
-                className="text-xs"
+                className="text-xs w-full sm:w-auto"
               >
                 Limpiar filtros
               </Button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {userRole === 'admin' && (
                 <div className="space-y-2">
                   <Label>Usuario</Label>
@@ -908,7 +917,7 @@ const LocationHistory = () => {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {filteredLocations.map((location) => (
                   <div
                     key={location.id}
@@ -1022,7 +1031,7 @@ const LocationHistory = () => {
             )}
                          {!loadingMore && hasMore && (
                <div className="text-center py-4">
-                 <Button onClick={loadMore} className="bg-warning text-white border-warning hover:bg-warning/90">
+                 <Button onClick={loadMore} className="bg-warning text-white border-warning hover:bg-warning/90 w-full sm:w-auto">
                    {loadingMore ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                    Cargar más
                  </Button>

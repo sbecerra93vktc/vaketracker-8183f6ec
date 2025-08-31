@@ -445,7 +445,7 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
           </div>
         )}
 
-        {(activityType === 'Visita en frío' || activityType === 'Visita programada' || activityType === 'Visita de cortesía') && (
+        {/* {(activityType === 'Visita en frío' || activityType === 'Visita programada' || activityType === 'Visita de cortesía') && ( */}
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -499,7 +499,7 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
               />
             </div>
           </div>
-        )}
+        {/* )} */}
 
         <div className="space-y-2">
           <Label htmlFor="notes">Notas (Opcional)</Label>
