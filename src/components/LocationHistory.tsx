@@ -726,8 +726,8 @@ const LocationHistory = () => {
                                     }}
                                   >
                                     <Navigation className="h-4 w-4 mr-2" />
-                                    <span className="hidden sm:inline">Abrir en Google Maps</span>
-                                    <span className="sm:hidden">Google Maps</span>
+                                    <span className="hidden sm:inline">Abrir en Directorio</span>
+                                    <span className="sm:hidden">Directorio</span>
                                   </a>
                                 </Button>
                               </div>
