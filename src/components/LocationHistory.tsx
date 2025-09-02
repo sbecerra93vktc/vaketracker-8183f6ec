@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { MapPin, Clock, User, Filter, Globe, List, Grid3X3, Loader2, Phone, Search, MessageCircle, Navigation } from 'lucide-react';
+import { MapPin, Clock, User, Filter, Globe, List, Grid3X3, Loader2, Phone, Search, MessageCircle, Navigation, Users, UserCheck } from 'lucide-react';
 import ActivityMediaDisplay from './ActivityMediaDisplay';
 import { useActivityStore } from '@/stores/activityStore';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -50,14 +50,15 @@ const LocationHistory = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
-  const { userRole } = useAuth();
+  const [activityView, setActivityView] = useState<'all' | 'my'>('all');
+  const { userRole, user } = useAuth();
   const { selectedActivity, setSelectedActivity, clearSelectedActivity, moveMapToLocation } = useActivityStore();
 
   const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
     fetchLocations(true); // Reset and fetch first page
-  }, [userRole]);
+  }, [userRole, activityView]);
 
   useEffect(() => {
     applyFilters();
@@ -91,11 +92,15 @@ const LocationHistory = () => {
 
       // Apply filters to the query
       if (userRole !== 'admin') {
+        // Non-admin users always see only their own activities
         query = query.eq('user_id', user.id);
-      }
-
-      if (selectedUser !== 'all') {
-        query = query.eq('user_id', selectedUser);
+      } else {
+        // Admin users can filter by activity view
+        if (activityView === 'my') {
+          query = query.eq('user_id', user.id);
+        } else if (selectedUser !== 'all') {
+          query = query.eq('user_id', selectedUser);
+        }
       }
 
       if (selectedDate) {
@@ -425,9 +430,52 @@ const LocationHistory = () => {
     <Card>
       <CardHeader>
         <CardTitle className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-warning" />
-            {userRole === 'admin' ? 'Actividades del Equipo' : 'Historial de Ubicaciones'}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-warning" />
+              {userRole === 'admin' 
+                ? (activityView === 'my' ? 'Mis Actividades' : 'Actividades del Equipo')
+                : 'Historial de Ubicaciones'
+              }
+            </div>
+            
+            {/* Activity View Tabs - Only show for admin users */}
+            {userRole === 'admin' && (
+              <div className="flex border rounded-lg p-1 bg-muted/50">
+                <button
+                  onClick={() => {
+                    setActivityView('all');
+                    setSelectedUser('all');
+                    setTimeout(handleFilterChange, 100);
+                  }}
+                  className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    activityView === 'all'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Users className="h-3 w-3" />
+                  <span className="hidden sm:inline">Todo el Equipo</span>
+                  <span className="sm:hidden">Equipo</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setActivityView('my');
+                    setSelectedUser('all');
+                    setTimeout(handleFilterChange, 100);
+                  }}
+                  className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    activityView === 'my'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <UserCheck className="h-3 w-3" />
+                  <span className="hidden sm:inline">Mis Actividades</span>
+                  <span className="sm:hidden">Mías</span>
+                </button>
+              </div>
+            )}
           </div>
           
           {/* Mobile-first responsive controls */}
@@ -524,6 +572,9 @@ const LocationHistory = () => {
                   setSelectedCountry('all');
                   setSelectedState('all');
                   setSearchQuery('');
+                  if (userRole === 'admin') {
+                    setActivityView('all');
+                  }
                   setTimeout(handleFilterChange, 100);
                 }}
                 className="text-xs w-full sm:w-auto"
@@ -532,7 +583,7 @@ const LocationHistory = () => {
               </Button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {userRole === 'admin' && (
+              {userRole === 'admin' && activityView === 'all' && (
                 <div className="space-y-2">
                   <Label>Usuario</Label>
                   <Select value={selectedUser} onValueChange={(value) => {

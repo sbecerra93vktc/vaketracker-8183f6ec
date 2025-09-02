@@ -158,11 +158,46 @@ const MediaRecorderWidget: React.FC<Props> = ({
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      // Stop any active recordings
+      if (recordingVideo) {
+        const rec = videoRecorderRef.current;
+        if (rec && rec.state === 'recording') {
+          try {
+            rec.stop();
+          } catch (error) {
+            console.warn('Error stopping video recorder on unmount:', error);
+          }
+        }
+      }
+      
+      if (recordingAudio) {
+        const rec = audioRecorderRef.current;
+        if (rec && rec.state === 'recording') {
+          try {
+            rec.stop();
+          } catch (error) {
+            console.warn('Error stopping audio recorder on unmount:', error);
+          }
+        }
+      }
+      
+      // Stop camera tracks
       stopCameraTracks();
-      // new:
+      
+      // Clear intervals
       if (previewKeepAliveRef.current) {
         clearInterval(previewKeepAliveRef.current);
         previewKeepAliveRef.current = null;
+      }
+      
+      // Clean up any remaining streams
+      try {
+        if (micStreamRef.current) {
+          micStreamRef.current.getTracks().forEach(t => t.stop());
+          micStreamRef.current = null;
+        }
+      } catch (error) {
+        console.warn('Error cleaning up mic stream on unmount:', error);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -271,7 +306,15 @@ const MediaRecorderWidget: React.FC<Props> = ({
   };
 
   const startVideoRecording = async () => {
-    if (recordingVideo) return;
+    if (recordingVideo) {
+      console.warn('Video recording already in progress');
+      return;
+    }
+    
+    if (recordingAudio) {
+      console.warn('Audio recording in progress, cannot start video recording');
+      return;
+    }
 
     try {
       const stream = await ensureCamera();
@@ -341,51 +384,85 @@ const MediaRecorderWidget: React.FC<Props> = ({
       };
 
       rec.onstop = () => {
-        // clear keep-alive
-        if (previewKeepAliveRef.current) {
-          clearInterval(previewKeepAliveRef.current);
-          previewKeepAliveRef.current = null;
-        }
-        // re-prime the preview stream
-        const v = videoPreviewRef.current;
-        if (v && streamRef.current) {
-          if (v.srcObject !== streamRef.current) v.srcObject = streamRef.current;
-          v.play().catch(() => {});
-        }
-
-        const blob = new Blob(videoChunksRef.current, { type: picked || 'video/webm' });
-        const duration = Math.round((Date.now() - recordingStartTimeRef.current) / 1000);
-
-        // Check file size (50MB limit)
-        if (blob.size > 50 * 1024 * 1024) {
-          alert('Archivo muy grande (>50MB). Intenta grabar menos tiempo.');
-          return;
-        }
-
-        const extension = (picked || 'video/webm').includes('mp4') ? 'mp4' : 'webm';
-        const filename = generateUniqueFileName('video', extension);
-        const file = new File([blob], filename, { type: blob.type });
-
-        setFiles((prev) => {
-          if (prev.filter((f) => f.type === 'video').length >= maxVideoFiles) return prev;
-          return [...prev, { type: 'video', file, duration }];
-        });
-
-        // Play back recorded result in a dedicated element
-        if (playbackRef.current) {
-          // (Optional) revoke old URL if you store it; for now just set a fresh one
-          playbackRef.current.src = URL.createObjectURL(blob);
-          playbackRef.current.load();
-        }
-
-        // Clean up only the RECORDER tracks (cloned video + temp mic)
-        try { recorderStream.getTracks().forEach(t => t.stop()); } catch {}
         try {
-          if (micStreamRef.current) {
-            micStreamRef.current.getTracks().forEach(t => t.stop());
-            micStreamRef.current = null;
+          // clear keep-alive
+          if (previewKeepAliveRef.current) {
+            clearInterval(previewKeepAliveRef.current);
+            previewKeepAliveRef.current = null;
           }
-        } catch {}
+          
+          // re-prime the preview stream
+          const v = videoPreviewRef.current;
+          if (v && streamRef.current) {
+            if (v.srcObject !== streamRef.current) v.srcObject = streamRef.current;
+            v.play().catch(() => {});
+          }
+
+          // Check if we have any video chunks
+          if (videoChunksRef.current.length === 0) {
+            console.warn('No video chunks available for recording');
+            return;
+          }
+
+          const blob = new Blob(videoChunksRef.current, { type: picked || 'video/webm' });
+          const duration = Math.round((Date.now() - recordingStartTimeRef.current) / 1000);
+
+          // Check file size (50MB limit)
+          if (blob.size > 50 * 1024 * 1024) {
+            alert('Archivo muy grande (>50MB). Intenta grabar menos tiempo.');
+            return;
+          }
+
+          // Check if blob has actual content
+          if (blob.size === 0) {
+            console.warn('Generated video blob is empty');
+            return;
+          }
+
+          const extension = (picked || 'video/webm').includes('mp4') ? 'mp4' : 'webm';
+          const filename = generateUniqueFileName('video', extension);
+          const file = new File([blob], filename, { type: blob.type });
+
+          setFiles((prev) => {
+            if (prev.filter((f) => f.type === 'video').length >= maxVideoFiles) return prev;
+            return [...prev, { type: 'video', file, duration }];
+          });
+
+          // Play back recorded result in a dedicated element
+          if (playbackRef.current) {
+            // (Optional) revoke old URL if you store it; for now just set a fresh one
+            playbackRef.current.src = URL.createObjectURL(blob);
+            playbackRef.current.load();
+          }
+
+          console.log('Video recording completed successfully:', {
+            size: blob.size,
+            duration,
+            filename,
+            chunks: videoChunksRef.current.length
+          });
+
+        } catch (error) {
+          console.error('Error in video recording onstop handler:', error);
+        } finally {
+          // Clean up only the RECORDER tracks (cloned video + temp mic)
+          try { 
+            if (recorderStream) {
+              recorderStream.getTracks().forEach(t => t.stop()); 
+            }
+          } catch (cleanupError) {
+            console.warn('Error cleaning up recorder stream:', cleanupError);
+          }
+          
+          try {
+            if (micStreamRef.current) {
+              micStreamRef.current.getTracks().forEach(t => t.stop());
+              micStreamRef.current = null;
+            }
+          } catch (cleanupError) {
+            console.warn('Error cleaning up mic stream:', cleanupError);
+          }
+        }
       };
 
       rec.start(250); // gather chunks every 250ms
@@ -398,15 +475,34 @@ const MediaRecorderWidget: React.FC<Props> = ({
 
   const stopVideoRecording = () => {
     if (!recordingVideo) return;
-    const rec = videoRecorderRef.current;
-    if (rec && rec.state !== 'inactive') rec.stop();
+    
+    try {
+      const rec = videoRecorderRef.current;
+      if (rec && rec.state !== 'inactive') {
+        // Check if recorder is actually recording before stopping
+        if (rec.state === 'recording') {
+          rec.stop();
+        } else {
+          console.warn('MediaRecorder not in recording state:', rec.state);
+        }
+      } else {
+        console.warn('No active video recorder found');
+      }
+    } catch (error) {
+      console.error('Error stopping video recording:', error);
+    }
+    
+    // Clear the recording state immediately
     setRecordingVideo(false);
     
+    // Clear keep-alive interval
     if (previewKeepAliveRef.current) {
       clearInterval(previewKeepAliveRef.current);
       previewKeepAliveRef.current = null;
     }
-    // NOTE: do NOT stop camera tracks here (we keep preview alive)
+    
+    // Reset recording time
+    setRecordingTime(0);
   };
 
   const closeCamera = () => {
@@ -415,7 +511,15 @@ const MediaRecorderWidget: React.FC<Props> = ({
   };
 
   const startAudioRecording = async () => {
-    if (recordingAudio) return;
+    if (recordingAudio) {
+      console.warn('Audio recording already in progress');
+      return;
+    }
+    
+    if (recordingVideo) {
+      console.warn('Video recording in progress, cannot start audio recording');
+      return;
+    }
     
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
