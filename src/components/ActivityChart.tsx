@@ -307,11 +307,11 @@ const ActivityChart = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los tipos</SelectItem>
-                  <SelectItem value="Visita en Frío">Visita en Frío</SelectItem>
+                  <SelectItem value="Visita en frío">Visita en frío</SelectItem>
                   <SelectItem value="Negociación">Negociación</SelectItem>
                   <SelectItem value="Pre-entrega">Pre-entrega</SelectItem>
                   <SelectItem value="Técnica">Técnica</SelectItem>
-                  <SelectItem value="Cortesía">Cortesía</SelectItem>
+                  <SelectItem value="Visita de cortesía">Visita de cortesía</SelectItem>
                 </SelectContent>
               </Select>
             </div>

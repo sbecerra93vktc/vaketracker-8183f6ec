@@ -436,14 +436,14 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
         )}
 
         {/* Enhanced debugging for activity type selection - development only */}
-        {import.meta.env.DEV && (
+        {/* {import.meta.env.DEV && (
           <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs space-y-1">
             <div>📝 Debug Activity: "{activityType}" | Show Media = {(activityType === 'Visita en frío' || activityType === 'Visita programada' || activityType === 'Visita de cortesía') ? 'YES ✅' : 'NO ❌'}</div>
             <div>📱 Device: {'ontouchstart' in window ? 'Mobile' : 'Desktop'} | Touch Points: {navigator.maxTouchPoints || 0}</div>
             <div>🌐 Browser: {navigator.userAgent.includes('Mobile') ? 'Mobile Browser' : 'Desktop Browser'}</div>
             <div>📐 Screen: {window.innerWidth}x{window.innerHeight}</div>
           </div>
-        )}
+        )} */}
 
         {/* {(activityType === 'Visita en frío' || activityType === 'Visita programada' || activityType === 'Visita de cortesía') && ( */}
           <div className="space-y-4">

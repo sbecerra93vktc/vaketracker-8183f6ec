@@ -4,12 +4,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { MapPin, Clock, User, Filter, Globe, List, Grid3X3, Loader2, Phone, Search, MessageCircle, Navigation, Users, UserCheck } from 'lucide-react';
+import { MapPin, Clock, User, Filter, Globe, List, Grid3X3, Loader2, Phone, Search, MessageCircle, Navigation, Users, UserCheck, Download, Trash, Edit } from 'lucide-react';
 import ActivityMediaDisplay from './ActivityMediaDisplay';
 import { useActivityStore } from '@/stores/activityStore';
-import { useIsMobile } from '@/hooks/use-mobile';
+ 
+import { useToast } from '@/hooks/use-toast';
 
 interface Location {
   id: string;
@@ -34,7 +38,7 @@ interface Location {
 }
 
 const LocationHistory = () => {
-  const isMobile = useIsMobile();
+  
   const [locations, setLocations] = useState<Location[]>([]);
   const [filteredLocations, setFilteredLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,17 +48,209 @@ const LocationHistory = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [selectedUser, setSelectedUser] = useState<string>('all');
-  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedDateFrom, setSelectedDateFrom] = useState<string>('');
+  const [selectedDateTo, setSelectedDateTo] = useState<string>('');
   const [selectedCountry, setSelectedCountry] = useState<string>('all');
   const [selectedState, setSelectedState] = useState<string>('all');
+  const [selectedVisitType, setSelectedVisitType] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [activityView, setActivityView] = useState<'all' | 'my'>('all');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [activityToDelete, setActivityToDelete] = useState<Location | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [activityToEdit, setActivityToEdit] = useState<Location | null>(null);
+  const [editForm, setEditForm] = useState({
+    address: '',
+    notes: '',
+    visit_type: '',
+    business_name: '',
+    contact_person: '',
+    contact_email: '',
+    phone: ''
+  });
   const { userRole, user } = useAuth();
   const { selectedActivity, setSelectedActivity, clearSelectedActivity, moveMapToLocation } = useActivityStore();
+  const { toast } = useToast();
 
   const ITEMS_PER_PAGE = 10;
+
+  const canDeleteActivity = (activity: Location) => {
+    if (!user) return false;
+    return userRole === 'admin' || activity.user_id === user.id;
+  };
+
+  const canEditActivity = (activity: Location) => {
+    if (!user) return false;
+    return userRole === 'admin' || activity.user_id === user.id;
+  };
+
+  const openDeleteDialog = (activity: Location) => {
+    if (!canDeleteActivity(activity)) {
+      toast({
+        variant: 'destructive',
+        title: 'No autorizado',
+        description: 'No tienes permiso para eliminar esta actividad.',
+      });
+      return;
+    }
+    setActivityToDelete(activity);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteActivity = async () => {
+    if (!activityToDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from('locations')
+        .delete()
+        .eq('id', activityToDelete.id);
+
+      if (error) {
+        console.error('Error deleting activity:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error al eliminar',
+          description: 'No se pudo eliminar la actividad.',
+        });
+        return;
+      }
+
+      // Update local state
+      setLocations(prev => prev.filter(l => l.id !== activityToDelete.id));
+      setFilteredLocations(prev => prev.filter(l => l.id !== activityToDelete.id));
+      setTotalCount(prev => Math.max(0, prev - 1));
+      if (selectedActivity?.id === activityToDelete.id) {
+        clearSelectedActivity();
+      }
+
+      toast({
+        title: 'Actividad eliminada',
+        description: 'La actividad fue eliminada correctamente.',
+      });
+    } catch (err) {
+      console.error('Unexpected error deleting activity:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Error inesperado',
+        description: 'Ocurrió un error al eliminar la actividad.',
+      });
+    } finally {
+      setDeleteDialogOpen(false);
+      setActivityToDelete(null);
+    }
+  };
+
+  const openEditDialog = (activity: Location) => {
+    if (!canEditActivity(activity)) {
+      toast({
+        variant: 'destructive',
+        title: 'No autorizado',
+        description: 'No tienes permiso para editar esta actividad.',
+      });
+      return;
+    }
+    setActivityToEdit(activity);
+    setEditForm({
+      address: activity.address || '',
+      notes: activity.notes || '',
+      visit_type: activity.visit_type || '',
+      business_name: activity.business_name || '',
+      contact_person: activity.contact_person || '',
+      contact_email: activity.contact_email || '', // This will be mapped to 'email' in the database
+      phone: activity.phone || ''
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditFormChange = (field: string, value: string) => {
+    setEditForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const confirmEditActivity = async () => {
+    if (!activityToEdit) return;
+
+    try {
+      // Validate required fields
+      if (!editForm.address.trim() || !editForm.visit_type.trim()) {
+        toast({
+          variant: 'destructive',
+          title: 'Campos requeridos',
+          description: 'La dirección y tipo de visita son obligatorios.',
+        });
+        return;
+      }
+
+      console.log('Updating activity:', activityToEdit.id, 'with data:', editForm);
+      console.log('Current user:', user?.id, 'Activity user:', activityToEdit.user_id);
+
+      const updateData = {
+        address: editForm.address.trim(),
+        notes: editForm.notes.trim(),
+        visit_type: editForm.visit_type.trim(),
+        business_name: editForm.business_name.trim() || null,
+        contact_person: editForm.contact_person.trim() || null,
+        email: editForm.contact_email.trim() || null, // Note: database column is 'email', not 'contact_email'
+        phone: editForm.phone.trim() || null
+      };
+
+      console.log('Update data being sent:', updateData);
+
+      const { data, error } = await supabase
+        .from('locations')
+        .update(updateData)
+        .eq('id', activityToEdit.id)
+        .select();
+
+      if (error) {
+        console.error('Supabase error updating activity:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error al actualizar',
+          description: `Error: ${error.message || 'No se pudo actualizar la actividad.'}`,
+        });
+        return;
+      }
+
+      console.log('Successfully updated activity:', data);
+
+      // Update local state
+      const updatedActivity = {
+        ...activityToEdit,
+        ...editForm
+      };
+
+      setLocations(prev => prev.map(l => l.id === activityToEdit.id ? updatedActivity : l));
+      setFilteredLocations(prev => prev.map(l => l.id === activityToEdit.id ? updatedActivity : l));
+      
+      if (selectedActivity?.id === activityToEdit.id) {
+        setSelectedActivity({
+          ...selectedActivity,
+          ...editForm
+        });
+      }
+
+      toast({
+        title: 'Actividad actualizada',
+        description: 'La actividad fue actualizada correctamente.',
+      });
+    } catch (err) {
+      console.error('Unexpected error updating activity:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Error inesperado',
+        description: 'Ocurrió un error al actualizar la actividad.',
+      });
+    } finally {
+      setEditDialogOpen(false);
+      setActivityToEdit(null);
+    }
+  };
 
   useEffect(() => {
     fetchLocations(true); // Reset and fetch first page
@@ -62,7 +258,7 @@ const LocationHistory = () => {
 
   useEffect(() => {
     applyFilters();
-  }, [locations, selectedUser, selectedDate, selectedCountry, selectedState]);
+  }, [locations, selectedUser, selectedDateFrom, selectedDateTo, selectedCountry, selectedState, selectedVisitType]);
 
   // Reset state filter when country changes
   useEffect(() => {
@@ -97,21 +293,32 @@ const LocationHistory = () => {
       } else {
         // Admin users can filter by activity view
         if (activityView === 'my') {
+          // Show only admin's own activities
           query = query.eq('user_id', user.id);
-        } else if (selectedUser !== 'all') {
-          query = query.eq('user_id', selectedUser);
+        } else {
+          // Show all team activities (can filter by specific user if selected)
+          if (selectedUser !== 'all') {
+            query = query.eq('user_id', selectedUser);
+          }
+          // If no specific user selected, show all team activities
         }
       }
 
-      if (selectedDate) {
-        const [year, month, day] = selectedDate.split('-').map(Number);
-        const filterDate = new Date(year, month - 1, day);
-        const nextDay = new Date(filterDate);
-        nextDay.setDate(nextDay.getDate() + 1);
-        
-        query = query
-          .gte('created_at', filterDate.toISOString())
-          .lt('created_at', nextDay.toISOString());
+      // Filter by date range
+      if (selectedDateFrom) {
+        const fromDate = new Date(selectedDateFrom);
+        query = query.gte('created_at', fromDate.toISOString());
+      }
+
+      if (selectedDateTo) {
+        const toDate = new Date(selectedDateTo);
+        toDate.setHours(23, 59, 59, 999); // Include the entire day
+        query = query.lte('created_at', toDate.toISOString());
+      }
+
+      // Filter by visit type
+      if (selectedVisitType !== 'all') {
+        query = query.eq('visit_type', selectedVisitType);
       }
 
       // Apply search query if present
@@ -218,6 +425,11 @@ const LocationHistory = () => {
       });
     }
 
+    // Visit type filter
+    if (selectedVisitType !== 'all') {
+      filtered = filtered.filter(location => location.visit_type === selectedVisitType);
+    }
+
     setFilteredLocations(filtered);
   };
 
@@ -227,6 +439,11 @@ const LocationHistory = () => {
     fetchLocations(true);
     // Clear selected activity when filters change
     clearSelectedActivity();
+  };
+
+  const handleVisitTypeChange = (value: string) => {
+    setSelectedVisitType(value);
+    setTimeout(handleFilterChange, 100);
   };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -412,6 +629,83 @@ const LocationHistory = () => {
     return visitType || 'Actividad';
   };
 
+  // Excel Export functionality
+  const exportToExcel = () => {
+    try {
+      // Prepare data for export
+      const exportData = filteredLocations.map(location => ({
+        'ID de Actividad': location.id,
+        'Tipo de Visita': location.visit_type || 'No especificado',
+        'Dirección': location.address,
+        'Latitud': location.latitude.toFixed(6),
+        'Longitud': location.longitude.toFixed(6),
+        'País': location.country || detectCountryFromCoordinates(location.latitude, location.longitude) || 'No detectado',
+        'Región/Estado': location.state || detectStateFromCoordinates(
+          location.latitude, 
+          location.longitude,
+          location.country || detectCountryFromCoordinates(location.latitude, location.longitude)
+        ) || 'No detectado',
+        'Notas': location.notes || 'Sin notas',
+        'Nombre del Negocio': location.business_name || 'No especificado',
+        'Contacto': location.contact_person || 'No especificado',
+        'Email del Contacto': location.contact_email || 'No especificado',
+        'Teléfono del Contacto': location.phone || 'No especificado',
+        'Usuario': location.user_name || 'Usuario desconocido',
+        'Email del Usuario': location.user_email || 'No disponible',
+        'Fecha de Creación': new Date(location.created_at).toLocaleString('es-ES'),
+        'ID del Usuario': location.user_id,
+      }));
+
+      // Create CSV content
+      const headers = Object.keys(exportData[0]);
+      const csvContent = [
+        headers.join(','),
+        ...exportData.map(row => 
+          headers.map(header => {
+            const value = row[header];
+            // Escape commas and quotes in CSV
+            if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+              return `"${value.replace(/"/g, '""')}"`;
+            }
+            return value;
+          }).join(',')
+        )
+      ].join('\n');
+
+      // Create and download file
+      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      // Generate filename with current date
+      const now = new Date();
+      const dateStr = now.toISOString().split('T')[0];
+      const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+      const filename = `actividades_${dateStr}_${timeStr}.csv`;
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Show success message
+      toast({
+        title: 'Exportación exitosa',
+        description: `Se exportaron ${exportData.length} actividades a ${filename}`,
+      });
+      
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error en la exportación',
+        description: 'No se pudo exportar los datos. Intenta de nuevo.',
+      });
+    }
+  };
+
   if (loading && currentPage === 0) { // Only show full loading if it's the initial fetch
     return (
       <Card>
@@ -520,7 +814,7 @@ const LocationHistory = () => {
               </div>
             </div>
             
-            {/* View mode and filters */}
+            {/* View mode, filters, and export */}
             <div className="flex gap-2">
               <div className="flex border rounded-lg p-1">
                 <Button
@@ -549,6 +843,18 @@ const LocationHistory = () => {
                 <Filter className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Filtros</span>
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportToExcel}
+                disabled={filteredLocations.length === 0}
+                className="text-green-600 border-green-300 hover:bg-green-50"
+                title="Exportar actividades a Excel"
+              >
+                <Download className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Exportar</span>
+                <span className="sm:hidden">Excel</span>
+              </Button>
             </div>
           </div>
         </CardTitle>
@@ -557,98 +863,85 @@ const LocationHistory = () => {
         {showFilters && (
           <div className="mb-6 p-4 border rounded-lg bg-warning/5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-              <h3 className="text-sm font-medium">
-                Filtros aplicados
-                {searchQuery && (
-                  <span className="ml-2 text-warning">• Búsqueda: "{searchQuery}"</span>
-                )}
-              </h3>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setSelectedUser('all');
-                  setSelectedDate('');
-                  setSelectedCountry('all');
-                  setSelectedState('all');
-                  setSearchQuery('');
-                  if (userRole === 'admin') {
-                    setActivityView('all');
-                  }
-                  setTimeout(handleFilterChange, 100);
-                }}
-                className="text-xs w-full sm:w-auto"
-              >
-                Limpiar filtros
-              </Button>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {userRole === 'admin' && activityView === 'all' && (
-                <div className="space-y-2">
-                  <Label>Usuario</Label>
-                  <Select value={selectedUser} onValueChange={(value) => {
-                    setSelectedUser(value);
-                    setTimeout(handleFilterChange, 100);
-                  }}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todos los usuarios" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos los usuarios</SelectItem>
-                      {getUniqueUsers().map(user => (
-                        <SelectItem key={user.id} value={user.id}>
-                          {user.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              
-              <div className="space-y-2">
-                <Label>Fecha</Label>
-                <Input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => {
-                    setSelectedDate(e.target.value);
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-warning" />
+                <h3 className="text-sm font-medium">
+                  Filtros aplicados
+                  {searchQuery && (
+                    <span className="ml-2 text-warning">• Búsqueda: "{searchQuery}"</span>
+                  )}
+                </h3>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedUser('all');
+                    setSelectedDateFrom('');
+                    setSelectedDateTo('');
+                    setSelectedCountry('all');
+                    setSelectedState('all');
+                    setSelectedVisitType('all');
+                    setSearchQuery('');
+                    if (userRole === 'admin') {
+                      setActivityView('all');
+                    }
                     setTimeout(handleFilterChange, 100);
                   }}
-                />
+                  className="text-xs w-full sm:w-auto"
+                >
+                  Limpiar filtros
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportToExcel}
+                  disabled={filteredLocations.length === 0}
+                  className="text-xs text-green-600 border-green-300 hover:bg-green-50 w-full sm:w-auto"
+                >
+                  <Download className="h-3 w-3 mr-1" />
+                  Exportar Excel
+                </Button>
               </div>
-              
-              <div className="space-y-2">
-                <Label>País</Label>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="country-filter" className="text-xs font-medium">País</Label>
                 <Select value={selectedCountry} onValueChange={(value) => {
                   setSelectedCountry(value);
                   setTimeout(handleFilterChange, 100);
                 }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos los países" />
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos los países</SelectItem>
-                    {getUniqueCountries().map(country => (
-                      <SelectItem key={country} value={country}>
-                        {country}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="México">México</SelectItem>
+                    <SelectItem value="Guatemala">Guatemala</SelectItem>
+                    <SelectItem value="El Salvador">El Salvador</SelectItem>
+                    <SelectItem value="Honduras">Honduras</SelectItem>
+                    <SelectItem value="Costa Rica">Costa Rica</SelectItem>
+                    <SelectItem value="Panamá">Panamá</SelectItem>
+                    <SelectItem value="Colombia">Colombia</SelectItem>
+                    <SelectItem value="Estados Unidos">Estados Unidos</SelectItem>
+                    <SelectItem value="Canadá">Canadá</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              
+
               {selectedCountry !== 'all' && (
-                <div className="space-y-2">
-                  <Label>Región/Estado</Label>
+                <div className="space-y-1">
+                  <Label htmlFor="state-filter" className="text-xs font-medium">Región</Label>
                   <Select value={selectedState} onValueChange={(value) => {
                     setSelectedState(value);
                     setTimeout(handleFilterChange, 100);
                   }}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todas las regiones" />
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="Todas" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todas las regiones</SelectItem>
+                      <SelectItem value="all">Todas</SelectItem>
                       {getUniqueStates().map(state => (
                         <SelectItem key={state} value={state}>
                           {state}
@@ -658,6 +951,71 @@ const LocationHistory = () => {
                   </Select>
                 </div>
               )}
+
+              {userRole === 'admin' && activityView === 'all' && (
+                <div className="space-y-1">
+                  <Label htmlFor="user-filter" className="text-xs font-medium">Usuario</Label>
+                  <Select value={selectedUser} onValueChange={(value) => {
+                    setSelectedUser(value);
+                    setTimeout(handleFilterChange, 100);
+                  }}>
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {getUniqueUsers().map(user => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <Label htmlFor="visit-type-filter" className="text-xs font-medium">Tipo</Label>
+                <Select value={selectedVisitType} onValueChange={handleVisitTypeChange}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="Visita en frío">Visita en frío</SelectItem>
+                    <SelectItem value="Negociación">Negociación</SelectItem>
+                    <SelectItem value="Pre-entrega">Pre-entrega</SelectItem>
+                    <SelectItem value="Técnica">Técnica</SelectItem>
+                    <SelectItem value="Visita de cortesía">Visita de cortesía</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="date-from-filter" className="text-xs font-medium">Desde</Label>
+                <Input
+                  type="date"
+                  value={selectedDateFrom}
+                  onChange={(e) => {
+                    setSelectedDateFrom(e.target.value);
+                    setTimeout(handleFilterChange, 100);
+                  }}
+                  className="h-9 text-sm"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="date-to-filter" className="text-xs font-medium">Hasta</Label>
+                <Input
+                  type="date"
+                  value={selectedDateTo}
+                  onChange={(e) => {
+                    setSelectedDateTo(e.target.value);
+                    setTimeout(handleFilterChange, 100);
+                  }}
+                  className="h-9 text-sm"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -682,14 +1040,44 @@ const LocationHistory = () => {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-warning bg-gradient-to-r from-warning/10 to-orange-500/10 px-4 py-2 rounded-lg">Detalles de Actividad</h3>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={clearSelectedActivity}
-                        className="text-xs bg-white/90 backdrop-blur-sm border-warning/30 hover:bg-warning/10"
-                      >
-                        Cerrar
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {selectedActivity && canEditActivity(selectedActivity) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditDialog(selectedActivity as unknown as Location);
+                            }}
+                            className="text-xs bg-white/90 backdrop-blur-sm border-blue-300 text-blue-600 hover:bg-blue-50"
+                            title="Editar actividad"
+                          >
+                            <Edit className="h-3.5 w-3.5 mr-1" /> Editar
+                          </Button>
+                        )}
+                        {selectedActivity && canDeleteActivity(selectedActivity) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDeleteDialog(selectedActivity as unknown as Location);
+                            }}
+                            className="text-xs bg-white/90 backdrop-blur-sm border-red-300 text-red-600 hover:bg-red-50"
+                            title="Eliminar actividad"
+                          >
+                            <Trash className="h-3.5 w-3.5 mr-1" /> Eliminar
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={clearSelectedActivity}
+                          className="text-xs bg-white/90 backdrop-blur-sm border-warning/30 hover:bg-warning/10"
+                        >
+                          Cerrar
+                        </Button>
+                      </div>
                     </div>
                     
                     <div className="group relative overflow-hidden rounded-2xl border-0 bg-gradient-to-br from-warning/10 via-warning/5 to-white p-6 backdrop-blur-sm shadow-2xl ring-2 ring-warning/60">
@@ -824,63 +1212,118 @@ const LocationHistory = () => {
                                     <span className="font-medium text-blue-700">Teléfono:</span>
                                     <span className="text-blue-800">{selectedActivity.phone}</span>
                                   </div>
-                                  {isMobile && (
-                                    <div className="flex gap-2 mt-1">
-                                      <Button asChild className="bg-green-600 text-white hover:bg-green-700">
-                                        <a
-                                          href={getDialHref(selectedActivity.phone)}
-                                          aria-label={`Llamar al ${selectedActivity.phone}`}
-                                          onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            const href = getDialHref(selectedActivity.phone);
-                                            if (href) {
-                                              window.location.href = href;
-                                            }
-                                          }}
-                                          onTouchEnd={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            const href = getDialHref(selectedActivity.phone);
-                                            if (href) {
-                                              window.location.href = href;
-                                            }
-                                          }}
-                                        >
-                                          <Phone className="h-4 w-4 mr-2" /> Llamar
-                                        </a>
-                                      </Button>
-                                      <Button asChild className="bg-green-500 text-white hover:bg-green-600">
-                                        <a
-                                          href={getWhatsAppHref(selectedActivity.phone)}
-                                          aria-label={`Enviar WhatsApp a ${selectedActivity.phone}`}
-                                          onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            const href = getWhatsAppHref(selectedActivity.phone);
-                                            if (href) {
-                                              window.open(href, '_blank');
-                                            }
-                                          }}
-                                          onTouchEnd={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            const href = getWhatsAppHref(selectedActivity.phone);
-                                            if (href) {
-                                              window.open(href, '_blank');
-                                            }
-                                          }}
-                                        >
-                                          <MessageCircle className="h-4 w-4 mr-2" /> WhatsApp
-                                        </a>
-                                      </Button>
-                                    </div>
-                                  )}
+                                  <div className="flex gap-2 mt-1">
+                                    <Button asChild className="bg-green-600 text-white hover:bg-green-700">
+                                      <a
+                                        href={getDialHref(selectedActivity.phone)}
+                                        aria-label={`Llamar al ${selectedActivity.phone}`}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          const href = getDialHref(selectedActivity.phone);
+                                          if (href) {
+                                            window.location.href = href;
+                                          }
+                                        }}
+                                        onTouchEnd={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          const href = getDialHref(selectedActivity.phone);
+                                          if (href) {
+                                            window.location.href = href;
+                                          }
+                                        }}
+                                      >
+                                        <Phone className="h-4 w-4 mr-2" /> Llamar
+                                      </a>
+                                    </Button>
+                                    <Button asChild className="bg-green-500 text-white hover:bg-green-600">
+                                      <a
+                                        href={getWhatsAppHref(selectedActivity.phone)}
+                                        aria-label={`Enviar WhatsApp a ${selectedActivity.phone}`}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          const href = getWhatsAppHref(selectedActivity.phone);
+                                          if (href) {
+                                            window.open(href, '_blank');
+                                          }
+                                        }}
+                                        onTouchEnd={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          const href = getWhatsAppHref(selectedActivity.phone);
+                                          if (href) {
+                                            window.open(href, '_blank');
+                                          }
+                                        }}
+                                      >
+                                        <MessageCircle className="h-4 w-4 mr-2" /> WhatsApp
+                                      </a>
+                                    </Button>
+                                  </div>
                                 </div>
                               )}
                             </div>
                           </div>
                         )}
+
+                        {/* Complete Activity Details Section */}
+                        <div className="mb-6 space-y-4">
+                          {/* Technical Details Section */}
+                          <div className="p-4 bg-gradient-to-r from-gray-50/80 to-slate-50/80 rounded-xl border-l-4 border-gray-400 backdrop-blur-sm">
+                            <h4 className="text-sm font-semibold text-gray-900 mb-3">Detalles Técnicos</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-700">ID de Actividad:</span>
+                                <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded border">
+                                  {selectedActivity.id}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-700">Usuario ID:</span>
+                                <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded border">
+                                  {selectedActivity.user_id}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-700">Tipo de Visita:</span>
+                                <span className="text-gray-800">{selectedActivity.visit_type || 'No especificado'}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-700">Fecha de Creación:</span>
+                                <span className="text-gray-800">{new Date(selectedActivity.created_at).toLocaleString()}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-700">Latitud:</span>
+                                <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded border">
+                                  {selectedActivity.latitude.toFixed(6)}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-700">Longitud:</span>
+                                <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded border">
+                                  {selectedActivity.longitude.toFixed(6)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* User Profile Information (if admin) */}
+                          {userRole === 'admin' && selectedActivity.user_email && (
+                            <div className="p-4 bg-gradient-to-r from-purple-50/80 to-pink-50/80 rounded-xl border-l-4 border-purple-400 backdrop-blur-sm">
+                              <h4 className="text-sm font-semibold text-purple-900 mb-3">Información del Usuario</h4>
+                              <div className="space-y-2">
+                                {selectedActivity.user_email && (
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <span className="font-medium text-purple-700">Email del Usuario:</span>
+                                    <span className="text-purple-800">{selectedActivity.user_email}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                         
                         {/* Media display */}
                         <div className="mt-auto">
@@ -938,9 +1381,43 @@ const LocationHistory = () => {
                                 </div>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 text-xs bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-gray-200/50">
-                              <Clock className="h-3 w-3 text-gray-600" />
-                              <span className="font-medium text-gray-700">{new Date(location.created_at).toLocaleString()}</span>
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 text-xs bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-gray-200/50">
+                                <Clock className="h-3 w-3 text-gray-600" />
+                                <span className="font-medium text-gray-700">{new Date(location.created_at).toLocaleString()}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {canEditActivity(location) && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      openEditDialog(location);
+                                    }}
+                                    className="h-7 text-xs bg-white/90 backdrop-blur-sm border-blue-300 text-blue-600 hover:bg-blue-50"
+                                    title="Editar actividad"
+                                  >
+                                    <Edit className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                                {canDeleteActivity(location) && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      openDeleteDialog(location);
+                                    }}
+                                    className="h-7 text-xs bg-white/90 backdrop-blur-sm border-red-300 text-red-600 hover:bg-red-50"
+                                    title="Eliminar actividad"
+                                  >
+                                    <Trash className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           </div>
 
@@ -1198,6 +1675,158 @@ const LocationHistory = () => {
           </div>
         )}
       </CardContent>
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash className="h-5 w-5 text-red-600" />
+              Eliminar Actividad
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>¿Estás seguro de que quieres eliminar esta actividad?</p>
+              {activityToDelete && (
+                <div className="p-3 bg-gray-50 rounded-lg border">
+                  <p className="font-medium text-sm text-gray-900">{activityToDelete.address}</p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    {activityToDelete.visit_type} • {new Date(activityToDelete.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              )}
+              <p className="text-red-600 text-sm font-medium">Esta acción no se puede deshacer.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteActivity}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              <Trash className="h-4 w-4 mr-2" />
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Activity Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5 text-blue-600" />
+              Editar Actividad
+            </DialogTitle>
+            <DialogDescription>
+              Modifica los detalles de la actividad. Los cambios se guardarán inmediatamente.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            {/* Address */}
+            <div className="space-y-2">
+              <Label htmlFor="edit-address">Dirección *</Label>
+              <Textarea
+                id="edit-address"
+                value={editForm.address}
+                onChange={(e) => handleEditFormChange('address', e.target.value)}
+                placeholder="Ingresa la dirección completa"
+                className="min-h-[80px]"
+                required
+              />
+            </div>
+
+            {/* Visit Type */}
+            <div className="space-y-2">
+              <Label htmlFor="edit-visit-type">Tipo de Visita *</Label>
+              <Select value={editForm.visit_type} onValueChange={(value) => handleEditFormChange('visit_type', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona el tipo de visita" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Visita en frío">Visita en frío</SelectItem>
+                  <SelectItem value="Negociación">Negociación</SelectItem>
+                  <SelectItem value="Pre-entrega">Pre-entrega</SelectItem>
+                  <SelectItem value="Técnica">Técnica</SelectItem>
+                  <SelectItem value="Visita de cortesía">Visita de cortesía</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label htmlFor="edit-notes">Notas</Label>
+              <Textarea
+                id="edit-notes"
+                value={editForm.notes}
+                onChange={(e) => handleEditFormChange('notes', e.target.value)}
+                placeholder="Agrega notas adicionales sobre la visita"
+                className="min-h-[100px]"
+              />
+            </div>
+
+            {/* Business Information */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-gray-900 border-b pb-2">Información del Negocio</h4>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-business-name">Nombre del Negocio</Label>
+                  <Input
+                    id="edit-business-name"
+                    value={editForm.business_name}
+                    onChange={(e) => handleEditFormChange('business_name', e.target.value)}
+                    placeholder="Nombre de la empresa"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-contact-person">Persona de Contacto</Label>
+                  <Input
+                    id="edit-contact-person"
+                    value={editForm.contact_person}
+                    onChange={(e) => handleEditFormChange('contact_person', e.target.value)}
+                    placeholder="Nombre del contacto"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-contact-email">Email del Contacto</Label>
+                  <Input
+                    id="edit-contact-email"
+                    type="email"
+                    value={editForm.contact_email}
+                    onChange={(e) => handleEditFormChange('contact_email', e.target.value)}
+                    placeholder="email@ejemplo.com"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">Teléfono del Contacto</Label>
+                  <Input
+                    id="edit-phone"
+                    type="tel"
+                    value={editForm.phone}
+                    onChange={(e) => handleEditFormChange('phone', e.target.value)}
+                    placeholder="+1234567890"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmEditActivity} className="bg-blue-600 hover:bg-blue-700">
+              <Edit className="h-4 w-4 mr-2" />
+              Guardar Cambios
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

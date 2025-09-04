@@ -652,7 +652,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
       )}
 
       {/* Live iOS Safari Diagnostics Panel - development only */}
-      {!IS_PRODUCTION && (
+      {/* {!IS_PRODUCTION && (
         <div className={`text-sm rounded-lg border p-3 space-y-2 transition-colors ${
           (recordingVideo || recordingAudio) ? 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800' : 'bg-muted/50 border-muted-foreground/20'
         }`}>
@@ -661,7 +661,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
           </div>
           
           {/* Section 1: Camera Tracks ReadyState */}
-          <div className="space-y-1">
+          {/* <div className="space-y-1">
             <div className="font-medium text-sm">1. Camera Tracks ReadyState:</div>
             <div className="text-xs font-mono pl-3">
               {streamRef.current ? (
@@ -677,9 +677,9 @@ const MediaRecorderWidget: React.FC<Props> = ({
                 <div>🔴 No tracks available</div>
               )}
             </div>
-          </div>
+          </div> */}
 
-          {/* Section 2: Video Element ReadyState */}
+          {/* Section 2: Video Element ReadyState
           <div className="space-y-1">
             <div className="font-medium text-sm">2. Video Element ReadyState:</div>
             <div className="text-xs font-mono pl-3">
@@ -690,9 +690,9 @@ const MediaRecorderWidget: React.FC<Props> = ({
                 return `${status} ${readyState} (${context}) ${readyState >= 2 ? '✓' : '⚠️ Need ≥2'}`;
               })()}
             </div>
-          </div>
+          </div> */}
 
-          {/* Section 3: Video Dimensions */}
+          {/* Section 3: Video Dimensions
           <div className="space-y-1">
             <div className="font-medium text-sm">3. Video Dimensions:</div>
             <div className="text-xs font-mono pl-3">
@@ -704,9 +704,9 @@ const MediaRecorderWidget: React.FC<Props> = ({
                 return `${status} ${width}×${height}${warning}`;
               })()}
             </div>
-          </div>
+          </div> */}
 
-          {/* Section 4: Device Info */}
+          {/* Section 4: Device Info
           <div className="space-y-1">
             <div className="font-medium text-sm">4. Device Info:</div>
             <div className="text-xs font-mono pl-3 space-y-0.5">
@@ -721,16 +721,16 @@ const MediaRecorderWidget: React.FC<Props> = ({
                 );
               })()}
             </div>
-          </div>
+          </div> */}
           
           {/* Update indicator during recording */}
-          {(recordingVideo || recordingAudio) && (
+          {/* {(recordingVideo || recordingAudio) && (
             <div className="text-xs text-muted-foreground pt-1 border-t border-muted-foreground/20">
               Updates every 500ms • Tick: {diagnosticsTick}
             </div>
           )}
         </div>
-      )}
+      )} */} 
 
       {/* Controls */}
       <div className="grid grid-cols-2 gap-2">
