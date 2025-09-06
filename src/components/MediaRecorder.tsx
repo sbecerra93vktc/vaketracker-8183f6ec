@@ -8,9 +8,11 @@ export type MediaFile = {
 
 type Props = {
   onFilesChange?: (files: MediaFile[]) => void;
+  onUploadActivity?: (files: MediaFile[]) => Promise<void>;
   maxAudioFiles?: number;
   maxVideoFiles?: number;
   maxPhotoFiles?: number;
+  showUploadActivityButton?: boolean;
 };
 
 const pickSupportedMime = (candidates: string[], kind: 'video' | 'audio') => {
@@ -90,9 +92,11 @@ const makeRecorderStream = (src: MediaStream, withAudio: boolean) => {
 
 const MediaRecorderWidget: React.FC<Props> = ({
   onFilesChange,
+  onUploadActivity,
   maxAudioFiles = 5,
   maxVideoFiles = 5,
   maxPhotoFiles = 10,
+  showUploadActivityButton = false,
 }) => {
   const videoPreviewRef = useRef<HTMLVideoElement | null>(null); // live preview
   const playbackRef = useRef<HTMLVideoElement | null>(null);     // playback element
@@ -659,6 +663,30 @@ const MediaRecorderWidget: React.FC<Props> = ({
     }
   };
 
+  const handleUploadActivity = async () => {
+    if (files.length === 0) {
+      alert(t[language].noFiles);
+      return;
+    }
+
+    if (!onUploadActivity) {
+      alert(t[language].uploadError);
+      return;
+    }
+
+    setUploading(true);
+    try {
+      await onUploadActivity(files);
+      // Clear files after successful upload
+      setFiles([]);
+    } catch (error) {
+      console.error('Activity upload failed:', error);
+      alert(t[language].uploadError);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const ENABLE_VIDEO = import.meta.env.VITE_ENABLE_VIDEO === 'true';
   const IS_PRODUCTION = import.meta.env.VITE_PRODUCTION_MODE === 'true';
 
@@ -690,6 +718,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
       audioError: 'No se pudo iniciar la grabación de audio. Verifica los permisos del micrófono.',
       language: 'Idioma',
       uploadFiles: 'Subir Archivos',
+      uploadActivity: 'Subir Actividad',
       noFiles: 'No hay archivos para subir',
       uploadSuccess: 'Archivos subidos exitosamente',
       uploadError: 'Error al subir archivos',
@@ -731,6 +760,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
       audioError: 'Could not start audio recording. Check microphone permissions.',
       language: 'Language',
       uploadFiles: 'Upload Files',
+      uploadActivity: 'Upload Activity',
       noFiles: 'No files to upload',
       uploadSuccess: 'Files uploaded successfully',
       uploadError: 'Error uploading files',
@@ -1012,13 +1042,24 @@ const MediaRecorderWidget: React.FC<Props> = ({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="text-sm font-medium">{t[language].recordedFiles} ({files.length})</div>
-            <button
-              onClick={handleUpload}
-              disabled={uploading}
-              className="h-8 px-3 text-xs font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-            >
-              {uploading ? '⏳' : '📤'} {t[language].uploadFiles}
-            </button>
+            <div className="flex gap-2">
+              {showUploadActivityButton && onUploadActivity && (
+                <button
+                  onClick={handleUploadActivity}
+                  disabled={uploading}
+                  className="h-8 px-3 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                >
+                  {uploading ? '⏳' : '📋'} {t[language].uploadActivity}
+                </button>
+              )}
+              <button
+                onClick={handleUpload}
+                disabled={uploading}
+                className="h-8 px-3 text-xs font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+              >
+                {uploading ? '⏳' : '📤'} {t[language].uploadFiles}
+              </button>
+            </div>
           </div>
           <div className="space-y-2">
             {files.map((file, index) => (

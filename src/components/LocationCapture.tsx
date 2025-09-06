@@ -36,6 +36,20 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
     setMediaFiles(files);
   };
 
+  const handleUploadActivity = async (files: MediaFile[]) => {
+    // This function will be called when the upload activity button is clicked
+    // The files are already set in the mediaFiles state, so we can proceed with saving
+    if (currentLocation && activityType && (activityType !== 'Visita programada' || subActivity)) {
+      await saveLocation();
+    } else {
+      toast({
+        variant: 'destructive',
+        title: 'Información incompleta',
+        description: 'Por favor completa la ubicación y tipo de actividad antes de subir.',
+      });
+    }
+  };
+
   const getCurrentLocation = () => {
     setLoading(true);
     
@@ -49,30 +63,75 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude, accuracy } = position.coords;
-        setCurrentLocation({ latitude, longitude, accuracy });
-        toast({
-          title: '¡Ubicación capturada!',
-          description: `Precisión: ${Math.round(accuracy || 0)}m`,
-        });
-        setLoading(false);
-      },
-      (error) => {
-        toast({
-          variant: 'destructive',
-          title: 'Acceso a ubicación denegado',
-          description: 'Por favor habilita los servicios de ubicación e intenta de nuevo.',
-        });
-        setLoading(false);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0,
-      }
-    );
+    // iOS-specific geolocation options
+    const options: PositionOptions = {
+      enableHighAccuracy: true,
+      timeout: 30000, // Increased timeout for iOS
+      maximumAge: 60000, // Allow cached position for 1 minute
+    };
+
+    // For iOS, we need to handle the permission request more carefully
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    
+    if (isIOS) {
+      // On iOS, we need to request permission first
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
+          setCurrentLocation({ latitude, longitude, accuracy });
+          toast({
+            title: '¡Ubicación capturada!',
+            description: `Precisión: ${Math.round(accuracy || 0)}m`,
+          });
+          setLoading(false);
+        },
+        (error) => {
+          let errorMessage = 'Por favor habilita los servicios de ubicación e intenta de nuevo.';
+          
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage = 'Acceso a ubicación denegado. Por favor habilita la ubicación en Configuración > Privacidad > Servicios de ubicación.';
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = 'Ubicación no disponible. Verifica tu conexión a internet y GPS.';
+              break;
+            case error.TIMEOUT:
+              errorMessage = 'Tiempo de espera agotado. Intenta de nuevo.';
+              break;
+          }
+          
+          toast({
+            variant: 'destructive',
+            title: 'Error al obtener ubicación',
+            description: errorMessage,
+          });
+          setLoading(false);
+        },
+        options
+      );
+    } else {
+      // Standard geolocation for other browsers
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
+          setCurrentLocation({ latitude, longitude, accuracy });
+          toast({
+            title: '¡Ubicación capturada!',
+            description: `Precisión: ${Math.round(accuracy || 0)}m`,
+          });
+          setLoading(false);
+        },
+        (error) => {
+          toast({
+            variant: 'destructive',
+            title: 'Acceso a ubicación denegado',
+            description: 'Por favor habilita los servicios de ubicación e intenta de nuevo.',
+          });
+          setLoading(false);
+        },
+        options
+      );
+    }
   };
 
   const saveLocation = async () => {
@@ -493,9 +552,11 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
             <div className="w-full">
               <MediaRecorder
                 onFilesChange={handleMediaFilesChange}
+                onUploadActivity={handleUploadActivity}
                 maxAudioFiles={5}
                 maxVideoFiles={5}
                 maxPhotoFiles={10}
+                showUploadActivityButton={true}
               />
             </div>
           </div>
