@@ -50,7 +50,7 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
     }
   };
 
-  const getCurrentLocation = () => {
+  const getCurrentLocation = async () => {
     setLoading(true);
     
     if (!navigator.geolocation) {
@@ -63,75 +63,83 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
       return;
     }
 
-    // iOS-specific geolocation options
-    const options: PositionOptions = {
+    // Check if we're on iOS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+    
+    // For iOS, try to request permission first
+    if (isIOS && 'permissions' in navigator) {
+      try {
+        const permission = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+        if (permission.state === 'denied') {
+          toast({
+            variant: 'destructive',
+            title: 'Permisos de ubicación denegados',
+            description: 'Ve a Configuración > Safari > Ubicación y selecciona "Permitir". Luego recarga la página.',
+          });
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        // Permissions API not supported, continue with normal flow
+        console.log('Permissions API not supported, continuing with normal geolocation request');
+      }
+    }
+    
+    // More conservative options for iOS Safari
+    const options: PositionOptions = isIOS ? {
+      enableHighAccuracy: false, // Start with less accuracy for better compatibility
+      timeout: 20000, // Shorter timeout for iOS
+      maximumAge: 300000, // Allow cached position for 5 minutes
+    } : {
       enableHighAccuracy: true,
-      timeout: 30000, // Increased timeout for iOS
-      maximumAge: 60000, // Allow cached position for 1 minute
+      timeout: 30000,
+      maximumAge: 60000,
     };
 
-    // For iOS, we need to handle the permission request more carefully
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    
-    if (isIOS) {
-      // On iOS, we need to request permission first
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude, accuracy } = position.coords;
-          setCurrentLocation({ latitude, longitude, accuracy });
-          toast({
-            title: '¡Ubicación capturada!',
-            description: `Precisión: ${Math.round(accuracy || 0)}m`,
-          });
-          setLoading(false);
-        },
-        (error) => {
-          let errorMessage = 'Por favor habilita los servicios de ubicación e intenta de nuevo.';
-          
-          switch (error.code) {
-            case error.PERMISSION_DENIED:
-              errorMessage = 'Acceso a ubicación denegado. Por favor habilita la ubicación en Configuración > Privacidad > Servicios de ubicación.';
-              break;
-            case error.POSITION_UNAVAILABLE:
-              errorMessage = 'Ubicación no disponible. Verifica tu conexión a internet y GPS.';
-              break;
-            case error.TIMEOUT:
-              errorMessage = 'Tiempo de espera agotado. Intenta de nuevo.';
-              break;
-          }
-          
-          toast({
-            variant: 'destructive',
-            title: 'Error al obtener ubicación',
-            description: errorMessage,
-          });
-          setLoading(false);
-        },
-        options
-      );
-    } else {
-      // Standard geolocation for other browsers
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude, accuracy } = position.coords;
-          setCurrentLocation({ latitude, longitude, accuracy });
-          toast({
-            title: '¡Ubicación capturada!',
-            description: `Precisión: ${Math.round(accuracy || 0)}m`,
-          });
-          setLoading(false);
-        },
-        (error) => {
-          toast({
-            variant: 'destructive',
-            title: 'Acceso a ubicación denegado',
-            description: 'Por favor habilita los servicios de ubicación e intenta de nuevo.',
-          });
-          setLoading(false);
-        },
-        options
-      );
-    }
+    // Try to get current position
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        setCurrentLocation({ latitude, longitude, accuracy });
+        toast({
+          title: '¡Ubicación capturada!',
+          description: `Precisión: ${Math.round(accuracy || 0)}m`,
+        });
+        setLoading(false);
+      },
+      (error) => {
+        let errorMessage = 'Por favor habilita los servicios de ubicación e intenta de nuevo.';
+        let title = 'Error al obtener ubicación';
+        
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            title = 'Permisos de ubicación requeridos';
+            if (isIOS) {
+              errorMessage = 'Para usar esta función:\n1. Ve a Configuración > Safari > Ubicación\n2. Selecciona "Permitir"\n3. Recarga esta página\n4. Intenta de nuevo';
+            } else {
+              errorMessage = 'Por favor permite el acceso a la ubicación en tu navegador y recarga la página.';
+            }
+            break;
+          case error.POSITION_UNAVAILABLE:
+            title = 'Ubicación no disponible';
+            errorMessage = 'No se pudo obtener tu ubicación. Verifica que el GPS esté activado y que tengas conexión a internet.';
+            break;
+          case error.TIMEOUT:
+            title = 'Tiempo de espera agotado';
+            errorMessage = 'La solicitud de ubicación tardó demasiado. Intenta de nuevo.';
+            break;
+        }
+        
+        toast({
+          variant: 'destructive',
+          title,
+          description: errorMessage,
+        });
+        setLoading(false);
+      },
+      options
+    );
   };
 
   const saveLocation = async () => {
