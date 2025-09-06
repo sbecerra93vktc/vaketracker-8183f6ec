@@ -96,6 +96,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
 }) => {
   const videoPreviewRef = useRef<HTMLVideoElement | null>(null); // live preview
   const playbackRef = useRef<HTMLVideoElement | null>(null);     // playback element
+  const audioPlaybackRef = useRef<HTMLAudioElement | null>(null); // audio playback element
   const streamRef = useRef<MediaStream | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const recordingStartTimeRef = useRef<number>(0);
@@ -563,6 +564,19 @@ const MediaRecorderWidget: React.FC<Props> = ({
           return [...prev, { type: 'audio', file, duration }];
         });
 
+        // Play back recorded audio in a dedicated element
+        if (audioPlaybackRef.current) {
+          audioPlaybackRef.current.src = URL.createObjectURL(blob);
+          audioPlaybackRef.current.load();
+        }
+
+        console.log('Audio recording completed successfully:', {
+          size: blob.size,
+          duration,
+          filename,
+          chunks: audioChunksRef.current.length
+        });
+
         // Stop audio tracks after we finish (no preview to keep)
         for (const t of audioStream.getTracks()) t.stop();
       };
@@ -820,6 +834,24 @@ const MediaRecorderWidget: React.FC<Props> = ({
         </div>
       )}
 
+      {/* Playback for the last recorded audio - always visible */}
+      <div className="rounded-lg overflow-hidden bg-muted/30 p-2">
+        <label className="block text-sm font-medium mb-1">Vista Previa del Audio Grabado</label>
+        <audio
+          ref={audioPlaybackRef}
+          controls
+          preload="metadata"
+          className="w-full"
+        />
+        <div className="text-xs text-muted-foreground mt-1">
+          {files.filter(f => f.type === 'audio').length > 0 && (
+            <span>
+              Último audio: {files.filter(f => f.type === 'audio').slice(-1)[0]?.duration}s
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* Enhanced debug panel - development only */}
       {!IS_PRODUCTION && (
         <details className="text-xs text-muted-foreground" open={debugOpen} onToggle={(e) => setDebugOpen((e.target as HTMLDetailsElement).open)}>
@@ -839,10 +871,56 @@ const MediaRecorderWidget: React.FC<Props> = ({
         </details>
       )}
       
-      {/* File list summary */}
+      {/* File list with individual playback controls */}
       {files.length > 0 && (
-        <div className="text-xs text-muted-foreground">
-          Archivos: {files.filter(f => f.type === 'video').length} videos, {files.filter(f => f.type === 'audio').length} audios, {files.filter(f => f.type === 'photo').length} fotos
+        <div className="space-y-3">
+          <div className="text-sm font-medium">Archivos Grabados ({files.length})</div>
+          <div className="space-y-2">
+            {files.map((file, index) => (
+              <div key={index} className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg">
+                <div className="flex-shrink-0">
+                  {file.type === 'video' && <span className="text-lg">🎥</span>}
+                  {file.type === 'audio' && <span className="text-lg">🎵</span>}
+                  {file.type === 'photo' && <span className="text-lg">📷</span>}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{file.file.name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {file.type === 'video' && `Video • ${file.duration}s`}
+                    {file.type === 'audio' && `Audio • ${file.duration}s`}
+                    {file.type === 'photo' && 'Foto'}
+                    <span className="ml-2">• {(file.file.size / 1024 / 1024).toFixed(1)}MB</span>
+                  </div>
+                </div>
+                <div className="flex-shrink-0">
+                  {file.type === 'audio' && (
+                    <audio
+                      controls
+                      preload="metadata"
+                      className="h-8"
+                      src={URL.createObjectURL(file.file)}
+                    />
+                  )}
+                  {file.type === 'video' && (
+                    <video
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="h-8 w-16 rounded"
+                      src={URL.createObjectURL(file.file)}
+                    />
+                  )}
+                  {file.type === 'photo' && (
+                    <img
+                      src={URL.createObjectURL(file.file)}
+                      alt="Preview"
+                      className="h-8 w-8 rounded object-cover"
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
