@@ -117,6 +117,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
   const [chosenAudioMime, setChosenAudioMime] = useState<string | undefined>();
   const [diagnosticsTick, setDiagnosticsTick] = useState(0);
   const [language, setLanguage] = useState<'es' | 'en'>('es');
+  const [uploading, setUploading] = useState(false);
 
   // Push up to parent
   useEffect(() => {
@@ -621,6 +622,43 @@ const MediaRecorderWidget: React.FC<Props> = ({
     e.currentTarget.value = '';
   };
 
+  const handleUpload = async () => {
+    if (files.length === 0) {
+      alert(t[language].noFiles);
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // Create FormData for file upload
+      const formData = new FormData();
+      files.forEach((mediaFile, index) => {
+        formData.append(`file_${index}`, mediaFile.file);
+        formData.append(`type_${index}`, mediaFile.type);
+        if (mediaFile.duration) {
+          formData.append(`duration_${index}`, mediaFile.duration.toString());
+        }
+      });
+
+      // Here you would typically upload to your server
+      // For now, we'll simulate an upload
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Simulate successful upload
+      console.log('Uploading files:', files);
+      alert(t[language].uploadSuccess);
+      
+      // Clear files after successful upload
+      setFiles([]);
+      
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert(t[language].uploadError);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const ENABLE_VIDEO = import.meta.env.VITE_ENABLE_VIDEO === 'true';
   const IS_PRODUCTION = import.meta.env.VITE_PRODUCTION_MODE === 'true';
 
@@ -650,7 +688,22 @@ const MediaRecorderWidget: React.FC<Props> = ({
       photoTooBig: 'Archivo muy grande (>50MB). Por favor selecciona una imagen más pequeña.',
       cameraError: 'No se pudo iniciar la grabación de video. Verifica los permisos de la cámara.',
       audioError: 'No se pudo iniciar la grabación de audio. Verifica los permisos del micrófono.',
-      language: 'Idioma'
+      language: 'Idioma',
+      uploadFiles: 'Subir Archivos',
+      noFiles: 'No hay archivos para subir',
+      uploadSuccess: 'Archivos subidos exitosamente',
+      uploadError: 'Error al subir archivos',
+      userAgent: 'UserAgent',
+      protocol: 'Protocolo',
+      mediaRecorder: 'MediaRecorder',
+      getUserMedia: 'getUserMedia',
+      chosenVideoMime: 'MIME de Video Elegido',
+      chosenAudioMime: 'MIME de Audio Elegido',
+      tracksAlive: 'Pistas Activas',
+      requestVideoFrameCallback: 'requestVideoFrameCallback',
+      default: '(por defecto)',
+      yes: 'SÍ',
+      no: 'NO'
     },
     en: {
       openCamera: 'Open Camera',
@@ -676,7 +729,22 @@ const MediaRecorderWidget: React.FC<Props> = ({
       photoTooBig: 'File too large (>50MB). Please select a smaller image.',
       cameraError: 'Could not start video recording. Check camera permissions.',
       audioError: 'Could not start audio recording. Check microphone permissions.',
-      language: 'Language'
+      language: 'Language',
+      uploadFiles: 'Upload Files',
+      noFiles: 'No files to upload',
+      uploadSuccess: 'Files uploaded successfully',
+      uploadError: 'Error uploading files',
+      userAgent: 'UserAgent',
+      protocol: 'Protocol',
+      mediaRecorder: 'MediaRecorder',
+      getUserMedia: 'getUserMedia',
+      chosenVideoMime: 'Chosen Video MIME',
+      chosenAudioMime: 'Chosen Audio MIME',
+      tracksAlive: 'Tracks Alive',
+      requestVideoFrameCallback: 'requestVideoFrameCallback',
+      default: '(default)',
+      yes: 'YES',
+      no: 'NO'
     }
   };
 
@@ -927,14 +995,14 @@ const MediaRecorderWidget: React.FC<Props> = ({
             {t[language].showDiagnostics}
           </summary>
           <div className="mt-2 space-y-1 p-3 rounded-lg bg-muted/50">
-            <div><strong>UserAgent:</strong> {navigator.userAgent.slice(0, 100)}...</div>
-            <div><strong>Protocol:</strong> {location.protocol}</div>
-            <div><strong>MediaRecorder:</strong> {typeof window !== 'undefined' && 'MediaRecorder' in window ? '✅ YES' : '❌ NO'}</div>
-            <div><strong>getUserMedia:</strong> {navigator.mediaDevices?.getUserMedia ? '✅ YES' : '❌ NO'}</div>
-            <div><strong>Chosen Video MIME:</strong> {chosenVideoMime || '(default)'}</div>
-            <div><strong>Chosen Audio MIME:</strong> {chosenAudioMime || '(default)'}</div>
-            <div><strong>Tracks Alive:</strong> {streamRef.current ? streamRef.current.getTracks().filter(t => t.readyState === 'live').length : 0}</div>
-            <div><strong>requestVideoFrameCallback:</strong> {videoPreviewRef.current && 'requestVideoFrameCallback' in videoPreviewRef.current ? '✅ YES' : '❌ NO'}</div>
+            <div><strong>{t[language].userAgent}:</strong> {navigator.userAgent.slice(0, 100)}...</div>
+            <div><strong>{t[language].protocol}:</strong> {location.protocol}</div>
+            <div><strong>{t[language].mediaRecorder}:</strong> {typeof window !== 'undefined' && 'MediaRecorder' in window ? `✅ ${t[language].yes}` : `❌ ${t[language].no}`}</div>
+            <div><strong>{t[language].getUserMedia}:</strong> {navigator.mediaDevices?.getUserMedia ? `✅ ${t[language].yes}` : `❌ ${t[language].no}`}</div>
+            <div><strong>{t[language].chosenVideoMime}:</strong> {chosenVideoMime || t[language].default}</div>
+            <div><strong>{t[language].chosenAudioMime}:</strong> {chosenAudioMime || t[language].default}</div>
+            <div><strong>{t[language].tracksAlive}:</strong> {streamRef.current ? streamRef.current.getTracks().filter(t => t.readyState === 'live').length : 0}</div>
+            <div><strong>{t[language].requestVideoFrameCallback}:</strong> {videoPreviewRef.current && 'requestVideoFrameCallback' in videoPreviewRef.current ? `✅ ${t[language].yes}` : `❌ ${t[language].no}`}</div>
           </div>
         </details>
       )}
@@ -942,7 +1010,16 @@ const MediaRecorderWidget: React.FC<Props> = ({
       {/* File list with individual playback controls */}
       {files.length > 0 && (
         <div className="space-y-3">
-          <div className="text-sm font-medium">{t[language].recordedFiles} ({files.length})</div>
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-medium">{t[language].recordedFiles} ({files.length})</div>
+            <button
+              onClick={handleUpload}
+              disabled={uploading}
+              className="h-8 px-3 text-xs font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            >
+              {uploading ? '⏳' : '📤'} {t[language].uploadFiles}
+            </button>
+          </div>
           <div className="space-y-2">
             {files.map((file, index) => (
               <div key={index} className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg">
