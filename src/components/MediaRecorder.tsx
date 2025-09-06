@@ -116,6 +116,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
   const [chosenVideoMime, setChosenVideoMime] = useState<string | undefined>();
   const [chosenAudioMime, setChosenAudioMime] = useState<string | undefined>();
   const [diagnosticsTick, setDiagnosticsTick] = useState(0);
+  const [language, setLanguage] = useState<'es' | 'en'>('es');
 
   // Push up to parent
   useEffect(() => {
@@ -410,7 +411,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
 
           // Check file size (50MB limit)
           if (blob.size > 50 * 1024 * 1024) {
-            alert('Archivo muy grande (>50MB). Intenta grabar menos tiempo.');
+            alert(t[language].fileTooBig);
             return;
           }
 
@@ -470,7 +471,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
       setRecordingVideo(true);
     } catch (error) {
       console.error('Video recording failed:', error);
-      alert('No se pudo iniciar la grabación de video. Verifica los permisos de la cámara.');
+      alert(t[language].cameraError);
     }
   };
 
@@ -550,7 +551,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
         
         // Check file size (50MB limit)
         if (blob.size > 50 * 1024 * 1024) {
-          alert('Archivo muy grande (>50MB). Intenta grabar menos tiempo.');
+          alert(t[language].fileTooBig);
           return;
         }
         
@@ -585,7 +586,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
       setRecordingAudio(true);
     } catch (error) {
       console.error('Audio recording failed:', error);
-      alert('No se pudo iniciar la grabación de audio. Verifica los permisos del micrófono.');
+      alert(t[language].audioError);
     }
   };
 
@@ -602,7 +603,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
     
     // Check file size (50MB limit)
     if (file.size > 50 * 1024 * 1024) {
-      alert('Archivo muy grande (>50MB). Por favor selecciona una imagen más pequeña.');
+      alert(t[language].photoTooBig);
       e.currentTarget.value = '';
       return;
     }
@@ -623,8 +624,75 @@ const MediaRecorderWidget: React.FC<Props> = ({
   const ENABLE_VIDEO = import.meta.env.VITE_ENABLE_VIDEO === 'true';
   const IS_PRODUCTION = import.meta.env.VITE_PRODUCTION_MODE === 'true';
 
+  // Translations
+  const t = {
+    es: {
+      openCamera: 'Abrir Cámara',
+      recordVideo: 'Grabar Video',
+      stopVideo: 'Detener Video',
+      closeCamera: 'Cerrar Cámara',
+      recordAudio: '📱 Grabar Audio',
+      stopAudio: '⏹️ Detener Audio',
+      takePhoto: 'Tomar/Subir Foto',
+      videoPreview: 'Vista Previa del Video Grabado',
+      audioPreview: 'Vista Previa del Audio Grabado',
+      lastAudio: 'Último audio',
+      recordedFiles: 'Archivos Grabados',
+      video: 'Video',
+      audio: 'Audio',
+      photo: 'Foto',
+      cameraReady: 'Camera Ready',
+      recording: 'REC',
+      videoCapture: '📹 Captura de video',
+      comingSoon: '(en mejora, próximamente)',
+      showDiagnostics: 'Mostrar diagnóstico',
+      fileTooBig: 'Archivo muy grande (>50MB). Intenta grabar menos tiempo.',
+      photoTooBig: 'Archivo muy grande (>50MB). Por favor selecciona una imagen más pequeña.',
+      cameraError: 'No se pudo iniciar la grabación de video. Verifica los permisos de la cámara.',
+      audioError: 'No se pudo iniciar la grabación de audio. Verifica los permisos del micrófono.',
+      language: 'Idioma'
+    },
+    en: {
+      openCamera: 'Open Camera',
+      recordVideo: 'Record Video',
+      stopVideo: 'Stop Video',
+      closeCamera: 'Close Camera',
+      recordAudio: '📱 Record Audio',
+      stopAudio: '⏹️ Stop Audio',
+      takePhoto: 'Take/Upload Photo',
+      videoPreview: 'Recorded Video Preview',
+      audioPreview: 'Recorded Audio Preview',
+      lastAudio: 'Last audio',
+      recordedFiles: 'Recorded Files',
+      video: 'Video',
+      audio: 'Audio',
+      photo: 'Photo',
+      cameraReady: 'Camera Ready',
+      recording: 'REC',
+      videoCapture: '📹 Video capture',
+      comingSoon: '(improving, coming soon)',
+      showDiagnostics: 'Show diagnostics',
+      fileTooBig: 'File too large (>50MB). Try recording for less time.',
+      photoTooBig: 'File too large (>50MB). Please select a smaller image.',
+      cameraError: 'Could not start video recording. Check camera permissions.',
+      audioError: 'Could not start audio recording. Check microphone permissions.',
+      language: 'Language'
+    }
+  };
+
   return (
     <div className="space-y-3">
+      {/* Language Toggle */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => setLanguage(language === 'es' ? 'en' : 'es')}
+          className="text-xs px-2 py-1 rounded border hover:bg-accent transition-colors"
+          title={t[language].language}
+        >
+          {language === 'es' ? '🇪🇸 ES' : '🇺🇸 EN'}
+        </button>
+      </div>
+
       {/* Video preview section - hide in production */}
       {ENABLE_VIDEO ? (
         <div className="relative min-h-[240px]" style={{ background: '#000' }}>
@@ -646,21 +714,21 @@ const MediaRecorderWidget: React.FC<Props> = ({
           />
           {cameraReady && (
             <span className="absolute top-2 left-2 text-xs px-2 py-1 rounded bg-green-600/80 text-white">
-              Camera Ready
+              {t[language].cameraReady}
             </span>
           )}
           {(recordingVideo || recordingAudio) && (
             <div className="absolute top-2 right-2 flex items-center gap-2 text-xs px-2 py-1 rounded bg-red-600/80 text-white">
               <div className="w-2 h-2 bg-red-300 rounded-full animate-pulse"></div>
-              REC {formatTime(recordingTime)}
+              {t[language].recording} {formatTime(recordingTime)}
             </div>
           )}
         </div>
       ) : (
         <div className="flex items-center justify-center p-6 bg-muted/30 rounded-lg border-2 border-dashed border-muted-foreground/30">
           <div className="text-center text-muted-foreground">
-            <div className="text-sm font-medium mb-1">📹 Captura de video</div>
-            <div className="text-xs">(en mejora, próximamente)</div>
+            <div className="text-sm font-medium mb-1">{t[language].videoCapture}</div>
+            <div className="text-xs">{t[language].comingSoon}</div>
           </div>
         </div>
       )}
@@ -756,7 +824,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
               onClick={ensureCamera}
               type="button"
             >
-              Abrir Cámara
+              {t[language].openCamera}
             </button>
 
             {!recordingVideo ? (
@@ -765,7 +833,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
                 onClick={startVideoRecording}
                 type="button"
               >
-                Grabar Video
+                {t[language].recordVideo}
               </button>
             ) : (
               <button
@@ -773,7 +841,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
                 onClick={stopVideoRecording}
                 type="button"
               >
-                Detener Video
+                {t[language].stopVideo}
               </button>
             )}
 
@@ -782,7 +850,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
               onClick={closeCamera}
               type="button"
             >
-              Cerrar Cámara
+              {t[language].closeCamera}
             </button>
           </>
         )}
@@ -794,7 +862,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
             onClick={startAudioRecording}
             type="button"
           >
-            📱 Grabar Audio
+            {t[language].recordAudio}
           </button>
         ) : (
           <button
@@ -802,14 +870,14 @@ const MediaRecorderWidget: React.FC<Props> = ({
             onClick={stopAudioRecording}
             type="button"
           >
-            ⏹️ Detener Audio
+            {t[language].stopAudio}
           </button>
         )}
       </div>
 
       {/* Photo picker */}
       <div>
-        <label className="block text-sm font-medium mb-1">Tomar/Subir Foto</label>
+        <label className="block text-sm font-medium mb-1">{t[language].takePhoto}</label>
         <input
           type="file"
           accept="image/*"
@@ -822,7 +890,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
       {/* Playback for the last recorded video - development only */}
       {ENABLE_VIDEO && (
         <div className="rounded-lg overflow-hidden bg-muted/30 p-2">
-          <label className="block text-sm font-medium mb-1">Vista Previa del Video Grabado</label>
+          <label className="block text-sm font-medium mb-1">{t[language].videoPreview}</label>
           <video
             ref={playbackRef}
             controls
@@ -834,29 +902,29 @@ const MediaRecorderWidget: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Playback for the last recorded audio - always visible */}
-      <div className="rounded-lg overflow-hidden bg-muted/30 p-2">
-        <label className="block text-sm font-medium mb-1">Vista Previa del Audio Grabado</label>
-        <audio
-          ref={audioPlaybackRef}
-          controls
-          preload="metadata"
-          className="w-full"
-        />
-        <div className="text-xs text-muted-foreground mt-1">
-          {files.filter(f => f.type === 'audio').length > 0 && (
+      {/* Playback for the last recorded audio - only show when audio is available */}
+      {files.filter(f => f.type === 'audio').length > 0 && (
+        <div className="rounded-lg overflow-hidden bg-muted/30 p-2">
+          <label className="block text-sm font-medium mb-1">{t[language].audioPreview}</label>
+          <audio
+            ref={audioPlaybackRef}
+            controls
+            preload="metadata"
+            className="w-full"
+          />
+          <div className="text-xs text-muted-foreground mt-1">
             <span>
-              Último audio: {files.filter(f => f.type === 'audio').slice(-1)[0]?.duration}s
+              {t[language].lastAudio}: {files.filter(f => f.type === 'audio').slice(-1)[0]?.duration}s
             </span>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Enhanced debug panel - development only */}
       {!IS_PRODUCTION && (
         <details className="text-xs text-muted-foreground" open={debugOpen} onToggle={(e) => setDebugOpen((e.target as HTMLDetailsElement).open)}>
           <summary className="cursor-pointer select-none hover:text-foreground transition-colors">
-            Mostrar diagnóstico
+            {t[language].showDiagnostics}
           </summary>
           <div className="mt-2 space-y-1 p-3 rounded-lg bg-muted/50">
             <div><strong>UserAgent:</strong> {navigator.userAgent.slice(0, 100)}...</div>
@@ -874,7 +942,7 @@ const MediaRecorderWidget: React.FC<Props> = ({
       {/* File list with individual playback controls */}
       {files.length > 0 && (
         <div className="space-y-3">
-          <div className="text-sm font-medium">Archivos Grabados ({files.length})</div>
+          <div className="text-sm font-medium">{t[language].recordedFiles} ({files.length})</div>
           <div className="space-y-2">
             {files.map((file, index) => (
               <div key={index} className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg">
@@ -886,9 +954,9 @@ const MediaRecorderWidget: React.FC<Props> = ({
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{file.file.name}</div>
                   <div className="text-xs text-muted-foreground">
-                    {file.type === 'video' && `Video • ${file.duration}s`}
-                    {file.type === 'audio' && `Audio • ${file.duration}s`}
-                    {file.type === 'photo' && 'Foto'}
+                    {file.type === 'video' && `${t[language].video} • ${file.duration}s`}
+                    {file.type === 'audio' && `${t[language].audio} • ${file.duration}s`}
+                    {file.type === 'photo' && t[language].photo}
                     <span className="ml-2">• {(file.file.size / 1024 / 1024).toFixed(1)}MB</span>
                   </div>
                 </div>
