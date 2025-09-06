@@ -1038,99 +1038,117 @@ const LocationHistory = () => {
               <div className="space-y-4">
                 {selectedActivity ? (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-warning bg-gradient-to-r from-warning/10 to-orange-500/10 px-4 py-2 rounded-lg">Detalles de Actividad</h3>
-                      <div className="flex items-center gap-2">
-                        {selectedActivity && canEditActivity(selectedActivity) && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEditDialog(selectedActivity as unknown as Location);
-                            }}
-                            className="text-xs bg-white/90 backdrop-blur-sm border-blue-300 text-blue-600 hover:bg-blue-50"
-                            title="Editar actividad"
-                          >
-                            <Edit className="h-3.5 w-3.5 mr-1" /> Editar
-                          </Button>
-                        )}
-                        {selectedActivity && canDeleteActivity(selectedActivity) && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openDeleteDialog(selectedActivity as unknown as Location);
-                            }}
-                            className="text-xs bg-white/90 backdrop-blur-sm border-red-300 text-red-600 hover:bg-red-50"
-                            title="Eliminar actividad"
-                          >
-                            <Trash className="h-3.5 w-3.5 mr-1" /> Eliminar
-                          </Button>
-                        )}
+                    {/* Mobile-first header design */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-warning bg-gradient-to-r from-warning/10 to-orange-500/10 px-3 py-2 rounded-lg">
+                          <span className="hidden sm:inline">Detalles de Actividad</span>
+                          <span className="sm:hidden">Detalles</span>
+                        </h3>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={clearSelectedActivity}
                           className="text-xs bg-white/90 backdrop-blur-sm border-warning/30 hover:bg-warning/10"
                         >
-                          Cerrar
+                          <span className="hidden sm:inline">Cerrar</span>
+                          <span className="sm:hidden">×</span>
                         </Button>
                       </div>
+                      
+                      {/* Action buttons - Mobile optimized */}
+                      {(selectedActivity && (canEditActivity(selectedActivity) || canDeleteActivity(selectedActivity))) && (
+                        <div className="flex gap-2 sm:gap-3">
+                          {selectedActivity && canEditActivity(selectedActivity) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditDialog(selectedActivity as unknown as Location);
+                              }}
+                              className="flex-1 sm:flex-none text-xs bg-white/90 backdrop-blur-sm border-blue-300 text-blue-600 hover:bg-blue-50 h-9"
+                              title="Editar actividad"
+                            >
+                              <Edit className="h-4 w-4 sm:mr-2" />
+                              <span className="hidden sm:inline">Editar</span>
+                            </Button>
+                          )}
+                          {selectedActivity && canDeleteActivity(selectedActivity) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openDeleteDialog(selectedActivity as unknown as Location);
+                              }}
+                              className="flex-1 sm:flex-none text-xs bg-white/90 backdrop-blur-sm border-red-300 text-red-600 hover:bg-red-50 h-9"
+                              title="Eliminar actividad"
+                            >
+                              <Trash className="h-4 w-4 sm:mr-2" />
+                              <span className="hidden sm:inline">Eliminar</span>
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
                     
-                    <div className="group relative overflow-hidden rounded-2xl border-0 bg-gradient-to-br from-warning/10 via-warning/5 to-white p-6 backdrop-blur-sm shadow-2xl ring-2 ring-warning/60">
+                    <div className="group relative overflow-hidden rounded-2xl border-0 bg-gradient-to-br from-warning/10 via-warning/5 to-white p-4 sm:p-6 backdrop-blur-sm shadow-2xl ring-2 ring-warning/60">
                       {/* Glass morphism effect */}
                       <div className="absolute inset-0 bg-white/20 backdrop-blur-[2px] rounded-2xl"></div>
                       
                       {/* Selection indicator with glow */}
-                      <div className="absolute top-5 right-5 w-4 h-4 bg-gradient-to-r from-warning to-orange-500 rounded-full animate-pulse shadow-lg shadow-warning/50 z-10">
-                        <div className="absolute inset-1 bg-white rounded-full"></div>
+                      <div className="absolute top-3 right-3 sm:top-5 sm:right-5 w-3 h-3 sm:w-4 sm:h-4 bg-gradient-to-r from-warning to-orange-500 rounded-full animate-pulse shadow-lg shadow-warning/50 z-10">
+                        <div className="absolute inset-0.5 sm:inset-1 bg-white rounded-full"></div>
                       </div>
 
                       {/* Content wrapper */}
                       <div className="relative z-10">
-                        {/* Header section */}
-                        <div className="flex items-start justify-between mb-6">
-                          <div className="flex items-center gap-3">
-                            <div className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-bold shadow-lg ${getVisitTypeColor(selectedActivity.visit_type)} backdrop-blur-sm`}>
-                              {formatVisitType(selectedActivity.visit_type)}
-                            </div>
-                            {userRole === 'admin' && selectedActivity.user_name && (
-                              <div className="flex items-center gap-2 text-sm bg-gradient-to-r from-blue-500/10 to-purple-500/10 px-4 py-2 rounded-full border border-blue-200/50">
-                                <User className="h-4 w-4 text-blue-600" />
-                                <span className="font-semibold text-blue-700">{selectedActivity.user_name}</span>
+                        {/* Header section - Mobile optimized */}
+                        <div className="space-y-3 mb-4 sm:mb-6">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                              <div className={`inline-flex items-center rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold shadow-lg ${getVisitTypeColor(selectedActivity.visit_type)} backdrop-blur-sm`}>
+                                {formatVisitType(selectedActivity.visit_type)}
                               </div>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-xs bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-gray-200/50">
-                            <Clock className="h-3 w-3 text-gray-600" />
-                            <span className="font-medium text-gray-700">{new Date(selectedActivity.created_at).toLocaleString()}</span>
+                              {userRole === 'admin' && selectedActivity.user_name && (
+                                <div className="flex items-center gap-2 text-xs sm:text-sm bg-gradient-to-r from-blue-500/10 to-purple-500/10 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-blue-200/50">
+                                  <User className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
+                                  <span className="font-semibold text-blue-700 truncate">{selectedActivity.user_name}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs bg-white/90 backdrop-blur-sm px-3 sm:px-4 py-1.5 sm:py-2 rounded-full shadow-sm border border-gray-200/50">
+                              <Clock className="h-3 w-3 text-gray-600" />
+                              <span className="font-medium text-gray-700">
+                                <span className="hidden sm:inline">{new Date(selectedActivity.created_at).toLocaleString()}</span>
+                                <span className="sm:hidden">{new Date(selectedActivity.created_at).toLocaleDateString()}</span>
+                              </span>
+                            </div>
                           </div>
                         </div>
 
-                        {/* Address and location section */}
-                        <div className="space-y-4 mb-6">
-                          <div className="flex items-start gap-4">
-                            <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-warning/20 to-orange-500/20 rounded-xl flex items-center justify-center">
-                              <MapPin className="h-6 w-6 text-warning" />
+                        {/* Address and location section - Mobile optimized */}
+                        <div className="space-y-4 mb-4 sm:mb-6">
+                          <div className="flex items-start gap-3 sm:gap-4">
+                            <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-warning/20 to-orange-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                              <MapPin className="h-5 w-5 sm:h-6 sm:w-6 text-warning" />
                             </div>
-                            <div className="flex-1">
-                              <p className="text-lg font-semibold text-gray-900 leading-relaxed mb-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-base sm:text-lg font-semibold text-gray-900 leading-relaxed mb-3 break-words">
                                 {selectedActivity.address}
                               </p>
-                              <div className="flex flex-wrap items-center gap-3 text-sm">
-                                <span className="bg-gray-100/80 backdrop-blur-sm px-3 py-2 rounded-lg font-mono text-xs font-medium border border-gray-200/50">
+                              <div className="space-y-2 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+                                <span className="block sm:inline bg-gray-100/80 backdrop-blur-sm px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg font-mono text-xs font-medium border border-gray-200/50">
                                   {selectedActivity.latitude.toFixed(6)}, {selectedActivity.longitude.toFixed(6)}
                                 </span>
-                                <div className="flex items-center gap-2 bg-gradient-to-r from-green-500/10 to-emerald-500/10 px-3 py-2 rounded-lg border border-green-200/50">
-                                  <Globe className="h-4 w-4 text-green-600" />
-                                  <span className="font-semibold text-green-700">
+                                <div className="flex items-center gap-2 bg-gradient-to-r from-green-500/10 to-emerald-500/10 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-green-200/50">
+                                  <Globe className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
+                                  <span className="font-semibold text-green-700 text-xs sm:text-sm">
                                     {selectedActivity.country || detectCountryFromCoordinates(selectedActivity.latitude, selectedActivity.longitude)}
                                   </span>
-                                  <span className="text-green-400 font-bold">•</span>
-                                  <span className="font-medium text-green-600">
+                                  <span className="text-green-400 font-bold hidden sm:inline">•</span>
+                                  <span className="font-medium text-green-600 text-xs sm:text-sm">
                                     {selectedActivity.state || detectStateFromCoordinates(
                                       selectedActivity.latitude, 
                                       selectedActivity.longitude,
@@ -1139,9 +1157,9 @@ const LocationHistory = () => {
                                   </span>
                                 </div>
                               </div>
-                              {/* Google Maps Navigation Button */}
+                              {/* Google Maps Navigation Button - Mobile optimized */}
                               <div className="mt-3">
-                                <Button asChild className="bg-blue-600 text-white hover:bg-blue-700 w-full sm:w-auto">
+                                <Button asChild className="bg-blue-600 text-white hover:bg-blue-700 w-full h-10 sm:h-auto">
                                   <a
                                     href={getGoogleMapsHref(selectedActivity.address, selectedActivity.latitude, selectedActivity.longitude)}
                                     target="_blank"
@@ -1174,46 +1192,46 @@ const LocationHistory = () => {
                           </div>
                         </div>
 
-                        {/* Notes section */}
+                        {/* Notes section - Mobile optimized */}
                         {selectedActivity.notes && (
-                          <div className="mb-6 p-4 bg-gradient-to-r from-amber-50/80 to-orange-50/80 rounded-xl border-l-4 border-amber-400 backdrop-blur-sm">
-                            <p className="text-sm text-amber-900 leading-relaxed font-medium">
+                          <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-gradient-to-r from-amber-50/80 to-orange-50/80 rounded-lg sm:rounded-xl border-l-4 border-amber-400 backdrop-blur-sm">
+                            <p className="text-sm text-amber-900 leading-relaxed font-medium break-words">
                               {selectedActivity.notes}
                             </p>
                           </div>
                         )}
 
-                        {/* Business information section */}
+                        {/* Business information section - Mobile optimized */}
                         {(selectedActivity.business_name || selectedActivity.contact_person || selectedActivity.contact_email || selectedActivity.phone) && (
-                          <div className="mb-6 p-4 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 rounded-xl border-l-4 border-blue-400 backdrop-blur-sm">
+                          <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 rounded-lg sm:rounded-xl border-l-4 border-blue-400 backdrop-blur-sm">
                             <h4 className="text-sm font-semibold text-blue-900 mb-3">Información de Negocio</h4>
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                               {selectedActivity.business_name && (
-                                <div className="flex items-center gap-2 text-sm">
-                                  <span className="font-medium text-blue-700">Negocio:</span>
-                                  <span className="text-blue-800">{selectedActivity.business_name}</span>
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-sm">
+                                  <span className="font-medium text-blue-700 text-xs sm:text-sm">Negocio:</span>
+                                  <span className="text-blue-800 text-sm break-words">{selectedActivity.business_name}</span>
                                 </div>
                               )}
                               {selectedActivity.contact_person && (
-                                <div className="flex items-center gap-2 text-sm">
-                                  <span className="font-medium text-blue-700">Contacto:</span>
-                                  <span className="text-blue-800">{selectedActivity.contact_person}</span>
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-sm">
+                                  <span className="font-medium text-blue-700 text-xs sm:text-sm">Contacto:</span>
+                                  <span className="text-blue-800 text-sm break-words">{selectedActivity.contact_person}</span>
                                 </div>
                               )}
                               {selectedActivity.contact_email && (
-                                <div className="flex items-center gap-2 text-sm">
-                                  <span className="font-medium text-blue-700">Email:</span>
-                                  <span className="text-blue-800">{selectedActivity.contact_email}</span>
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-sm">
+                                  <span className="font-medium text-blue-700 text-xs sm:text-sm">Email:</span>
+                                  <span className="text-blue-800 text-sm break-all">{selectedActivity.contact_email}</span>
                                 </div>
                               )}
                               {selectedActivity.phone && (
-                                <div className="flex flex-col items-start gap-2 text-sm">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-medium text-blue-700">Teléfono:</span>
-                                    <span className="text-blue-800">{selectedActivity.phone}</span>
+                                <div className="space-y-3">
+                                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-sm">
+                                    <span className="font-medium text-blue-700 text-xs sm:text-sm">Teléfono:</span>
+                                    <span className="text-blue-800 text-sm">{selectedActivity.phone}</span>
                                   </div>
-                                  <div className="flex gap-2 mt-1">
-                                    <Button asChild className="bg-green-600 text-white hover:bg-green-700">
+                                  <div className="flex flex-col sm:flex-row gap-2">
+                                    <Button asChild className="bg-green-600 text-white hover:bg-green-700 h-10 sm:h-auto flex-1 sm:flex-none">
                                       <a
                                         href={getDialHref(selectedActivity.phone)}
                                         aria-label={`Llamar al ${selectedActivity.phone}`}
@@ -1234,10 +1252,12 @@ const LocationHistory = () => {
                                           }
                                         }}
                                       >
-                                        <Phone className="h-4 w-4 mr-2" /> Llamar
+                                        <Phone className="h-4 w-4 mr-2" /> 
+                                        <span className="hidden sm:inline">Llamar</span>
+                                        <span className="sm:hidden">Llamar</span>
                                       </a>
                                     </Button>
-                                    <Button asChild className="bg-green-500 text-white hover:bg-green-600">
+                                    <Button asChild className="bg-green-500 text-white hover:bg-green-600 h-10 sm:h-auto flex-1 sm:flex-none">
                                       <a
                                         href={getWhatsAppHref(selectedActivity.phone)}
                                         aria-label={`Enviar WhatsApp a ${selectedActivity.phone}`}
@@ -1258,7 +1278,9 @@ const LocationHistory = () => {
                                           }
                                         }}
                                       >
-                                        <MessageCircle className="h-4 w-4 mr-2" /> WhatsApp
+                                        <MessageCircle className="h-4 w-4 mr-2" /> 
+                                        <span className="hidden sm:inline">WhatsApp</span>
+                                        <span className="sm:hidden">WhatsApp</span>
                                       </a>
                                     </Button>
                                   </div>
@@ -1368,25 +1390,32 @@ const LocationHistory = () => {
 
                         {/* Content wrapper */}
                         <div className="relative z-10">
-                          {/* Header section */}
-                          <div className="flex items-start justify-between mb-6">
-                            <div className="flex items-center gap-3">
-                              <div className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-bold shadow-lg ${getVisitTypeColor(location.visit_type)} backdrop-blur-sm`}>
-                                {formatVisitType(location.visit_type)}
-                              </div>
-                              {userRole === 'admin' && location.user_name && (
-                                <div className="flex items-center gap-2 text-sm bg-gradient-to-r from-blue-500/10 to-purple-500/10 px-4 py-2 rounded-full border border-blue-200/50">
-                                  <User className="h-4 w-4 text-blue-600" />
-                                  <span className="font-semibold text-blue-700">{location.user_name}</span>
+                          {/* Header section - Mobile optimized */}
+                          <div className="space-y-3 mb-4 sm:mb-6">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                                <div className={`inline-flex items-center rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold shadow-lg ${getVisitTypeColor(location.visit_type)} backdrop-blur-sm`}>
+                                  {formatVisitType(location.visit_type)}
                                 </div>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="flex items-center gap-2 text-xs bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-gray-200/50">
-                                <Clock className="h-3 w-3 text-gray-600" />
-                                <span className="font-medium text-gray-700">{new Date(location.created_at).toLocaleString()}</span>
+                                {userRole === 'admin' && location.user_name && (
+                                  <div className="flex items-center gap-2 text-xs sm:text-sm bg-gradient-to-r from-blue-500/10 to-purple-500/10 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-blue-200/50">
+                                    <User className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
+                                    <span className="font-semibold text-blue-700 truncate">{location.user_name}</span>
+                                  </div>
+                                )}
                               </div>
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-2 text-xs bg-white/90 backdrop-blur-sm px-3 sm:px-4 py-1.5 sm:py-2 rounded-full shadow-sm border border-gray-200/50">
+                                <Clock className="h-3 w-3 text-gray-600" />
+                                <span className="font-medium text-gray-700">
+                                  <span className="hidden sm:inline">{new Date(location.created_at).toLocaleString()}</span>
+                                  <span className="sm:hidden">{new Date(location.created_at).toLocaleDateString()}</span>
+                                </span>
+                              </div>
+                            </div>
+                            
+                            {/* Action buttons - Mobile optimized */}
+                            {(canEditActivity(location) || canDeleteActivity(location)) && (
+                              <div className="flex gap-2 sm:gap-3">
                                 {canEditActivity(location) && (
                                   <Button
                                     variant="outline"
@@ -1396,10 +1425,11 @@ const LocationHistory = () => {
                                       e.stopPropagation();
                                       openEditDialog(location);
                                     }}
-                                    className="h-7 text-xs bg-white/90 backdrop-blur-sm border-blue-300 text-blue-600 hover:bg-blue-50"
+                                    className="flex-1 sm:flex-none text-xs bg-white/90 backdrop-blur-sm border-blue-300 text-blue-600 hover:bg-blue-50 h-9"
                                     title="Editar actividad"
                                   >
-                                    <Edit className="h-3.5 w-3.5" />
+                                    <Edit className="h-4 w-4 sm:mr-2" />
+                                    <span className="hidden sm:inline">Editar</span>
                                   </Button>
                                 )}
                                 {canDeleteActivity(location) && (
@@ -1411,37 +1441,38 @@ const LocationHistory = () => {
                                       e.stopPropagation();
                                       openDeleteDialog(location);
                                     }}
-                                    className="h-7 text-xs bg-white/90 backdrop-blur-sm border-red-300 text-red-600 hover:bg-red-50"
+                                    className="flex-1 sm:flex-none text-xs bg-white/90 backdrop-blur-sm border-red-300 text-red-600 hover:bg-red-50 h-9"
                                     title="Eliminar actividad"
                                   >
-                                    <Trash className="h-3.5 w-3.5" />
+                                    <Trash className="h-4 w-4 sm:mr-2" />
+                                    <span className="hidden sm:inline">Eliminar</span>
                                   </Button>
                                 )}
                               </div>
-                            </div>
+                            )}
                           </div>
 
-                          {/* Address and location section */}
-                          <div className="space-y-4 mb-6">
-                            <div className="flex items-start gap-4">
-                              <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-warning/20 to-orange-500/20 rounded-xl flex items-center justify-center">
-                                <MapPin className="h-6 w-6 text-warning" />
+                          {/* Address and location section - Mobile optimized */}
+                          <div className="space-y-4 mb-4 sm:mb-6">
+                            <div className="flex items-start gap-3 sm:gap-4">
+                              <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-warning/20 to-orange-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                                <MapPin className="h-5 w-5 sm:h-6 sm:w-6 text-warning" />
                               </div>
-                              <div className="flex-1">
-                                <p className="text-lg font-semibold text-gray-900 leading-relaxed mb-3">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-base sm:text-lg font-semibold text-gray-900 leading-relaxed mb-3 break-words">
                                   {location.address}
                                 </p>
-                                <div className="flex flex-wrap items-center gap-3 text-sm">
-                                  <span className="bg-gray-100/80 backdrop-blur-sm px-3 py-2 rounded-lg font-mono text-xs font-medium border border-gray-200/50">
+                                <div className="space-y-2 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+                                  <span className="block sm:inline bg-gray-100/80 backdrop-blur-sm px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg font-mono text-xs font-medium border border-gray-200/50">
                                     {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
                                   </span>
-                                  <div className="flex items-center gap-2 bg-gradient-to-r from-green-500/10 to-emerald-500/10 px-3 py-2 rounded-lg border border-green-200/50">
-                                    <Globe className="h-4 w-4 text-green-600" />
-                                    <span className="font-semibold text-green-700">
+                                  <div className="flex items-center gap-2 bg-gradient-to-r from-green-500/10 to-emerald-500/10 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-green-200/50">
+                                    <Globe className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
+                                    <span className="font-semibold text-green-700 text-xs sm:text-sm">
                                       {location.country || detectCountryFromCoordinates(location.latitude, location.longitude)}
                                     </span>
-                                    <span className="text-green-400 font-bold">•</span>
-                                    <span className="font-medium text-green-600">
+                                    <span className="text-green-400 font-bold hidden sm:inline">•</span>
+                                    <span className="font-medium text-green-600 text-xs sm:text-sm">
                                       {location.state || detectStateFromCoordinates(
                                         location.latitude, 
                                         location.longitude,
@@ -1450,9 +1481,9 @@ const LocationHistory = () => {
                                     </span>
                                   </div>
                                 </div>
-                                {/* Google Maps Navigation Button */}
+                                {/* Google Maps Navigation Button - Mobile optimized */}
                                 <div className="mt-3">
-                                  <Button asChild className="bg-blue-600 text-white hover:bg-blue-700 w-full sm:w-auto">
+                                  <Button asChild className="bg-blue-600 text-white hover:bg-blue-700 w-full h-10 sm:h-auto">
                                     <a
                                       href={getGoogleMapsHref(location.address, location.latitude, location.longitude)}
                                       target="_blank"
@@ -1485,10 +1516,10 @@ const LocationHistory = () => {
                             </div>
                           </div>
 
-                          {/* Notes section */}
+                          {/* Notes section - Mobile optimized */}
                           {location.notes && (
-                            <div className="mb-6 p-4 bg-gradient-to-r from-amber-50/80 to-orange-50/80 rounded-xl border-l-4 border-amber-400 backdrop-blur-sm">
-                              <p className="text-sm text-amber-900 leading-relaxed font-medium">
+                            <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-gradient-to-r from-amber-50/80 to-orange-50/80 rounded-lg sm:rounded-xl border-l-4 border-amber-400 backdrop-blur-sm">
+                              <p className="text-sm text-amber-900 leading-relaxed font-medium break-words">
                                 {location.notes}
                               </p>
                             </div>
@@ -1521,58 +1552,101 @@ const LocationHistory = () => {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
                 {filteredLocations.map((location) => (
                   <div
                     key={location.id}
-                    className={`group relative overflow-hidden rounded-2xl border-0 bg-gradient-to-br from-white via-gray-50/30 to-white p-5 cursor-pointer transition-all duration-500 hover:shadow-2xl hover:scale-[1.03] hover:-translate-y-1 backdrop-blur-sm ${
+                    className={`group relative overflow-hidden rounded-xl sm:rounded-2xl border-0 bg-gradient-to-br from-white via-gray-50/30 to-white p-4 sm:p-5 cursor-pointer transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] sm:hover:scale-[1.03] hover:-translate-y-1 backdrop-blur-sm ${
                       selectedActivity?.id === location.id 
-                        ? 'ring-2 ring-warning/60 shadow-2xl scale-[1.03] -translate-y-1 bg-gradient-to-br from-warning/10 via-warning/5 to-white' 
+                        ? 'ring-2 ring-warning/60 shadow-2xl scale-[1.02] sm:scale-[1.03] -translate-y-1 bg-gradient-to-br from-warning/10 via-warning/5 to-white' 
                         : 'hover:border-warning/40 hover:bg-gradient-to-br hover:from-white hover:via-warning/5 hover:to-white'
                     }`}
                     onClick={() => handleActivitySelect(location)}
                   >
                     {/* Glass morphism effect */}
-                    <div className="absolute inset-0 bg-white/20 backdrop-blur-[2px] rounded-2xl"></div>
+                    <div className="absolute inset-0 bg-white/20 backdrop-blur-[2px] rounded-xl sm:rounded-2xl"></div>
                     
                     {/* Selection indicator with glow */}
                     {selectedActivity?.id === location.id && (
-                      <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-warning to-orange-500 rounded-full animate-pulse shadow-lg shadow-warning/50 z-10">
-                        <div className="absolute inset-1 bg-white rounded-full"></div>
+                      <div className="absolute top-3 right-3 sm:top-4 sm:right-4 w-3 h-3 sm:w-4 sm:h-4 bg-gradient-to-r from-warning to-orange-500 rounded-full animate-pulse shadow-lg shadow-warning/50 z-10">
+                        <div className="absolute inset-0.5 sm:inset-1 bg-white rounded-full"></div>
                       </div>
                     )}
 
                     {/* Content wrapper */}
                     <div className="relative z-10">
-                      {/* Header with badge and date */}
-                      <div className="flex items-start justify-between mb-4">
-                        <div className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-bold shadow-lg ${getVisitTypeColor(location.visit_type)} backdrop-blur-sm`}>
-                          {formatVisitType(location.visit_type)}
+                      {/* Header with badge and date - Mobile optimized */}
+                      <div className="space-y-2 mb-3 sm:mb-4">
+                        <div className="flex items-start justify-between">
+                          <div className={`inline-flex items-center rounded-full px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs font-bold shadow-lg ${getVisitTypeColor(location.visit_type)} backdrop-blur-sm`}>
+                            {formatVisitType(location.visit_type)}
+                          </div>
+                          <div className="flex items-center gap-1.5 sm:gap-2 text-xs bg-white/90 backdrop-blur-sm px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full shadow-sm border border-gray-200/50">
+                            <Clock className="h-3 w-3 text-gray-600" />
+                            <span className="font-medium text-gray-700">
+                              <span className="hidden sm:inline">{new Date(location.created_at).toLocaleDateString()}</span>
+                              <span className="sm:hidden">{new Date(location.created_at).toLocaleDateString().split('/')[0]}/{new Date(location.created_at).toLocaleDateString().split('/')[1]}</span>
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 text-xs bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-sm border border-gray-200/50">
-                          <Clock className="h-3 w-3 text-gray-600" />
-                          <span className="font-medium text-gray-700">{new Date(location.created_at).toLocaleDateString()}</span>
-                        </div>
+                        
+                        {/* Action buttons for grid view - Mobile optimized */}
+                        {(canEditActivity(location) || canDeleteActivity(location)) && (
+                          <div className="flex gap-2">
+                            {canEditActivity(location) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  openEditDialog(location);
+                                }}
+                                className="flex-1 text-xs bg-white/90 backdrop-blur-sm border-blue-300 text-blue-600 hover:bg-blue-50 h-8"
+                                title="Editar actividad"
+                              >
+                                <Edit className="h-3.5 w-3.5 sm:mr-1" />
+                                <span className="hidden sm:inline text-xs">Editar</span>
+                              </Button>
+                            )}
+                            {canDeleteActivity(location) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  openDeleteDialog(location);
+                                }}
+                                className="flex-1 text-xs bg-white/90 backdrop-blur-sm border-red-300 text-red-600 hover:bg-red-50 h-8"
+                                title="Eliminar actividad"
+                              >
+                                <Trash className="h-3.5 w-3.5 sm:mr-1" />
+                                <span className="hidden sm:inline text-xs">Eliminar</span>
+                              </Button>
+                            )}
+                          </div>
+                        )}
                       </div>
 
-                      {/* Address section */}
-                      <div className="space-y-3 mb-4">
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-warning/20 to-orange-500/20 rounded-lg flex items-center justify-center">
-                            <MapPin className="h-5 w-5 text-warning" />
+                      {/* Address section - Mobile optimized */}
+                      <div className="space-y-3 mb-3 sm:mb-4">
+                        <div className="flex items-start gap-2.5 sm:gap-3">
+                          <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-warning/20 to-orange-500/20 rounded-md sm:rounded-lg flex items-center justify-center">
+                            <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-warning" />
                           </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-gray-900 line-clamp-2 leading-relaxed mb-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 line-clamp-2 leading-relaxed mb-2 break-words">
                               {location.address}
                             </p>
-                            <div className="flex items-center gap-2 text-xs">
+                            <div className="space-y-1.5 sm:space-y-0 sm:flex sm:items-center sm:gap-2">
                               <div className="flex items-center gap-1 bg-gradient-to-r from-green-500/10 to-emerald-500/10 px-2 py-1 rounded-md border border-green-200/50">
                                 <Globe className="h-3 w-3 text-green-600" />
-                                <span className="font-semibold text-green-700">
+                                <span className="font-semibold text-green-700 text-xs">
                                   {location.country || detectCountryFromCoordinates(location.latitude, location.longitude)}
                                 </span>
-                                <span className="text-green-400 font-bold">•</span>
-                                <span className="font-medium text-green-600">
+                                <span className="text-green-400 font-bold hidden sm:inline">•</span>
+                                <span className="font-medium text-green-600 text-xs">
                                   {location.state || detectStateFromCoordinates(
                                     location.latitude, 
                                     location.longitude,
@@ -1581,9 +1655,9 @@ const LocationHistory = () => {
                                 </span>
                               </div>
                             </div>
-                            {/* Google Maps Navigation Button */}
+                            {/* Google Maps Navigation Button - Mobile optimized */}
                             <div className="mt-2">
-                              <Button asChild className="bg-blue-600 text-white hover:bg-blue-700 w-full text-xs h-8">
+                              <Button asChild className="bg-blue-600 text-white hover:bg-blue-700 w-full text-xs h-8 sm:h-8">
                                 <a
                                   href={getGoogleMapsHref(location.address, location.latitude, location.longitude)}
                                   target="_blank"
@@ -1616,18 +1690,18 @@ const LocationHistory = () => {
                         </div>
                       </div>
 
-                      {/* User info for admin */}
+                      {/* User info for admin - Mobile optimized */}
                       {userRole === 'admin' && location.user_name && (
-                        <div className="flex items-center gap-2 text-xs bg-gradient-to-r from-blue-500/10 to-purple-500/10 px-3 py-2 rounded-full border border-blue-200/50 mb-4">
+                        <div className="flex items-center gap-2 text-xs bg-gradient-to-r from-blue-500/10 to-purple-500/10 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-full border border-blue-200/50 mb-3 sm:mb-4">
                           <User className="h-3 w-3 text-blue-600" />
-                          <span className="font-semibold text-blue-700">{location.user_name}</span>
+                          <span className="font-semibold text-blue-700 truncate">{location.user_name}</span>
                         </div>
                       )}
 
-                      {/* Notes preview */}
+                      {/* Notes preview - Mobile optimized */}
                       {location.notes && (
-                        <div className="mb-4 p-3 bg-gradient-to-r from-amber-50/80 to-orange-50/80 rounded-lg border-l-3 border-amber-400 backdrop-blur-sm">
-                          <p className="text-xs text-amber-900 line-clamp-2 leading-relaxed font-medium">
+                        <div className="mb-3 sm:mb-4 p-2.5 sm:p-3 bg-gradient-to-r from-amber-50/80 to-orange-50/80 rounded-lg border-l-3 border-amber-400 backdrop-blur-sm">
+                          <p className="text-xs text-amber-900 line-clamp-2 leading-relaxed font-medium break-words">
                             {location.notes}
                           </p>
                         </div>
