@@ -1236,20 +1236,12 @@ const LocationHistory = () => {
                                         href={getDialHref(selectedActivity.phone)}
                                         aria-label={`Llamar al ${selectedActivity.phone}`}
                                         onClick={(e) => {
-                                          e.preventDefault();
                                           e.stopPropagation();
-                                          const href = getDialHref(selectedActivity.phone);
-                                          if (href) {
-                                            window.location.href = href;
-                                          }
+                                          // Let the default behavior handle the phone call
                                         }}
                                         onTouchEnd={(e) => {
-                                          e.preventDefault();
                                           e.stopPropagation();
-                                          const href = getDialHref(selectedActivity.phone);
-                                          if (href) {
-                                            window.location.href = href;
-                                          }
+                                          // Let the default behavior handle the phone call
                                         }}
                                       >
                                         <Phone className="h-4 w-4 mr-2" /> 
