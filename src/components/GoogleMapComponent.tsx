@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { MapPin, Users, Activity, Filter, Calendar, MapIcon, ChevronDown, ChevronUp, Download, Eye, EyeOff } from 'lucide-react';
+import { MapPin, Users, Activity, Filter, Calendar, MapIcon, ChevronDown, ChevronUp, Download, Eye, EyeOff, Flame, Palette } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -42,7 +42,17 @@ const GoogleMapComponent = () => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<Map<string, google.maps.Marker>>(new Map());
+  const heatmapRef = useRef<Map<string, google.maps.visualization.HeatmapLayer>>(new Map());
   const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [heatmapColors, setHeatmapColors] = useState({
+    'Visita en frío': { low: '#FF6B6B', high: '#FF0000' },
+    'Negociación': { low: '#4ECDC4', high: '#0066CC' },
+    'Pre-entrega': { low: '#45B7D1', high: '#2E86AB' },
+    'Técnica': { low: '#96CEB4', high: '#4ECDC4' },
+    'Visita de cortesía': { low: '#FFEAA7', high: '#FDCB6E' },
+    'check_in': { low: '#DDA0DD', high: '#8E44AD' }
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingKey, setIsLoadingKey] = useState(true);
   const [teamLocations, setTeamLocations] = useState<TeamLocation[]>([]);
@@ -54,6 +64,7 @@ const GoogleMapComponent = () => {
   const [selectedCountry, setSelectedCountry] = useState<string>('all');
   const [selectedState, setSelectedState] = useState<string>('all');
   const [isTeamPanelCollapsed, setIsTeamPanelCollapsed] = useState(false);
+  const [showColorCustomization, setShowColorCustomization] = useState(false);
   const { userRole } = useAuth();
   const { toast } = useToast();
   const { selectedActivity, setSelectedActivity, clearSelectedActivity, mapCamera, clearMapCamera } = useActivityStore();
@@ -160,6 +171,8 @@ const GoogleMapComponent = () => {
         ]
       });
 
+      // Visualization library is now loaded via the googleMapsLoader
+
       mapInstanceRef.current = map;
       setIsMapLoaded(true);
       // Map loaded successfully
@@ -192,7 +205,7 @@ const GoogleMapComponent = () => {
     }
   }, [loadMap]);
 
-  // Fetch team locations from database
+  // Fetch team locations from database with filters
   const fetchLocations = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -208,6 +221,26 @@ const GoogleMapComponent = () => {
         query = query.eq('user_id', user.id);
       }
 
+      // Apply user filter
+      if (selectedUser !== 'all') {
+        query = query.eq('user_id', selectedUser);
+      }
+
+      // Apply visit type filter
+      if (selectedVisitType !== 'all') {
+        query = query.eq('visit_type', selectedVisitType);
+      }
+
+      // Apply date filters
+      if (selectedDateFrom) {
+        query = query.gte('created_at', selectedDateFrom);
+      }
+      if (selectedDateTo) {
+        const nextDay = new Date(selectedDateTo);
+        nextDay.setDate(nextDay.getDate() + 1);
+        query = query.lt('created_at', nextDay.toISOString().split('T')[0]);
+      }
+
       const { data: locationsData, error } = await query;
 
       if (error) {
@@ -217,6 +250,7 @@ const GoogleMapComponent = () => {
 
       if (!locationsData || locationsData.length === 0) {
         setTeamLocations([]);
+        setFilteredLocations([]);
         return;
       }
 
@@ -261,89 +295,189 @@ const GoogleMapComponent = () => {
         };
       });
 
+      // Apply country and state filters on the client side (since they're based on coordinates)
+      let filtered = transformedLocations;
+
+      // Filter by country
+      if (selectedCountry !== 'all') {
+        filtered = filtered.filter(loc => {
+          const detectedCountry = detectCountryFromCoordinates(loc.latitude, loc.longitude);
+          return detectedCountry === selectedCountry;
+        });
+      }
+
+      // Filter by state
+      if (selectedState !== 'all') {
+        filtered = filtered.filter(loc => {
+          const detectedCountry = detectCountryFromCoordinates(loc.latitude, loc.longitude);
+          const detectedState = detectStateFromCoordinates(loc.latitude, loc.longitude, detectedCountry);
+          return detectedState === selectedState;
+        });
+      }
+
       setTeamLocations(transformedLocations);
-      setFilteredLocations(transformedLocations);
+      setFilteredLocations(filtered);
     } catch (error) {
       console.error('Error fetching locations:', error);
     }
-  }, [userRole]);
+  }, [userRole, selectedUser, selectedVisitType, selectedDateFrom, selectedDateTo, selectedCountry, selectedState]);
 
-  // Filter locations based on selected criteria
-  const applyFilters = useCallback(() => {
-    let filtered = teamLocations;
+  // Note: Filtering is now done directly in fetchLocations for better performance
 
-    // Filter by user
-    if (selectedUser !== 'all') {
-      filtered = filtered.filter(loc => loc.user_id === selectedUser);
+  // Get color for visit type
+  const getVisitTypeColor = (visitType: string, isSelected: boolean = false) => {
+    if (isSelected) return '#F59E0B'; // Amber for selected
+    
+    const colors = {
+      'Visita en frío': '#EF4444',     // Red
+      'Negociación': '#3B82F6',        // Blue
+      'Pre-entrega': '#10B981',        // Green
+      'Técnica': '#8B5CF6',            // Purple
+      'Visita de cortesía': '#F59E0B', // Amber
+      'check_in': '#6B7280'            // Gray (default)
+    };
+    
+    return colors[visitType as keyof typeof colors] || '#6B7280';
+  };
+
+  // Helper function to convert hex to rgba
+  const hexToRgba = (hex: string, alpha: number) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
+  // Helper function to create gradient from two colors
+  const createGradient = (lowColor: string, highColor: string) => {
+    return [
+      hexToRgba(lowColor, 0),
+      hexToRgba(lowColor, 0.1),
+      hexToRgba(lowColor, 0.2),
+      hexToRgba(lowColor, 0.3),
+      hexToRgba(lowColor, 0.4),
+      hexToRgba(lowColor, 0.5),
+      hexToRgba(lowColor, 0.6),
+      hexToRgba(lowColor, 0.7),
+      hexToRgba(lowColor, 0.8),
+      hexToRgba(lowColor, 0.9),
+      hexToRgba(highColor, 0.9),
+      hexToRgba(highColor, 1),
+      hexToRgba(highColor, 1),
+      hexToRgba(highColor, 1)
+    ];
+  };
+
+  // Update heatmap layer
+  const updateHeatmap = useCallback(() => {
+    console.log('updateHeatmap called - showHeatmap:', showHeatmap, 'filteredLocations:', filteredLocations.length, 'isMapLoaded:', isMapLoaded);
+    
+    if (!mapInstanceRef.current || !isMapLoaded) {
+      console.log('Map not ready for heatmap');
+      return;
     }
 
-    // Filter by visit type
-    if (selectedVisitType !== 'all') {
-      filtered = filtered.filter(loc => loc.visit_type === selectedVisitType);
-    }
+    // Clear existing heatmaps
+    heatmapRef.current.forEach((heatmap, visitType) => {
+      console.log('Clearing heatmap for visit type:', visitType);
+      heatmap.setMap(null);
+    });
+    heatmapRef.current.clear();
 
-    // Filter by date range
-    if (selectedDateFrom) {
-      const fromDate = new Date(selectedDateFrom);
-      filtered = filtered.filter(loc => 
-        new Date(loc.created_at) >= fromDate
-      );
-    }
+    if (showHeatmap && filteredLocations.length > 0) {
+      console.log('Attempting to create heatmaps...');
+      
+      // Check if visualization library is available
+      if (typeof google.maps.visualization === 'undefined') {
+        console.error('Google Maps visualization library not loaded!');
+        console.log('Available google.maps properties:', Object.keys(google.maps));
+        setShowHeatmap(false);
+        return;
+      }
 
-    if (selectedDateTo) {
-      const toDate = new Date(selectedDateTo);
-      toDate.setHours(23, 59, 59, 999); // Include the entire day
-      filtered = filtered.filter(loc => 
-        new Date(loc.created_at) <= toDate
-      );
-    }
+      console.log('Visualization library is available');
 
-    // Filter by country
-    if (selectedCountry !== 'all') {
-      filtered = filtered.filter(loc => {
-        const detectedCountry = detectCountryFromCoordinates(loc.latitude, loc.longitude);
-        return detectedCountry === selectedCountry;
-      });
-    }
+      try {
+        // Group locations by visit type
+        const locationsByType = filteredLocations.reduce((acc, location) => {
+          const visitType = location.visit_type || 'check_in';
+          if (!acc[visitType]) {
+            acc[visitType] = [];
+          }
+          acc[visitType].push(location);
+          return acc;
+        }, {} as Record<string, TeamLocation[]>);
 
-    // Filter by state
-    if (selectedState !== 'all') {
-      filtered = filtered.filter(loc => {
-        const detectedCountry = detectCountryFromCoordinates(loc.latitude, loc.longitude);
-        const detectedState = detectStateFromCoordinates(loc.latitude, loc.longitude, detectedCountry);
-        return detectedState === selectedState;
-      });
-    }
+        console.log('Locations grouped by type:', locationsByType);
 
-    setFilteredLocations(filtered);
-  }, [teamLocations, selectedUser, selectedVisitType, selectedDateFrom, selectedDateTo, selectedCountry, selectedState]);
+        // Create separate heatmap for each visit type
+        Object.entries(locationsByType).forEach(([visitType, locations]) => {
+          if (locations.length === 0) return;
+
+          const colors = heatmapColors[visitType as keyof typeof heatmapColors] || heatmapColors['check_in'];
+          const gradient = createGradient(colors.low, colors.high);
+
+          const heatmapData = locations.map(location => ({
+            location: new google.maps.LatLng(location.latitude, location.longitude),
+            weight: 2
+          }));
+
+          console.log(`Creating heatmap for ${visitType} with ${heatmapData.length} points`);
+
+          const heatmap = new google.maps.visualization.HeatmapLayer({
+            data: heatmapData,
+            map: mapInstanceRef.current,
+            radius: 80,
+            opacity: 0.7,
+            gradient: gradient
+          });
+
+          heatmapRef.current.set(visitType, heatmap);
+        });
+
+        console.log('All heatmaps created successfully');
+      } catch (error) {
+        console.error('Error creating heatmaps:', error);
+        console.error('Error details:', error.message);
+        setShowHeatmap(false);
+      }
+    } else {
+      console.log('Not creating heatmap - showHeatmap:', showHeatmap, 'locations:', filteredLocations.length);
+    }
+  }, [filteredLocations, showHeatmap, isMapLoaded, heatmapColors]);
 
   // Update markers on the map
-  const updateMapMarkers = useCallback(() => {
+  const updateMapMarkers = useCallback((): void => {
     if (!mapInstanceRef.current || !isMapLoaded) return;
 
     // Clear existing markers
-    markersRef.current.forEach(marker => marker.setMap(null));
+    for (const [key, marker] of markersRef.current.entries()) {
+      marker.setMap(null);
+    }
     markersRef.current.clear();
 
-    // Add markers for all filtered locations
-    filteredLocations.forEach((location) => {
-      const isSelected = selectedActivity?.id === location.id;
-      const marker = new google.maps.Marker({
-        position: { lat: location.latitude, lng: location.longitude },
-        map: mapInstanceRef.current,
-        title: location.name,
-        icon: {
-          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="16" cy="16" r="15" fill="${isSelected ? '#F59E0B' : '#3B82F6'}" stroke="white" stroke-width="2"/>
-              <circle cx="16" cy="16" r="8" fill="white"/>
-              <circle cx="16" cy="16" r="4" fill="${isSelected ? '#F59E0B' : '#3B82F6'}"/>
-            </svg>
-          `),
-          scaledSize: new google.maps.Size(32, 32)
-        }
-      });
+    // Only show markers if heatmap is not active
+    if (!showHeatmap) {
+      // Add markers for all filtered locations
+      filteredLocations.forEach((location) => {
+        const isSelected = selectedActivity?.id === location.id;
+        const markerColor = getVisitTypeColor(location.visit_type, isSelected);
+        
+        const marker = new google.maps.Marker({
+          position: { lat: location.latitude, lng: location.longitude },
+          map: mapInstanceRef.current,
+          title: `${location.name} - ${location.visit_type}`,
+          icon: {
+            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="16" cy="16" r="15" fill="${markerColor}" stroke="white" stroke-width="2"/>
+                <circle cx="16" cy="16" r="8" fill="white"/>
+                <circle cx="16" cy="16" r="4" fill="${markerColor}"/>
+              </svg>
+            `),
+            scaledSize: new google.maps.Size(32, 32)
+          }
+        });
 
       const infoWindow = new google.maps.InfoWindow({
         content: `
@@ -382,12 +516,13 @@ const GoogleMapComponent = () => {
       (marker as any).infoWindow = infoWindow;
 
       markersRef.current.set(location.id, marker);
-    });
+      });
+    }
 
     // Center map on team locations if available
     if (filteredLocations.length > 0) {
       const bounds = new google.maps.LatLngBounds();
-      filteredLocations.forEach(location => {
+      filteredLocations.forEach((location, index) => {
         bounds.extend({ lat: location.latitude, lng: location.longitude });
       });
       mapInstanceRef.current.fitBounds(bounds);
@@ -395,20 +530,21 @@ const GoogleMapComponent = () => {
       // Don't zoom too much for single location
       if (filteredLocations.length === 1) {
         setTimeout(() => {
-          if (mapInstanceRef.current && mapInstanceRef.current.getZoom()! > 15) {
-            mapInstanceRef.current.setZoom(15);
+          if (mapInstanceRef.current) {
+            const currentZoom = mapInstanceRef.current.getZoom();
+            if (currentZoom && currentZoom > 15) {
+              mapInstanceRef.current.setZoom(15);
+            }
           }
         }, 100);
       }
     }
-  }, [filteredLocations, isMapLoaded, selectedActivity]);
+  }, [filteredLocations, isMapLoaded, selectedActivity, showHeatmap, getVisitTypeColor]);
 
-  // Apply filters when dependencies change
+  // Clear selected activity when filters change
   useEffect(() => {
-    applyFilters();
-    // Clear selected activity when filters change
     clearSelectedActivity();
-  }, [applyFilters, clearSelectedActivity]);
+  }, [selectedUser, selectedVisitType, selectedDateFrom, selectedDateTo, selectedCountry, selectedState, clearSelectedActivity]);
 
 
   // Load the map when component mounts
@@ -416,17 +552,18 @@ const GoogleMapComponent = () => {
     fetchGoogleMapsKey();
   }, [fetchGoogleMapsKey]);
 
-  // Fetch locations when map is loaded
+  // Fetch locations when map is loaded or filters change
   useEffect(() => {
     if (isMapLoaded) {
       fetchLocations();
     }
   }, [isMapLoaded, fetchLocations]);
 
-  // Update markers when locations change
+  // Update markers and heatmap when locations change
   useEffect(() => {
     updateMapMarkers();
-  }, [updateMapMarkers]);
+    updateHeatmap();
+  }, [updateMapMarkers, updateHeatmap]);
 
   // Handle map camera movement from Zustand store
   useEffect(() => {
@@ -611,6 +748,22 @@ const GoogleMapComponent = () => {
             <h1 className="text-xl font-semibold text-warning">Actividades del Equipo</h1>
           </div>
           <div className="ml-auto flex items-center gap-4">
+            {isMapLoaded && filteredLocations.length > 0 && (
+              <Button
+                onClick={() => {
+                  console.log('Toggling heatmap, current state:', showHeatmap);
+                  console.log('Visualization library available:', typeof google.maps.visualization !== 'undefined');
+                  console.log('Filtered locations count:', filteredLocations.length);
+                  setShowHeatmap(!showHeatmap);
+                }}
+                variant={showHeatmap ? "default" : "outline"}
+                size="sm"
+                className={`flex items-center gap-2 ${showHeatmap ? 'bg-orange-500 hover:bg-orange-600 text-white' : ''}`}
+              >
+                <Flame className={`h-4 w-4 ${showHeatmap ? 'animate-pulse' : ''}`} />
+                {showHeatmap ? '🔥 Ocultar Mapa de Calor' : '🔥 Mostrar Mapa de Calor'}
+              </Button>
+            )}
             {userRole === 'admin' && (
               <Button
                 onClick={exportToExcel}
@@ -637,6 +790,12 @@ const GoogleMapComponent = () => {
                   <MapPin className="h-4 w-4 text-warning" />
                   <span>{filteredLocations.length} Actividades</span>
                 </div>
+                {showHeatmap && (
+                  <div className="flex items-center gap-2 bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
+                    <Flame className="h-3 w-3 animate-pulse" />
+                    <span className="text-xs font-medium">Modo Mapa de Calor</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -719,11 +878,11 @@ const GoogleMapComponent = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="Visita en Frío">Visita en Frío</SelectItem>
+                    <SelectItem value="Visita en frío">Visita en frío</SelectItem>
                     <SelectItem value="Negociación">Negociación</SelectItem>
                     <SelectItem value="Pre-entrega">Pre-entrega</SelectItem>
                     <SelectItem value="Técnica">Técnica</SelectItem>
-                    <SelectItem value="Cortesía">Cortesía</SelectItem>
+                    <SelectItem value="Visita de cortesía">Visita de cortesía</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -749,6 +908,70 @@ const GoogleMapComponent = () => {
               </div>
             </div>
           </div>
+          
+          {/* Color Customization Panel */}
+          {showHeatmap && (
+            <div className="mt-4">
+              <Collapsible open={showColorCustomization} onOpenChange={setShowColorCustomization}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" size="sm" className="flex items-center gap-2">
+                    <Palette className="h-4 w-4" />
+                    Personalizar Colores del Mapa de Calor
+                    {showColorCustomization ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-3">
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm">Colores del Mapa de Calor</CardTitle>
+                      <CardDescription className="text-xs">
+                        Personaliza los colores para cada tipo de actividad
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {Object.entries(heatmapColors).map(([visitType, colors]) => (
+                        <div key={visitType} className="flex items-center gap-3">
+                          <div className="w-20 text-xs font-medium">{visitType}</div>
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor={`${visitType}-low`} className="text-xs">Baja:</Label>
+                            <input
+                              id={`${visitType}-low`}
+                              type="color"
+                              value={colors.low}
+                              onChange={(e) => setHeatmapColors(prev => ({
+                                ...prev,
+                                [visitType]: { ...prev[visitType], low: e.target.value }
+                              }))}
+                              className="w-8 h-6 rounded border"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor={`${visitType}-high`} className="text-xs">Alta:</Label>
+                            <input
+                              id={`${visitType}-high`}
+                              type="color"
+                              value={colors.high}
+                              onChange={(e) => setHeatmapColors(prev => ({
+                                ...prev,
+                                [visitType]: { ...prev[visitType], high: e.target.value }
+                              }))}
+                              className="w-8 h-6 rounded border"
+                            />
+                          </div>
+                          <div 
+                            className="w-12 h-4 rounded"
+                            style={{ 
+                              background: `linear-gradient(to right, ${colors.low}, ${colors.high})` 
+                            }}
+                          ></div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+          )}
         </div>
       )}
 
@@ -772,6 +995,86 @@ const GoogleMapComponent = () => {
           </div>
         )}
         
+        {/* Map Legend */}
+        {isMapLoaded && filteredLocations.length > 0 && !showHeatmap && (
+          <div className="absolute left-4 top-4 z-10">
+            <Card className="w-48">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-warning">Tipos de Actividad</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0 space-y-2">
+                <div className="flex items-center gap-2 text-xs">
+                  <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                  <span>Visita en frío</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                  <span>Negociación</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                  <span>Pre-entrega</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                  <span>Técnica</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                  <span>Visita de cortesía</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <div className="w-3 h-3 rounded-full bg-gray-500"></div>
+                  <span>Check-in</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Heatmap Legend */}
+        {isMapLoaded && filteredLocations.length > 0 && showHeatmap && (
+          <div className="absolute left-4 top-4 z-10">
+            <Card className="w-56">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-warning flex items-center gap-2">
+                  <Flame className="h-4 w-4" />
+                  Mapa de Calor por Tipo
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0 space-y-3">
+                <div className="text-xs text-muted-foreground">
+                  Intensidad: Baja → Alta
+                </div>
+                
+                {/* Show only visit types that have data */}
+                {Object.entries(heatmapColors).map(([visitType, colors]) => {
+                  const hasData = filteredLocations.some(loc => (loc.visit_type || 'check_in') === visitType);
+                  if (!hasData) return null;
+                  
+                  return (
+                    <div key={visitType} className="space-y-1">
+                      <div className="flex items-center gap-2 text-xs">
+                        <div 
+                          className="w-4 h-2 rounded"
+                          style={{ 
+                            background: `linear-gradient(to right, ${colors.low}, ${colors.high})` 
+                          }}
+                        ></div>
+                        <span className="font-medium">{visitType}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+                
+                <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+                  {filteredLocations.length} actividades mostradas
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Collapsible Team Panel */}
         {isMapLoaded && filteredLocations.length > 0 && (
           <div className={`absolute right-4 top-4 transition-all duration-300 ${isTeamPanelCollapsed ? 'w-12' : 'w-80'} max-h-[70vh]`}>
@@ -814,7 +1117,14 @@ const GoogleMapComponent = () => {
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1">
                               <p className="font-medium text-sm">{selectedActivity.name}</p>
-                              <Badge variant="outline" className="text-xs mt-1">
+                              <Badge 
+                                variant="outline" 
+                                className="text-xs mt-1"
+                                style={{ 
+                                  borderColor: getVisitTypeColor(selectedActivity.visit_type),
+                                  color: getVisitTypeColor(selectedActivity.visit_type)
+                                }}
+                              >
                                 {selectedActivity.visit_type}
                               </Badge>
                             </div>
@@ -889,7 +1199,14 @@ const GoogleMapComponent = () => {
                               <div className="flex items-start justify-between mb-2">
                                 <div className="flex-1">
                                   <p className="font-medium text-sm">{location.name}</p>
-                                  <Badge variant="outline" className="text-xs mt-1">
+                                  <Badge 
+                                    variant="outline" 
+                                    className="text-xs mt-1"
+                                    style={{ 
+                                      borderColor: getVisitTypeColor(location.visit_type),
+                                      color: getVisitTypeColor(location.visit_type)
+                                    }}
+                                  >
                                     {location.visit_type}
                                   </Badge>
                                 </div>

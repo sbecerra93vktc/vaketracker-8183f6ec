@@ -48,7 +48,7 @@ export const loadGoogleMaps = async (): Promise<void> => {
         loaderInstance = new Loader({
           apiKey: keyData.apiKey,
           version: 'weekly',
-          libraries: ['places', 'marker']
+          libraries: ['places', 'marker', 'visualization']
         });
       }
 

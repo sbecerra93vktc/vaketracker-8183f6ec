@@ -779,275 +779,242 @@ const MediaRecorderWidget: React.FC<Props> = ({
   };
 
   return (
-    <div className="space-y-3">
-      {/* Language Toggle */}
-      <div className="flex justify-end">
+    <div className="w-full max-w-4xl mx-auto space-y-8 p-4 sm:p-6">
+      {/* Header with Language Toggle */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg">
+            <span className="text-white text-lg">🎥</span>
+          </div>
+          <h2 className="text-2xl font-bold text-foreground bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            Media Capture
+          </h2>
+        </div>
         <button
           onClick={() => setLanguage(language === 'es' ? 'en' : 'es')}
-          className="text-xs px-2 py-1 rounded border hover:bg-accent transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-sm rounded-xl border border-border hover:bg-accent hover:border-accent-foreground/20 transition-all duration-200 hover:scale-105 active:scale-95 shadow-sm hover:shadow-md"
           title={t[language].language}
         >
-          {language === 'es' ? '🇪🇸 ES' : '🇺🇸 EN'}
+          <span className="text-lg">{language === 'es' ? '🇪🇸' : '🇺🇸'}</span>
+          <span className="font-semibold">{language === 'es' ? 'ES' : 'EN'}</span>
         </button>
       </div>
 
-      {/* Video preview section - hide in production */}
-      {ENABLE_VIDEO ? (
-        <div className="relative min-h-[240px]" style={{ background: '#000' }}>
-          <video
-            ref={videoPreviewRef}
-            autoPlay
-            muted
-            playsInline
-            preload="metadata"
-            className="block"
-            style={{
-              width: '100%',
-              minHeight: 240,
-              background: '#000',
-              objectFit: 'cover',
-              borderRadius: 8,
-              // Avoid GPU/contain on iOS—can cause black preview layers
-            }}
-          />
-          {cameraReady && (
-            <span className="absolute top-2 left-2 text-xs px-2 py-1 rounded bg-green-600/80 text-white">
-              {t[language].cameraReady}
-            </span>
-          )}
-          {(recordingVideo || recordingAudio) && (
-            <div className="absolute top-2 right-2 flex items-center gap-2 text-xs px-2 py-1 rounded bg-red-600/80 text-white">
-              <div className="w-2 h-2 bg-red-300 rounded-full animate-pulse"></div>
-              {t[language].recording} {formatTime(recordingTime)}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="flex items-center justify-center p-6 bg-muted/30 rounded-lg border-2 border-dashed border-muted-foreground/30">
-          <div className="text-center text-muted-foreground">
-            <div className="text-sm font-medium mb-1">{t[language].videoCapture}</div>
-            <div className="text-xs">{t[language].comingSoon}</div>
-          </div>
-        </div>
-      )}
-
-      {/* Live iOS Safari Diagnostics Panel - development only */}
-      {/* {!IS_PRODUCTION && (
-        <div className={`text-sm rounded-lg border p-3 space-y-2 transition-colors ${
-          (recordingVideo || recordingAudio) ? 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800' : 'bg-muted/50 border-muted-foreground/20'
-        }`}>
-          <div className="font-semibold text-foreground">
-            🔍 Live iOS Safari Debug Panel {(recordingVideo || recordingAudio) ? '(RECORDING)' : ''}
-          </div>
-          
-          {/* Section 1: Camera Tracks ReadyState */}
-          {/* <div className="space-y-1">
-            <div className="font-medium text-sm">1. Camera Tracks ReadyState:</div>
-            <div className="text-xs font-mono pl-3">
-              {streamRef.current ? (
-                streamRef.current.getTracks().map((track, i) => {
-                  const status = track.readyState === 'live' ? '🟢' : '🔴';
-                  return (
-                    <div key={i}>
-                      {status} {track.kind}: {track.readyState}
-                    </div>
-                  );
-                })
-              ) : (
-                <div>🔴 No tracks available</div>
+      {/* Video Preview Section - Only show when camera is ready or recording */}
+      {ENABLE_VIDEO && (cameraReady || recordingVideo || recordingAudio) ? (
+        <div className="relative group">
+          <div className="relative overflow-hidden rounded-3xl bg-black shadow-2xl ring-1 ring-black/20">
+            <video
+              ref={videoPreviewRef}
+              autoPlay
+              muted
+              playsInline
+              preload="metadata"
+              className="w-full h-64 sm:h-80 object-cover"
+            />
+            
+            {/* Status Overlays */}
+            <div className="absolute inset-0 pointer-events-none">
+              {cameraReady && (
+                <div className="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-green-500/95 backdrop-blur-md rounded-full text-white text-sm font-semibold shadow-lg">
+                  <div className="w-2 h-2 bg-green-200 rounded-full animate-pulse"></div>
+                  {t[language].cameraReady}
+                </div>
+              )}
+              
+              {(recordingVideo || recordingAudio) && (
+                <div className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-red-500/95 backdrop-blur-md rounded-full text-white text-sm font-semibold shadow-lg">
+                  <div className="w-2 h-2 bg-red-200 rounded-full animate-pulse"></div>
+                  {t[language].recording} {formatTime(recordingTime)}
+                </div>
               )}
             </div>
-          </div> */}
-
-          {/* Section 2: Video Element ReadyState
-          <div className="space-y-1">
-            <div className="font-medium text-sm">2. Video Element ReadyState:</div>
-            <div className="text-xs font-mono pl-3">
-              {(() => {
-                const readyState = videoPreviewRef.current?.readyState ?? -1;
-                const status = readyState >= 2 ? '🟢' : '🔴';
-                const context = readyState >= 2 ? 'READY' : readyState === 1 ? 'metadata' : readyState === 0 ? 'no-data' : 'null';
-                return `${status} ${readyState} (${context}) ${readyState >= 2 ? '✓' : '⚠️ Need ≥2'}`;
-              })()}
-            </div>
-          </div> */}
-
-          {/* Section 3: Video Dimensions
-          <div className="space-y-1">
-            <div className="font-medium text-sm">3. Video Dimensions:</div>
-            <div className="text-xs font-mono pl-3">
-              {(() => {
-                const width = videoPreviewRef.current?.videoWidth ?? 0;
-                const height = videoPreviewRef.current?.videoHeight ?? 0;
-                const status = (width > 0 && height > 0) ? '🟢' : '🔴';
-                const warning = (width === 0 && height === 0) ? ' ⚠️ BLACK SCREEN!' : '';
-                return `${status} ${width}×${height}${warning}`;
-              })()}
-            </div>
-          </div> */}
-
-          {/* Section 4: Device Info
-          <div className="space-y-1">
-            <div className="font-medium text-sm">4. Device Info:</div>
-            <div className="text-xs font-mono pl-3 space-y-0.5">
-              {(() => {
-                const info = getDeviceInfo();
-                return (
-                  <>
-                    <div>🍎 iOS: {info.isIOS ? '✅' : '❌'} {info.iosVersion}</div>
-                    <div>🧭 Safari: {info.isSafari ? '✅' : '❌'} {info.safariVersion}</div>
-                    <div>📱 UA: {info.userAgent}</div>
-                  </>
-                );
-              })()}
-            </div>
-          </div> */}
-          
-          {/* Update indicator during recording */}
-          {/* {(recordingVideo || recordingAudio) && (
-            <div className="text-xs text-muted-foreground pt-1 border-t border-muted-foreground/20">
-              Updates every 500ms • Tick: {diagnosticsTick}
-            </div>
-          )}
+          </div>
         </div>
-      )} */} 
+      ) : !ENABLE_VIDEO ? (
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-muted/40 via-muted/20 to-muted/40 border-2 border-dashed border-muted-foreground/40 shadow-lg">
+          <div className="flex flex-col items-center justify-center p-16 text-center">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mb-6 shadow-lg">
+              <span className="text-3xl">📹</span>
+            </div>
+            <h3 className="text-xl font-bold text-foreground mb-3">{t[language].videoCapture}</h3>
+            <p className="text-sm text-muted-foreground font-medium">{t[language].comingSoon}</p>
+          </div>
+        </div>
+      ) : null}
 
-      {/* Controls */}
-      <div className="grid grid-cols-2 gap-2">
-        {/* Video controls - only show in development */}
+      {/* Main Controls Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Video Controls */}
         {ENABLE_VIDEO && (
           <>
             <button
-              className="h-11 rounded-lg border px-3 text-sm font-medium hover:bg-accent active:scale-[0.98] transition-all"
               onClick={ensureCamera}
-              type="button"
+              className="group flex items-center justify-center gap-4 p-6 rounded-2xl border border-border hover:bg-accent hover:border-accent-foreground/20 transition-all duration-300 hover:scale-[1.03] active:scale-[0.97] shadow-sm hover:shadow-lg"
             >
-              {t[language].openCamera}
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center group-hover:from-primary/20 group-hover:to-primary/10 transition-all duration-300">
+                <span className="text-xl">📷</span>
+              </div>
+              <span className="font-semibold text-sm">{t[language].openCamera}</span>
             </button>
 
             {!recordingVideo ? (
               <button
-                className="h-11 rounded-lg bg-red-600 text-white px-3 text-sm font-semibold hover:bg-red-700 active:scale-[0.98] transition-all"
                 onClick={startVideoRecording}
-                type="button"
+                className="group flex items-center justify-center gap-4 p-6 rounded-2xl bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white transition-all duration-300 hover:scale-[1.03] active:scale-[0.97] shadow-lg hover:shadow-red-500/30"
               >
-                {t[language].recordVideo}
+                <div className="w-12 h-12 rounded-2xl bg-red-400/30 flex items-center justify-center group-hover:bg-red-400/40 transition-all duration-300">
+                  <span className="text-xl">🔴</span>
+                </div>
+                <span className="font-bold text-sm">{t[language].recordVideo}</span>
               </button>
             ) : (
               <button
-                className="h-11 rounded-lg bg-red-600 text-white px-3 text-sm font-semibold hover:bg-red-700 active:scale-[0.98] transition-all"
                 onClick={stopVideoRecording}
-                type="button"
+                className="group flex items-center justify-center gap-4 p-6 rounded-2xl bg-gradient-to-br from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white transition-all duration-300 hover:scale-[1.03] active:scale-[0.97] shadow-lg hover:shadow-red-600/30"
               >
-                {t[language].stopVideo}
+                <div className="w-12 h-12 rounded-2xl bg-red-400/30 flex items-center justify-center group-hover:bg-red-400/40 transition-all duration-300">
+                  <span className="text-xl">⏹️</span>
+                </div>
+                <span className="font-bold text-sm">{t[language].stopVideo}</span>
               </button>
             )}
 
             <button
-              className="h-11 rounded-lg border px-3 text-sm font-medium hover:bg-accent active:scale-[0.98] transition-all"
               onClick={closeCamera}
-              type="button"
+              className="group flex items-center justify-center gap-4 p-6 rounded-2xl border border-border hover:bg-accent hover:border-accent-foreground/20 transition-all duration-300 hover:scale-[1.03] active:scale-[0.97] shadow-sm hover:shadow-lg"
             >
-              {t[language].closeCamera}
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-muted to-muted/80 flex items-center justify-center group-hover:from-muted/80 group-hover:to-muted/60 transition-all duration-300">
+                <span className="text-xl">❌</span>
+              </div>
+              <span className="font-semibold text-sm">{t[language].closeCamera}</span>
             </button>
           </>
         )}
 
-        {/* Audio controls - always visible */}
+        {/* Audio Controls */}
         {!recordingAudio ? (
           <button
-            className={`h-11 rounded-lg bg-primary text-primary-foreground px-3 text-sm font-semibold hover:bg-primary/90 active:scale-[0.98] transition-all ${!ENABLE_VIDEO ? 'col-span-2' : ''}`}
             onClick={startAudioRecording}
-            type="button"
+            className={`group flex items-center justify-center gap-4 p-6 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white transition-all duration-300 hover:scale-[1.03] active:scale-[0.97] shadow-lg hover:shadow-blue-500/30 ${!ENABLE_VIDEO ? 'col-span-full' : ''}`}
           >
-            {t[language].recordAudio}
+            <div className="w-12 h-12 rounded-2xl bg-blue-400/30 flex items-center justify-center group-hover:bg-blue-400/40 transition-all duration-300">
+              <span className="text-xl">🎤</span>
+            </div>
+            <span className="font-bold text-sm">{t[language].recordAudio}</span>
           </button>
         ) : (
           <button
-            className={`h-11 rounded-lg bg-destructive text-destructive-foreground px-3 text-sm font-semibold hover:bg-destructive/90 active:scale-[0.98] transition-all ${!ENABLE_VIDEO ? 'col-span-2' : ''}`}
             onClick={stopAudioRecording}
-            type="button"
+            className={`group flex items-center justify-center gap-4 p-6 rounded-2xl bg-gradient-to-br from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white transition-all duration-300 hover:scale-[1.03] active:scale-[0.97] shadow-lg hover:shadow-red-600/30 ${!ENABLE_VIDEO ? 'col-span-full' : ''}`}
           >
-            {t[language].stopAudio}
+            <div className="w-12 h-12 rounded-2xl bg-red-400/30 flex items-center justify-center group-hover:bg-red-400/40 transition-all duration-300">
+              <span className="text-xl">⏹️</span>
+            </div>
+            <span className="font-bold text-sm">{t[language].stopAudio}</span>
           </button>
         )}
       </div>
 
-      {/* Photo picker */}
-      <div>
-        <label className="block text-sm font-medium mb-1">{t[language].takePhoto}</label>
-        <input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handlePhotoPick}
-          className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-muted hover:file:bg-muted/80"
-        />
+      {/* Photo Upload Section */}
+      <div className="space-y-4">
+        <label className="block text-lg font-bold text-foreground">{t[language].takePhoto}</label>
+        <div className="relative">
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handlePhotoPick}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            id="photo-upload"
+          />
+          <label
+            htmlFor="photo-upload"
+            className="flex items-center justify-center gap-4 p-8 rounded-2xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all duration-300 cursor-pointer group hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center group-hover:from-primary/20 group-hover:to-primary/10 transition-all duration-300">
+              <span className="text-2xl">📷</span>
+            </div>
+            <span className="font-semibold text-base text-muted-foreground group-hover:text-foreground transition-colors">
+              {t[language].takePhoto}
+            </span>
+          </label>
+        </div>
       </div>
 
-      {/* Playback for the last recorded video - development only */}
-      {ENABLE_VIDEO && (
-        <div className="rounded-lg overflow-hidden bg-muted/30 p-2">
-          <label className="block text-sm font-medium mb-1">{t[language].videoPreview}</label>
-          <video
-            ref={playbackRef}
-            controls
-            playsInline
-            preload="metadata"
-            className="w-full rounded"
-            style={{ minHeight: 160, background: '#000' }}
-          />
-        </div>
-      )}
-
-      {/* Playback for the last recorded audio - only show when audio is available */}
-      {files.filter(f => f.type === 'audio').length > 0 && (
-        <div className="rounded-lg overflow-hidden bg-muted/30 p-2">
-          <label className="block text-sm font-medium mb-1">{t[language].audioPreview}</label>
-          <audio
-            ref={audioPlaybackRef}
-            controls
-            preload="metadata"
-            className="w-full"
-          />
-          <div className="text-xs text-muted-foreground mt-1">
-            <span>
-              {t[language].lastAudio}: {files.filter(f => f.type === 'audio').slice(-1)[0]?.duration}s
-            </span>
+      {/* Playback Sections - Only show when there's media */}
+      {ENABLE_VIDEO && files.filter(f => f.type === 'video').length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-foreground">{t[language].videoPreview}</h3>
+          <div className="relative overflow-hidden rounded-2xl bg-black shadow-xl ring-1 ring-black/20">
+            <video
+              ref={playbackRef}
+              controls
+              playsInline
+              preload="metadata"
+              className="w-full h-48 sm:h-64 object-cover"
+            />
           </div>
         </div>
       )}
 
-      {/* Enhanced debug panel - development only */}
+      {files.filter(f => f.type === 'audio').length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-foreground">{t[language].audioPreview}</h3>
+          <div className="p-6 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border shadow-lg">
+            <audio
+              ref={audioPlaybackRef}
+              controls
+              preload="metadata"
+              className="w-full"
+            />
+            <div className="text-sm text-muted-foreground mt-3 font-medium">
+              {t[language].lastAudio}: {files.filter(f => f.type === 'audio').slice(-1)[0]?.duration}s
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Debug Panel - Development Only */}
       {!IS_PRODUCTION && (
-        <details className="text-xs text-muted-foreground" open={debugOpen} onToggle={(e) => setDebugOpen((e.target as HTMLDetailsElement).open)}>
-          <summary className="cursor-pointer select-none hover:text-foreground transition-colors">
-            {t[language].showDiagnostics}
+        <details className="group">
+          <summary className="flex items-center gap-2 cursor-pointer select-none p-3 rounded-lg hover:bg-muted/50 transition-colors">
+            <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground">
+              {t[language].showDiagnostics}
+            </span>
+            <span className="text-xs text-muted-foreground">🔍</span>
           </summary>
-          <div className="mt-2 space-y-1 p-3 rounded-lg bg-muted/50">
-            <div><strong>{t[language].userAgent}:</strong> {navigator.userAgent.slice(0, 100)}...</div>
-            <div><strong>{t[language].protocol}:</strong> {location.protocol}</div>
-            <div><strong>{t[language].mediaRecorder}:</strong> {typeof window !== 'undefined' && 'MediaRecorder' in window ? `✅ ${t[language].yes}` : `❌ ${t[language].no}`}</div>
-            <div><strong>{t[language].getUserMedia}:</strong> {navigator.mediaDevices?.getUserMedia ? `✅ ${t[language].yes}` : `❌ ${t[language].no}`}</div>
-            <div><strong>{t[language].chosenVideoMime}:</strong> {chosenVideoMime || t[language].default}</div>
-            <div><strong>{t[language].chosenAudioMime}:</strong> {chosenAudioMime || t[language].default}</div>
-            <div><strong>{t[language].tracksAlive}:</strong> {streamRef.current ? streamRef.current.getTracks().filter(t => t.readyState === 'live').length : 0}</div>
-            <div><strong>{t[language].requestVideoFrameCallback}:</strong> {videoPreviewRef.current && 'requestVideoFrameCallback' in videoPreviewRef.current ? `✅ ${t[language].yes}` : `❌ ${t[language].no}`}</div>
+          <div className="mt-3 p-4 rounded-lg bg-muted/30 border border-border space-y-2 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div><strong>{t[language].userAgent}:</strong> {navigator.userAgent.slice(0, 60)}...</div>
+              <div><strong>{t[language].protocol}:</strong> {location.protocol}</div>
+              <div><strong>{t[language].mediaRecorder}:</strong> {typeof window !== 'undefined' && 'MediaRecorder' in window ? `✅ ${t[language].yes}` : `❌ ${t[language].no}`}</div>
+              <div><strong>{t[language].getUserMedia}:</strong> {navigator.mediaDevices?.getUserMedia ? `✅ ${t[language].yes}` : `❌ ${t[language].no}`}</div>
+              <div><strong>{t[language].chosenVideoMime}:</strong> {chosenVideoMime || t[language].default}</div>
+              <div><strong>{t[language].chosenAudioMime}:</strong> {chosenAudioMime || t[language].default}</div>
+              <div><strong>{t[language].tracksAlive}:</strong> {streamRef.current ? streamRef.current.getTracks().filter(t => t.readyState === 'live').length : 0}</div>
+              <div><strong>{t[language].requestVideoFrameCallback}:</strong> {videoPreviewRef.current && 'requestVideoFrameCallback' in videoPreviewRef.current ? `✅ ${t[language].yes}` : `❌ ${t[language].no}`}</div>
+            </div>
           </div>
         </details>
       )}
       
-      {/* File list with individual playback controls */}
+      {/* Files List */}
       {files.length > 0 && (
-        <div className="space-y-3">
+        <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <div className="text-sm font-medium">{t[language].recordedFiles} ({files.length})</div>
-            <div className="flex gap-2">
+            <h3 className="text-xl font-bold text-foreground flex items-center gap-3">
+              {t[language].recordedFiles}
+              <span className="px-3 py-1 text-sm font-bold bg-gradient-to-r from-primary/10 to-primary/5 text-primary rounded-full border border-primary/20">
+                {files.length}
+              </span>
+            </h3>
+            <div className="flex gap-3">
               {showUploadActivityButton && onUploadActivity && (
                 <button
                   onClick={handleUploadActivity}
                   disabled={uploading}
-                  className="h-8 px-3 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center gap-2 px-5 py-3 text-sm font-semibold rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-blue-500/30"
                 >
                   {uploading ? '⏳' : '📋'} {t[language].uploadActivity}
                 </button>
@@ -1055,54 +1022,78 @@ const MediaRecorderWidget: React.FC<Props> = ({
               <button
                 onClick={handleUpload}
                 disabled={uploading}
-                className="h-8 px-3 text-xs font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-2 px-5 py-3 text-sm font-semibold rounded-xl bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-green-500/30"
               >
                 {uploading ? '⏳' : '📤'} {t[language].uploadFiles}
               </button>
             </div>
           </div>
-          <div className="space-y-2">
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {files.map((file, index) => (
-              <div key={index} className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg">
-                <div className="flex-shrink-0">
-                  {file.type === 'video' && <span className="text-lg">🎥</span>}
-                  {file.type === 'audio' && <span className="text-lg">🎵</span>}
-                  {file.type === 'photo' && <span className="text-lg">📷</span>}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{file.file.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {file.type === 'video' && `${t[language].video} • ${file.duration}s`}
-                    {file.type === 'audio' && `${t[language].audio} • ${file.duration}s`}
-                    {file.type === 'photo' && t[language].photo}
-                    <span className="ml-2">• {(file.file.size / 1024 / 1024).toFixed(1)}MB</span>
+              <div key={index} className="group relative overflow-hidden rounded-2xl bg-card border border-border hover:border-primary/50 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                <div className="p-5">
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0">
+                      {file.type === 'video' && (
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-red-500/10 to-red-500/5 flex items-center justify-center shadow-sm">
+                          <span className="text-2xl">🎥</span>
+                        </div>
+                      )}
+                      {file.type === 'audio' && (
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500/10 to-blue-500/5 flex items-center justify-center shadow-sm">
+                          <span className="text-2xl">🎵</span>
+                        </div>
+                      )}
+                      {file.type === 'photo' && (
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-500/10 to-green-500/5 flex items-center justify-center shadow-sm">
+                          <span className="text-2xl">📷</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-bold text-foreground truncate mb-2">
+                        {file.file.name}
+                      </div>
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <div className="font-medium">
+                          {file.type === 'video' && `${t[language].video} • ${file.duration}s`}
+                          {file.type === 'audio' && `${t[language].audio} • ${file.duration}s`}
+                          {file.type === 'photo' && t[language].photo}
+                        </div>
+                        <div className="font-semibold">{(file.file.size / 1024 / 1024).toFixed(1)}MB</div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="flex-shrink-0">
-                  {file.type === 'audio' && (
-                    <audio
-                      controls
-                      preload="metadata"
-                      className="h-8"
-                      src={URL.createObjectURL(file.file)}
-                    />
-                  )}
-                  {file.type === 'video' && (
-                    <video
-                      controls
-                      playsInline
-                      preload="metadata"
-                      className="h-8 w-16 rounded"
-                      src={URL.createObjectURL(file.file)}
-                    />
-                  )}
-                  {file.type === 'photo' && (
-                    <img
-                      src={URL.createObjectURL(file.file)}
-                      alt="Preview"
-                      className="h-8 w-8 rounded object-cover"
-                    />
-                  )}
+                  
+                  {/* Media Preview */}
+                  <div className="mt-4">
+                    {file.type === 'audio' && (
+                      <audio
+                        controls
+                        preload="metadata"
+                        className="w-full h-10"
+                        src={URL.createObjectURL(file.file)}
+                      />
+                    )}
+                    {file.type === 'video' && (
+                      <video
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="w-full h-24 rounded-xl object-cover shadow-sm"
+                        src={URL.createObjectURL(file.file)}
+                      />
+                    )}
+                    {file.type === 'photo' && (
+                      <img
+                        src={URL.createObjectURL(file.file)}
+                        alt="Preview"
+                        className="w-full h-24 rounded-xl object-cover shadow-sm"
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
