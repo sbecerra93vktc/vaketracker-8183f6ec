@@ -166,11 +166,11 @@ const ActivityMediaDisplay: React.FC<ActivityMediaDisplayProps> = ({
         <CardHeader>
           <CardTitle className="text-sm font-medium">
             Archivos Multimedia
-            {activityAddress && (
+            {/* {activityAddress && (
               <div className="text-xs text-muted-foreground font-normal mt-1">
                 {activityAddress}
               </div>
-            )}
+            )} */}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">

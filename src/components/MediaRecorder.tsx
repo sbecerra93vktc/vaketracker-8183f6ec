@@ -687,6 +687,10 @@ const MediaRecorderWidget: React.FC<Props> = ({
     }
   };
 
+  const handleDeleteFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const ENABLE_VIDEO = import.meta.env.VITE_ENABLE_VIDEO === 'true';
   const IS_PRODUCTION = import.meta.env.VITE_PRODUCTION_MODE === 'true';
 
@@ -732,7 +736,8 @@ const MediaRecorderWidget: React.FC<Props> = ({
       requestVideoFrameCallback: 'requestVideoFrameCallback',
       default: '(por defecto)',
       yes: 'SÍ',
-      no: 'NO'
+      no: 'NO',
+      deleteFile: 'Eliminar archivo'
     },
     en: {
       openCamera: 'Open Camera',
@@ -774,31 +779,32 @@ const MediaRecorderWidget: React.FC<Props> = ({
       requestVideoFrameCallback: 'requestVideoFrameCallback',
       default: '(default)',
       yes: 'YES',
-      no: 'NO'
+      no: 'NO',
+      deleteFile: 'Delete file'
     }
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-8 p-4 sm:p-6">
-      {/* Header with Language Toggle */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg">
-            <span className="text-white text-lg">🎥</span>
+    <div className="space-y-8">
+          {/* Header with Language Toggle */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg">
+                <span className="text-white text-lg">🎥</span>
+              </div>
+              <h2 className="text-2xl font-bold text-foreground bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                Media Capture
+              </h2>
+            </div>
+            <button
+              onClick={() => setLanguage(language === 'es' ? 'en' : 'es')}
+              className="flex items-center gap-2 px-4 py-2 text-sm rounded-xl border border-border hover:bg-accent hover:border-accent-foreground/20 transition-all duration-200 hover:scale-105 active:scale-95 shadow-sm hover:shadow-md"
+              title={t[language].language}
+            >
+              <span className="text-lg">{language === 'es' ? '🇪🇸' : '🇺🇸'}</span>
+              <span className="font-semibold">{language === 'es' ? 'ES' : 'EN'}</span>
+            </button>
           </div>
-          <h2 className="text-2xl font-bold text-foreground bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-            Media Capture
-          </h2>
-        </div>
-        <button
-          onClick={() => setLanguage(language === 'es' ? 'en' : 'es')}
-          className="flex items-center gap-2 px-4 py-2 text-sm rounded-xl border border-border hover:bg-accent hover:border-accent-foreground/20 transition-all duration-200 hover:scale-105 active:scale-95 shadow-sm hover:shadow-md"
-          title={t[language].language}
-        >
-          <span className="text-lg">{language === 'es' ? '🇪🇸' : '🇺🇸'}</span>
-          <span className="font-semibold">{language === 'es' ? 'ES' : 'EN'}</span>
-        </button>
-      </div>
 
       {/* Video Preview Section - Only show when camera is ready or recording */}
       {ENABLE_VIDEO && (cameraReady || recordingVideo || recordingAudio) ? (
@@ -1032,6 +1038,15 @@ const MediaRecorderWidget: React.FC<Props> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {files.map((file, index) => (
               <div key={index} className="group relative overflow-hidden rounded-2xl bg-card border border-border hover:border-primary/50 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                {/* Delete Button */}
+                <button
+                  onClick={() => handleDeleteFile(index)}
+                  className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-red-500/90 hover:bg-red-600 text-white flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg hover:shadow-red-500/30 opacity-0 group-hover:opacity-100"
+                  title={t[language].deleteFile}
+                >
+                  <span className="text-sm">🗑️</span>
+                </button>
+                
                 <div className="p-5">
                   <div className="flex items-start gap-4">
                     <div className="flex-shrink-0">

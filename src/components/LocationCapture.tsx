@@ -30,6 +30,7 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
+  const [showBusinessNameError, setShowBusinessNameError] = useState(false);
   const { toast } = useToast();
 
   const handleMediaFilesChange = (files: MediaFile[]) => {
@@ -39,13 +40,23 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
   const handleUploadActivity = async (files: MediaFile[]) => {
     // This function will be called when the upload activity button is clicked
     // The files are already set in the mediaFiles state, so we can proceed with saving
-    if (currentLocation && activityType && (activityType !== 'Visita programada' || subActivity)) {
+    if (currentLocation && activityType && businessName.trim() && (activityType !== 'Visita programada' || subActivity)) {
+      setShowBusinessNameError(false);
       await saveLocation();
     } else {
+      const missingFields = [];
+      if (!currentLocation) missingFields.push('ubicación');
+      if (!activityType) missingFields.push('tipo de actividad');
+      if (!businessName.trim()) {
+        missingFields.push('nombre del negocio');
+        setShowBusinessNameError(true);
+      }
+      if (activityType === 'Visita programada' && !subActivity) missingFields.push('tipo de visita programada');
+      
       toast({
         variant: 'destructive',
         title: 'Información incompleta',
-        description: 'Por favor completa la ubicación y tipo de actividad antes de subir.',
+        description: `Por favor completa: ${missingFields.join(', ')}.`,
       });
     }
   };
@@ -148,6 +159,16 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
         variant: 'destructive',
         title: 'Sin ubicación capturada',
         description: 'Por favor captura tu ubicación primero.',
+      });
+      return;
+    }
+
+    if (!businessName.trim()) {
+      setShowBusinessNameError(true);
+      toast({
+        variant: 'destructive',
+        title: 'Nombre del negocio requerido',
+        description: 'Por favor ingresa el nombre del negocio antes de guardar.',
       });
       return;
     }
@@ -322,6 +343,7 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
       setEmail('');
       setPhone('');
       setMediaFiles([]);
+      setShowBusinessNameError(false);
       
       if (onLocationCaptured) {
         onLocationCaptured();
@@ -461,21 +483,43 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <CheckSquare className="h-5 w-5 text-warning" />
-          Nueva Actividad
-        </CardTitle>
-        <CardDescription>
-          Captura tu ubicación y registra una nueva actividad comercial
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="activityType">Tipo de Actividad</Label>
+    <div className="w-full max-w-4xl mx-auto space-y-8 p-4 sm:p-6">
+      {/* Header */}
+      <div className="text-center space-y-2">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg mx-auto mb-4">
+          <CheckSquare className="h-8 w-8 text-white" />
+        </div>
+        <h1 className="text-3xl font-bold text-foreground">Nueva Actividad</h1>
+        <p className="text-muted-foreground text-lg">Registra tu visita comercial</p>
+      </div>
+
+      {/* Main Form */}
+      <div className="space-y-8">
+        {/* Business Name - Prominent and Required */}
+        <div className="space-y-3">
+          <Label htmlFor="businessName" className="text-lg font-semibold text-foreground">
+            Nombre del negocio <span className="text-red-500">*</span>
+          </Label>
+          <Input
+            id="businessName"
+            value={businessName}
+            onChange={(e) => setBusinessName(e.target.value)}
+            placeholder="Ingresa el nombre del negocio"
+            className="h-12 text-lg border-2 focus:border-primary transition-colors"
+            required
+          />
+          {!businessName.trim() && (
+            <p className="text-sm text-red-500">Este campo es obligatorio</p>
+          )}
+        </div>
+
+        {/* Activity Type */}
+        <div className="space-y-3">
+          <Label htmlFor="activityType" className="text-lg font-semibold text-foreground">
+            Tipo de Actividad <span className="text-red-500">*</span>
+          </Label>
           <Select value={activityType} onValueChange={setActivityType}>
-            <SelectTrigger>
+            <SelectTrigger className="h-12 text-lg border-2 focus:border-primary transition-colors">
               <SelectValue placeholder="Selecciona el tipo de actividad" />
             </SelectTrigger>
             <SelectContent>
@@ -486,144 +530,152 @@ const LocationCapture = ({ onLocationCaptured }: LocationCaptureProps) => {
           </Select>
         </div>
 
+        {/* Sub Activity - Only for Programmed Visits */}
         {activityType === 'Visita programada' && (
-          <div className="space-y-2">
-            <Label htmlFor="subActivity">Tipo de Visita Programada</Label>
+          <div className="space-y-3">
+            <Label htmlFor="subActivity" className="text-lg font-semibold text-foreground">
+              Tipo de Visita Programada <span className="text-red-500">*</span>
+            </Label>
             <Select value={subActivity} onValueChange={setSubActivity}>
-              <SelectTrigger>
+              <SelectTrigger className="h-12 text-lg border-2 focus:border-primary transition-colors">
                 <SelectValue placeholder="Selecciona el tipo de visita" />
               </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Negociación en curso">Negociación en curso</SelectItem>
-              <SelectItem value="Visita Pre-entrega e instalación">Visita Pre-entrega e instalación</SelectItem>
-              <SelectItem value="Visita técnica">Visita técnica</SelectItem>
-            </SelectContent>
+              <SelectContent>
+                <SelectItem value="Negociación en curso">Negociación en curso</SelectItem>
+                <SelectItem value="Visita Pre-entrega e instalación">Visita Pre-entrega e instalación</SelectItem>
+                <SelectItem value="Visita técnica">Visita técnica</SelectItem>
+              </SelectContent>
             </Select>
           </div>
         )}
 
-        {/* Enhanced debugging for activity type selection - development only */}
-        {/* {import.meta.env.DEV && (
-          <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs space-y-1">
-            <div>📝 Debug Activity: "{activityType}" | Show Media = {(activityType === 'Visita en frío' || activityType === 'Visita programada' || activityType === 'Visita de cortesía') ? 'YES ✅' : 'NO ❌'}</div>
-            <div>📱 Device: {'ontouchstart' in window ? 'Mobile' : 'Desktop'} | Touch Points: {navigator.maxTouchPoints || 0}</div>
-            <div>🌐 Browser: {navigator.userAgent.includes('Mobile') ? 'Mobile Browser' : 'Desktop Browser'}</div>
-            <div>📐 Screen: {window.innerWidth}x{window.innerHeight}</div>
-          </div>
-        )} */}
-
-        {/* {(activityType === 'Visita en frío' || activityType === 'Visita programada' || activityType === 'Visita de cortesía') && ( */}
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="businessName">Nombre del negocio</Label>
-                <Input
-                  id="businessName"
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                  placeholder="Nombre del negocio"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="contactPerson">Contacto/s de quien nos recibe</Label>
-                <Input
-                  id="contactPerson"
-                  value={contactPerson}
-                  onChange={(e) => setContactPerson(e.target.value)}
-                  placeholder="Nombre del contacto"
-                />
-              </div>
+        {/* Contact Information */}
+        <div className="space-y-6">
+          <h3 className="text-xl font-semibold text-foreground border-b border-border pb-2">
+            Información de Contacto
+          </h3>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <Label htmlFor="contactPerson" className="text-base font-medium text-foreground">
+                Contacto/s de quien nos recibe
+              </Label>
+              <Input
+                id="contactPerson"
+                value={contactPerson}
+                onChange={(e) => setContactPerson(e.target.value)}
+                placeholder="Nombre del contacto"
+                className="h-11 border-2 focus:border-primary transition-colors"
+              />
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="email@ejemplo.com"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Teléfono</Label>
-                <Input
-                  id="phone"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="Número de teléfono"
-                />
-              </div>
-            </div>
-
-            <div className="w-full">
-              <MediaRecorder
-                onFilesChange={handleMediaFilesChange}
-                onUploadActivity={handleUploadActivity}
-                maxAudioFiles={5}
-                maxVideoFiles={5}
-                maxPhotoFiles={10}
-                showUploadActivityButton={true}
+            <div className="space-y-3">
+              <Label htmlFor="email" className="text-base font-medium text-foreground">
+                Email
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="email@ejemplo.com"
+                className="h-11 border-2 focus:border-primary transition-colors"
               />
             </div>
           </div>
-        {/* )} */}
+          
+          <div className="space-y-3">
+            <Label htmlFor="phone" className="text-base font-medium text-foreground">
+              Teléfono
+            </Label>
+            <Input
+              id="phone"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Número de teléfono"
+              className="h-11 border-2 focus:border-primary transition-colors"
+            />
+          </div>
+        </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="notes">Notas (Opcional)</Label>
+        {/* Media Recording */}
+        <div className="space-y-4">
+          <h3 className="text-xl font-semibold text-foreground border-b border-border pb-2">
+            Multimedia
+          </h3>
+          <MediaRecorder
+            onFilesChange={handleMediaFilesChange}
+            onUploadActivity={handleUploadActivity}
+            maxAudioFiles={5}
+            maxVideoFiles={5}
+            maxPhotoFiles={10}
+            showUploadActivityButton={true}
+          />
+        </div>
+
+        {/* Notes */}
+        <div className="space-y-3">
+          <Label htmlFor="notes" className="text-lg font-semibold text-foreground">
+            Notas
+          </Label>
           <Textarea
             id="notes"
             placeholder="Agrega notas sobre esta actividad..."
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            rows={3}
+            rows={4}
+            className="border-2 focus:border-primary transition-colors resize-none"
           />
         </div>
 
+        {/* Location Status */}
         {currentLocation && (
-          <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg">
-            <h4 className="font-medium mb-2 text-warning-foreground">Ubicación Capturada</h4>
-            <p className="text-sm text-muted-foreground">
-              Lat: {currentLocation.latitude.toFixed(6)}<br />
-              Lng: {currentLocation.longitude.toFixed(6)}<br />
+          <div className="p-6 bg-green-50 border-2 border-green-200 rounded-2xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                <CheckSquare className="h-4 w-4 text-white" />
+              </div>
+              <h4 className="font-semibold text-green-800">Ubicación Capturada</h4>
+            </div>
+            <div className="text-sm text-green-700 space-y-1">
               {currentLocation.accuracy && (
-                <>Precisión: {Math.round(currentLocation.accuracy)}m</>
+                <p><strong>Precisión:</strong> {Math.round(currentLocation.accuracy)}m</p>
               )}
-            </p>
+            </div>
           </div>
         )}
 
-        <div className="flex gap-2">
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 pt-6">
           <Button
             onClick={getCurrentLocation}
             disabled={loading}
             variant="outline"
-            className="flex-1"
+            className="flex-1 h-12 text-lg border-2 hover:border-primary transition-colors"
           >
             {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              <Loader2 className="h-5 w-5 animate-spin mr-3" />
             ) : (
-              <CheckSquare className="h-4 w-4 mr-2" />
+              <CheckSquare className="h-5 w-5 mr-3" />
             )}
             {currentLocation ? 'Actualizar Ubicación' : 'Capturar Ubicación'}
           </Button>
           
-          {currentLocation && activityType && (activityType !== 'Visita programada' || subActivity) && (
+          {currentLocation && activityType && businessName.trim() && (activityType !== 'Visita programada' || subActivity) && (
             <Button
               onClick={saveLocation}
               disabled={loading}
-              className="flex-1 bg-warning hover:bg-warning/90 text-warning-foreground"
+              className="flex-1 h-12 text-lg bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
             >
               {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <Loader2 className="h-5 w-5 animate-spin mr-3" />
               ) : null}
               Guardar Actividad
             </Button>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 

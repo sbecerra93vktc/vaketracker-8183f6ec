@@ -295,7 +295,7 @@ const LocationHistory = () => {
         if (activityView === 'my') {
           // Show only admin's own activities
           query = query.eq('user_id', user.id);
-        } else {
+        } else if (activityView === 'all') {
           // Show all team activities (can filter by specific user if selected)
           if (selectedUser !== 'all') {
             query = query.eq('user_id', selectedUser);
@@ -740,6 +740,7 @@ const LocationHistory = () => {
                   onClick={() => {
                     setActivityView('all');
                     setSelectedUser('all');
+                    clearSelectedActivity();
                     setTimeout(handleFilterChange, 100);
                   }}
                   className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
@@ -756,6 +757,7 @@ const LocationHistory = () => {
                   onClick={() => {
                     setActivityView('my');
                     setSelectedUser('all');
+                    clearSelectedActivity();
                     setTimeout(handleFilterChange, 100);
                   }}
                   className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
@@ -887,6 +889,7 @@ const LocationHistory = () => {
                     if (userRole === 'admin') {
                       setActivityView('all');
                     }
+                    clearSelectedActivity();
                     setTimeout(handleFilterChange, 100);
                   }}
                   className="text-xs w-full sm:w-auto"
@@ -1138,23 +1141,26 @@ const LocationHistory = () => {
                               <p className="text-base sm:text-lg font-semibold text-gray-900 leading-relaxed mb-3 break-words">
                                 {selectedActivity.address}
                               </p>
-                              <div className="space-y-2 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
-                                <span className="block sm:inline bg-gray-100/80 backdrop-blur-sm px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg font-mono text-xs font-medium border border-gray-200/50">
-                                  {selectedActivity.latitude.toFixed(6)}, {selectedActivity.longitude.toFixed(6)}
-                                </span>
-                                <div className="flex items-center gap-2 bg-gradient-to-r from-green-500/10 to-emerald-500/10 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-green-200/50">
+                                <div className="space-y-2 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+                                  <div className="flex items-center gap-2 bg-gradient-to-r from-green-500/10 to-emerald-500/10 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-green-200/50">
                                   <Globe className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
                                   <span className="font-semibold text-green-700 text-xs sm:text-sm">
                                     {selectedActivity.country || detectCountryFromCoordinates(selectedActivity.latitude, selectedActivity.longitude)}
                                   </span>
                                   <span className="text-green-400 font-bold hidden sm:inline">•</span>
-                                  <span className="font-medium text-green-600 text-xs sm:text-sm">
-                                    {selectedActivity.state || detectStateFromCoordinates(
+                                  {(selectedActivity.state || detectStateFromCoordinates(
                                       selectedActivity.latitude, 
                                       selectedActivity.longitude,
                                       selectedActivity.country || detectCountryFromCoordinates(selectedActivity.latitude, selectedActivity.longitude)
-                                    )}
-                                  </span>
+                                    )) !== 'Región detectada' && (
+                                    <span className="font-medium text-green-600 text-xs sm:text-sm">
+                                      {selectedActivity.state || detectStateFromCoordinates(
+                                        selectedActivity.latitude, 
+                                        selectedActivity.longitude,
+                                        selectedActivity.country || detectCountryFromCoordinates(selectedActivity.latitude, selectedActivity.longitude)
+                                      )}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                               {/* Google Maps Navigation Button - Mobile optimized */}
@@ -1282,62 +1288,6 @@ const LocationHistory = () => {
                           </div>
                         )}
 
-                        {/* Complete Activity Details Section */}
-                        <div className="mb-6 space-y-4">
-                          {/* Technical Details Section */}
-                          <div className="p-4 bg-gradient-to-r from-gray-50/80 to-slate-50/80 rounded-xl border-l-4 border-gray-400 backdrop-blur-sm">
-                            <h4 className="text-sm font-semibold text-gray-900 mb-3">Detalles Técnicos</h4>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-gray-700">ID de Actividad:</span>
-                                <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded border">
-                                  {selectedActivity.id}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-gray-700">Usuario ID:</span>
-                                <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded border">
-                                  {selectedActivity.user_id}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-gray-700">Tipo de Visita:</span>
-                                <span className="text-gray-800">{selectedActivity.visit_type || 'No especificado'}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-gray-700">Fecha de Creación:</span>
-                                <span className="text-gray-800">{new Date(selectedActivity.created_at).toLocaleString()}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-gray-700">Latitud:</span>
-                                <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded border">
-                                  {selectedActivity.latitude.toFixed(6)}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-gray-700">Longitud:</span>
-                                <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded border">
-                                  {selectedActivity.longitude.toFixed(6)}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* User Profile Information (if admin) */}
-                          {userRole === 'admin' && selectedActivity.user_email && (
-                            <div className="p-4 bg-gradient-to-r from-purple-50/80 to-pink-50/80 rounded-xl border-l-4 border-purple-400 backdrop-blur-sm">
-                              <h4 className="text-sm font-semibold text-purple-900 mb-3">Información del Usuario</h4>
-                              <div className="space-y-2">
-                                {selectedActivity.user_email && (
-                                  <div className="flex items-center gap-2 text-sm">
-                                    <span className="font-medium text-purple-700">Email del Usuario:</span>
-                                    <span className="text-purple-800">{selectedActivity.user_email}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
                         
                         {/* Media display */}
                         <div className="mt-auto">
@@ -1455,22 +1405,25 @@ const LocationHistory = () => {
                                   {location.address}
                                 </p>
                                 <div className="space-y-2 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
-                                  <span className="block sm:inline bg-gray-100/80 backdrop-blur-sm px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg font-mono text-xs font-medium border border-gray-200/50">
-                                    {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
-                                  </span>
                                   <div className="flex items-center gap-2 bg-gradient-to-r from-green-500/10 to-emerald-500/10 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-green-200/50">
                                     <Globe className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
                                     <span className="font-semibold text-green-700 text-xs sm:text-sm">
                                       {location.country || detectCountryFromCoordinates(location.latitude, location.longitude)}
                                     </span>
                                     <span className="text-green-400 font-bold hidden sm:inline">•</span>
-                                    <span className="font-medium text-green-600 text-xs sm:text-sm">
-                                      {location.state || detectStateFromCoordinates(
+                                    {(location.state || detectStateFromCoordinates(
                                         location.latitude, 
                                         location.longitude,
                                         location.country || detectCountryFromCoordinates(location.latitude, location.longitude)
-                                      )}
-                                    </span>
+                                      )) !== 'Región detectada' && (
+                                      <span className="font-medium text-green-600 text-xs sm:text-sm">
+                                        {location.state || detectStateFromCoordinates(
+                                          location.latitude, 
+                                          location.longitude,
+                                          location.country || detectCountryFromCoordinates(location.latitude, location.longitude)
+                                        )}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                                 {/* Google Maps Navigation Button - Mobile optimized */}
@@ -1638,13 +1591,19 @@ const LocationHistory = () => {
                                   {location.country || detectCountryFromCoordinates(location.latitude, location.longitude)}
                                 </span>
                                 <span className="text-green-400 font-bold hidden sm:inline">•</span>
-                                <span className="font-medium text-green-600 text-xs">
-                                  {location.state || detectStateFromCoordinates(
+                                {(location.state || detectStateFromCoordinates(
                                     location.latitude, 
                                     location.longitude,
                                     location.country || detectCountryFromCoordinates(location.latitude, location.longitude)
-                                  )}
-                                </span>
+                                  )) !== 'Región detectada' && (
+                                  <span className="font-medium text-green-600 text-xs">
+                                    {location.state || detectStateFromCoordinates(
+                                      location.latitude, 
+                                      location.longitude,
+                                      location.country || detectCountryFromCoordinates(location.latitude, location.longitude)
+                                    )}
+                                  </span>
+                                )}
                               </div>
                             </div>
                             {/* Google Maps Navigation Button - Mobile optimized */}
