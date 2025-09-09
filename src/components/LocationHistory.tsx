@@ -623,18 +623,19 @@ const LocationHistory = () => {
     return `https://wa.me/${sanitized}`;
   };
 
-  // Get Maps URL for address (web-specific approach to avoid intent system)
+  // Get Maps URL for address (javascript approach to avoid intent system)
   const getGoogleMapsHref = (address: string, latitude?: number, longitude?: number) => {
-    if (!address) return '';
+    if (!address) return 'javascript:;';
     
-    // Use direct coordinate URL that works in web browsers without intent system
+    // Use javascript: protocol to handle navigation programmatically
     if (latitude && longitude) {
-      // Direct coordinate format that bypasses Google's intent system in web browsers
-      return `https://maps.google.com/maps?q=${latitude},${longitude}&z=15`;
+      const mapsUrl = `https://maps.google.com/maps?q=${latitude},${longitude}&z=15`;
+      return `javascript:window.open('${mapsUrl}', '_blank', 'noopener,noreferrer');`;
     }
     
     const encodedAddress = encodeURIComponent(address);
-    return `https://maps.google.com/maps?q=${encodedAddress}`;
+    const mapsUrl = `https://maps.google.com/maps?q=${encodedAddress}`;
+    return `javascript:window.open('${mapsUrl}', '_blank', 'noopener,noreferrer');`;
   };
 
   const formatVisitType = (visitType: string) => {
@@ -1196,11 +1197,7 @@ const LocationHistory = () => {
                                     aria-label={`Abrir ${selectedActivity.address} en Google Maps`}
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      // Let the href handle the navigation naturally - no preventDefault
-                                    }}
-                                    onTouchEnd={(e) => {
-                                      e.stopPropagation();
-                                      // Let the href handle the navigation naturally
+                                      // Navigation handled by javascript: protocol in href
                                     }}
                                   >
                                       <Navigation className="h-4 w-4 mr-2" />
@@ -1444,11 +1441,7 @@ const LocationHistory = () => {
                                       aria-label={`Abrir ${location.address} en Google Maps`}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        // Let the href handle the navigation naturally - no preventDefault
-                                      }}
-                                      onTouchEnd={(e) => {
-                                        e.stopPropagation();
-                                        // Let the href handle the navigation naturally
+                                        // Navigation handled by javascript: protocol in href
                                       }}
                                     >
                                       <Navigation className="h-3 w-3 mr-1" />
@@ -1659,11 +1652,7 @@ const LocationHistory = () => {
                                   aria-label={`Abrir ${location.address} en Google Maps`}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    // Let the href handle the navigation naturally - no preventDefault
-                                  }}
-                                  onTouchEnd={(e) => {
-                                    e.stopPropagation();
-                                    // Let the href handle the navigation naturally
+                                    // Navigation handled by javascript: protocol in href
                                   }}
                                 >
                                   <Navigation className="h-3 w-3 mr-1" />
