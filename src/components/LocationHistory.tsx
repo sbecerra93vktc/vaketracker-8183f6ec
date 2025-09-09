@@ -623,18 +623,18 @@ const LocationHistory = () => {
     return `https://wa.me/${sanitized}`;
   };
 
-  // Get Maps URL for address (production-safe format that avoids intent issues)
+  // Get Maps URL for address (web-specific approach to avoid intent system)
   const getGoogleMapsHref = (address: string, latitude?: number, longitude?: number) => {
     if (!address) return '';
     
-    // Use the most reliable format that avoids Google's intent system
+    // Use direct coordinate URL that works in web browsers without intent system
     if (latitude && longitude) {
-      // Simple coordinate format that works reliably in production
-      return `https://www.google.com/maps?q=${latitude},${longitude}`;
+      // Direct coordinate format that bypasses Google's intent system in web browsers
+      return `https://maps.google.com/maps?q=${latitude},${longitude}&z=15`;
     }
     
     const encodedAddress = encodeURIComponent(address);
-    return `https://www.google.com/maps/search/${encodedAddress}`;
+    return `https://maps.google.com/maps?q=${encodedAddress}`;
   };
 
   const formatVisitType = (visitType: string) => {
