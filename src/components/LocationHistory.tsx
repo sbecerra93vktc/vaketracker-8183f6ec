@@ -623,27 +623,26 @@ const LocationHistory = () => {
     return `https://wa.me/${sanitized}`;
   };
 
-  // Get Maps URL for address (with production-safe fallback)
+  // Get Maps URL for address (production-safe with multiple fallbacks)
   const getGoogleMapsHref = (address: string, latitude?: number, longitude?: number) => {
     if (!address) return '';
     
-    // Check if we're in production and Google Maps might be blocked
+    // Check if we're in production
     const isProduction = window.location.hostname !== 'localhost' && !window.location.hostname.includes('127.0.0.1');
-    const useOpenStreetMap = false; // Set to true if Google Maps is blocked in production
     
-    if (useOpenStreetMap && isProduction) {
-      // Use OpenStreetMap as fallback for production
+    // For production, use the most reliable Google Maps format
+    if (isProduction) {
       if (latitude && longitude) {
-        return `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}&zoom=15`;
+        // Use the most basic, reliable format for production
+        return `https://www.google.com/maps?q=${latitude},${longitude}`;
       }
       const encodedAddress = encodeURIComponent(address);
-      return `https://www.openstreetmap.org/search?query=${encodedAddress}`;
+      return `https://www.google.com/maps/search/${encodedAddress}`;
     }
     
-    // Use Google Maps with production-safe format
+    // For localhost, use the enhanced format
     if (latitude && longitude) {
       const encodedAddress = encodeURIComponent(address);
-      // Use the most basic format that works in production
       return `https://www.google.com/maps/search/${encodedAddress}/@${latitude},${longitude},15z`;
     }
     
@@ -1209,33 +1208,12 @@ const LocationHistory = () => {
                                     rel="noopener noreferrer"
                                     aria-label={`Abrir ${selectedActivity.address} en Google Maps`}
                                     onClick={(e) => {
-                                      e.preventDefault();
                                       e.stopPropagation();
-                                      const href = getGoogleMapsHref(selectedActivity.address, selectedActivity.latitude, selectedActivity.longitude);
-                                      if (href) {
-                                        // Try to open in new tab
-                                        try {
-                                          const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
-                                          // Don't show error message - let the browser handle it naturally
-                                          // The href attribute will work as fallback if window.open fails
-                                        } catch (error) {
-                                          // Silent fallback - the href attribute will handle it
-                                          console.log('Window.open failed, using href fallback');
-                                        }
-                                      }
+                                      // Let the href handle the navigation naturally - no preventDefault
                                     }}
                                     onTouchEnd={(e) => {
-                                      e.preventDefault();
                                       e.stopPropagation();
-                                      const href = getGoogleMapsHref(selectedActivity.address, selectedActivity.latitude, selectedActivity.longitude);
-                                      if (href) {
-                                        try {
-                                          const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
-                                          // Silent - let browser handle it naturally
-                                        } catch (error) {
-                                          console.log('Window.open failed, using href fallback');
-                                        }
-                                      }
+                                      // Let the href handle the navigation naturally
                                     }}
                                   >
                                       <Navigation className="h-4 w-4 mr-2" />
@@ -1310,30 +1288,12 @@ const LocationHistory = () => {
                                         href={getWhatsAppHref(selectedActivity.phone)}
                                         aria-label={`Enviar WhatsApp a ${selectedActivity.phone}`}
                                         onClick={(e) => {
-                                          e.preventDefault();
                                           e.stopPropagation();
-                                          const href = getWhatsAppHref(selectedActivity.phone);
-                                          if (href) {
-                                            try {
-                                              const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
-                                              // Silent - let browser handle it naturally
-                                            } catch (error) {
-                                              console.log('Window.open failed, using href fallback');
-                                            }
-                                          }
+                                          // Let the href handle the navigation naturally - no preventDefault
                                         }}
                                         onTouchEnd={(e) => {
-                                          e.preventDefault();
                                           e.stopPropagation();
-                                          const href = getWhatsAppHref(selectedActivity.phone);
-                                          if (href) {
-                                            try {
-                                              const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
-                                              // Silent - let browser handle it naturally
-                                            } catch (error) {
-                                              console.log('Window.open failed, using href fallback');
-                                            }
-                                          }
+                                          // Let the href handle the navigation naturally
                                         }}
                                       >
                                         <MessageCircle className="h-4 w-4 mr-2" /> 
@@ -1496,30 +1456,12 @@ const LocationHistory = () => {
                                       rel="noopener noreferrer"
                                       aria-label={`Abrir ${location.address} en Google Maps`}
                                       onClick={(e) => {
-                                        e.preventDefault();
                                         e.stopPropagation();
-                                        const href = getGoogleMapsHref(location.address, location.latitude, location.longitude);
-                                        if (href) {
-                                          try {
-                                            const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
-                                            // Silent - let browser handle it naturally
-                                          } catch (error) {
-                                            console.log('Window.open failed, using href fallback');
-                                          }
-                                        }
+                                        // Let the href handle the navigation naturally - no preventDefault
                                       }}
                                       onTouchEnd={(e) => {
-                                        e.preventDefault();
                                         e.stopPropagation();
-                                        const href = getGoogleMapsHref(location.address, location.latitude, location.longitude);
-                                        if (href) {
-                                          try {
-                                            const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
-                                            // Silent - let browser handle it naturally
-                                          } catch (error) {
-                                            console.log('Window.open failed, using href fallback');
-                                          }
-                                        }
+                                        // Let the href handle the navigation naturally
                                       }}
                                     >
                                       <Navigation className="h-3 w-3 mr-1" />
@@ -1554,30 +1496,12 @@ const LocationHistory = () => {
                                           href={getWhatsAppHref(location.phone)}
                                           aria-label={`Enviar WhatsApp a ${location.phone}`}
                                           onClick={(e) => {
-                                            e.preventDefault();
                                             e.stopPropagation();
-                                            const href = getWhatsAppHref(location.phone);
-                                            if (href) {
-                                              try {
-                                                const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
-                                                // Silent - let browser handle it naturally
-                                              } catch (error) {
-                                                console.log('Window.open failed, using href fallback');
-                                              }
-                                            }
+                                            // Let the href handle the navigation naturally - no preventDefault
                                           }}
                                           onTouchEnd={(e) => {
-                                            e.preventDefault();
                                             e.stopPropagation();
-                                            const href = getWhatsAppHref(location.phone);
-                                            if (href) {
-                                              try {
-                                                const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
-                                                // Silent - let browser handle it naturally
-                                              } catch (error) {
-                                                console.log('Window.open failed, using href fallback');
-                                              }
-                                            }
+                                            // Let the href handle the navigation naturally
                                           }}
                                         >
                                           <MessageCircle className="h-3 w-3 mr-1" /> 
@@ -1747,30 +1671,12 @@ const LocationHistory = () => {
                                   rel="noopener noreferrer"
                                   aria-label={`Abrir ${location.address} en Google Maps`}
                                   onClick={(e) => {
-                                    e.preventDefault();
                                     e.stopPropagation();
-                                    const href = getGoogleMapsHref(location.address, location.latitude, location.longitude);
-                                    if (href) {
-                                      try {
-                                        const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
-                                        // Silent - let browser handle it naturally
-                                      } catch (error) {
-                                        console.log('Window.open failed, using href fallback');
-                                      }
-                                    }
+                                    // Let the href handle the navigation naturally - no preventDefault
                                   }}
                                   onTouchEnd={(e) => {
-                                    e.preventDefault();
                                     e.stopPropagation();
-                                    const href = getGoogleMapsHref(location.address, location.latitude, location.longitude);
-                                    if (href) {
-                                      try {
-                                        const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
-                                        // Silent - let browser handle it naturally
-                                      } catch (error) {
-                                        console.log('Window.open failed, using href fallback');
-                                      }
-                                    }
+                                    // Let the href handle the navigation naturally
                                   }}
                                 >
                                   <Navigation className="h-3 w-3 mr-1" />
@@ -1803,30 +1709,12 @@ const LocationHistory = () => {
                                       href={getWhatsAppHref(location.phone)}
                                       aria-label={`Enviar WhatsApp a ${location.phone}`}
                                       onClick={(e) => {
-                                        e.preventDefault();
                                         e.stopPropagation();
-                                        const href = getWhatsAppHref(location.phone);
-                                        if (href) {
-                                          try {
-                                            const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
-                                            // Silent - let browser handle it naturally
-                                          } catch (error) {
-                                            console.log('Window.open failed, using href fallback');
-                                          }
-                                        }
+                                        // Let the href handle the navigation naturally - no preventDefault
                                       }}
                                       onTouchEnd={(e) => {
-                                        e.preventDefault();
                                         e.stopPropagation();
-                                        const href = getWhatsAppHref(location.phone);
-                                        if (href) {
-                                          try {
-                                            const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
-                                            // Silent - let browser handle it naturally
-                                          } catch (error) {
-                                            console.log('Window.open failed, using href fallback');
-                                          }
-                                        }
+                                        // Let the href handle the navigation naturally
                                       }}
                                     >
                                       <MessageCircle className="h-3 w-3" /> 
