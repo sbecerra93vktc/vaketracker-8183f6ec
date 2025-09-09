@@ -623,27 +623,14 @@ const LocationHistory = () => {
     return `https://wa.me/${sanitized}`;
   };
 
-  // Get Maps URL for address (production follows localhost format)
+  // Get Maps URL for address (production-safe format that avoids intent issues)
   const getGoogleMapsHref = (address: string, latitude?: number, longitude?: number) => {
     if (!address) return '';
     
-    // Use the same complex maps/place format for both localhost and production
+    // Use the most reliable format that avoids Google's intent system
     if (latitude && longitude) {
-      // Convert coordinates to degrees, minutes, seconds format like localhost
-      const latDeg = Math.floor(Math.abs(latitude));
-      const latMin = Math.floor((Math.abs(latitude) - latDeg) * 60);
-      const latSec = ((Math.abs(latitude) - latDeg) * 60 - latMin) * 60;
-      const latDir = latitude >= 0 ? 'N' : 'S';
-      
-      const lngDeg = Math.floor(Math.abs(longitude));
-      const lngMin = Math.floor((Math.abs(longitude) - lngDeg) * 60);
-      const lngSec = ((Math.abs(longitude) - lngDeg) * 60 - lngMin) * 60;
-      const lngDir = longitude >= 0 ? 'E' : 'W';
-      
-      const coordString = `${latDeg}°${latMin}'${latSec.toFixed(1)}"${latDir}+${lngDeg}°${lngMin}'${lngSec.toFixed(1)}"${lngDir}`;
-      const encodedCoord = encodeURIComponent(coordString);
-      
-      return `https://www.google.com/maps/place/${encodedCoord}/@${latitude},${longitude},17z/data=!3m1!4b1!4m4!3m3!8m2!3d${latitude}!4d${longitude}?entry=ttu`;
+      // Simple coordinate format that works reliably in production
+      return `https://www.google.com/maps?q=${latitude},${longitude}`;
     }
     
     const encodedAddress = encodeURIComponent(address);
