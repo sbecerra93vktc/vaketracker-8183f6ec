@@ -627,14 +627,15 @@ const LocationHistory = () => {
   const getGoogleMapsHref = (address: string, latitude?: number, longitude?: number) => {
     if (!address) return '';
     
-    // If we have coordinates, use them for more precise navigation
+    // If we have coordinates, use a simpler, more reliable format
     if (latitude && longitude) {
-      return `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+      // Use the simple maps.google.com format that works better across devices
+      return `https://maps.google.com/maps?q=${latitude},${longitude}`;
     }
     
-    // Otherwise use the address
+    // Otherwise use the address with simple format
     const encodedAddress = encodeURIComponent(address);
-    return `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+    return `https://maps.google.com/maps?q=${encodedAddress}`;
   };
 
   const formatVisitType = (visitType: string) => {
