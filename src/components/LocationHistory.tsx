@@ -633,6 +633,7 @@ const LocationHistory = () => {
 
   // Handle Google Maps navigation with better popup blocker handling
   const handleGoogleMapsClick = (address: string, latitude?: number, longitude?: number) => {
+    console.log('Google Maps clicked:', { address, latitude, longitude });
     if (!address) return;
     
     let mapsUrl = '';
@@ -642,6 +643,8 @@ const LocationHistory = () => {
       const encodedAddress = encodeURIComponent(address);
       mapsUrl = `https://maps.google.com/maps?q=${encodedAddress}`;
     }
+    
+    console.log('Opening Google Maps URL:', mapsUrl);
     
     // Create a temporary link element to handle navigation
     const link = document.createElement('a');
@@ -655,10 +658,13 @@ const LocationHistory = () => {
 
   // Handle WhatsApp navigation with better popup blocker handling
   const handleWhatsAppClick = (phone: string) => {
+    console.log('WhatsApp clicked:', { phone });
     if (!phone) return;
     
     const sanitized = String(phone).replace(/[^\d+]/g, '');
     const whatsappUrl = `https://wa.me/${sanitized}`;
+    
+    console.log('Opening WhatsApp URL:', whatsappUrl);
     
     // Create a temporary link element to handle navigation
     const link = document.createElement('a');
@@ -1309,10 +1315,6 @@ const LocationHistory = () => {
                                           e.stopPropagation();
                                           handleWhatsAppClick(selectedActivity.phone);
                                         }}
-                                        onTouchEnd={(e) => {
-                                          e.stopPropagation();
-                                          // Let the href handle the navigation naturally
-                                        }}
                                       >
                                         <MessageCircle className="h-4 w-4 mr-2" /> 
                                         <span className="hidden sm:inline">WhatsApp</span>
@@ -1514,10 +1516,6 @@ const LocationHistory = () => {
                                             e.preventDefault();
                                             e.stopPropagation();
                                             handleWhatsAppClick(location.phone);
-                                          }}
-                                          onTouchEnd={(e) => {
-                                            e.stopPropagation();
-                                            // Let the href handle the navigation naturally
                                           }}
                                         >
                                           <MessageCircle className="h-3 w-3 mr-1" /> 
@@ -1725,10 +1723,6 @@ const LocationHistory = () => {
                                         e.preventDefault();
                                         e.stopPropagation();
                                         handleWhatsAppClick(location.phone);
-                                      }}
-                                      onTouchEnd={(e) => {
-                                        e.stopPropagation();
-                                        // Let the href handle the navigation naturally
                                       }}
                                     >
                                       <MessageCircle className="h-3 w-3" /> 
