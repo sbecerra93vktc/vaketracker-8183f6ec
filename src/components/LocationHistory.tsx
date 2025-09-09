@@ -1472,9 +1472,10 @@ const LocationHistory = () => {
                                     )}
                                   </div>
                                 </div>
-                                {/* Google Maps Navigation Button - Mobile optimized */}
-                                <div className="mt-3">
-                                  <Button asChild className="bg-blue-600 text-white hover:bg-blue-700 w-full h-10 sm:h-auto">
+                                {/* Action buttons - Mobile optimized */}
+                                <div className="mt-3 space-y-2">
+                                  {/* Google Maps Navigation Button - Smaller size */}
+                                  <Button asChild className="bg-blue-600 text-white hover:bg-blue-700 w-full h-8 text-xs">
                                     <a
                                       href={getGoogleMapsHref(location.address, location.latitude, location.longitude)}
                                       target="_blank"
@@ -1507,11 +1508,71 @@ const LocationHistory = () => {
                                         }
                                       }}
                                     >
-                                      <Navigation className="h-4 w-4 mr-2" />
-                                      <span className="hidden sm:inline">Abrir en Google Maps</span>
-                                      <span className="sm:hidden">Google Maps</span>
+                                      <Navigation className="h-3 w-3 mr-1" />
+                                      <span className="hidden sm:inline">Google Maps</span>
+                                      <span className="sm:hidden">Maps</span>
                                     </a>
                                   </Button>
+                                  
+                                  {/* Phone and WhatsApp buttons - Show if phone number exists */}
+                                  {location.phone && (
+                                    <div className="flex gap-2">
+                                      <Button asChild className="bg-green-600 text-white hover:bg-green-700 flex-1 h-8 text-xs">
+                                        <a
+                                          href={getDialHref(location.phone)}
+                                          aria-label={`Llamar al ${location.phone}`}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            // Let the default behavior handle the phone call
+                                          }}
+                                          onTouchEnd={(e) => {
+                                            e.stopPropagation();
+                                            // Let the default behavior handle the phone call
+                                          }}
+                                        >
+                                          <Phone className="h-3 w-3 mr-1" /> 
+                                          <span className="hidden sm:inline">Llamar</span>
+                                          <span className="sm:hidden">Call</span>
+                                        </a>
+                                      </Button>
+                                      <Button asChild className="bg-green-500 text-white hover:bg-green-600 flex-1 h-8 text-xs">
+                                        <a
+                                          href={getWhatsAppHref(location.phone)}
+                                          aria-label={`Enviar WhatsApp a ${location.phone}`}
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            const href = getWhatsAppHref(location.phone);
+                                            if (href) {
+                                              try {
+                                                const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
+                                                // Silent - let browser handle it naturally
+                                              } catch (error) {
+                                                console.log('Window.open failed, using href fallback');
+                                              }
+                                            }
+                                          }}
+                                          onTouchEnd={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            const href = getWhatsAppHref(location.phone);
+                                            if (href) {
+                                              try {
+                                                const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
+                                                // Silent - let browser handle it naturally
+                                              } catch (error) {
+                                                console.log('Window.open failed, using href fallback');
+                                              }
+                                            }
+                                          }}
+                                        >
+                                          <MessageCircle className="h-3 w-3 mr-1" /> 
+                                          <span className="hidden sm:inline">WhatsApp</span>
+                                          <span className="sm:hidden">WA</span>
+                                        </a>
+                                      </Button>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -1662,9 +1723,10 @@ const LocationHistory = () => {
                                 )}
                               </div>
                             </div>
-                            {/* Google Maps Navigation Button - Mobile optimized */}
-                            <div className="mt-2">
-                              <Button asChild className="bg-blue-600 text-white hover:bg-blue-700 w-full text-xs h-8 sm:h-8">
+                            {/* Action buttons - Mobile optimized */}
+                            <div className="mt-2 space-y-1.5">
+                              {/* Google Maps Navigation Button - Smaller size */}
+                              <Button asChild className="bg-blue-600 text-white hover:bg-blue-700 w-full text-xs h-7">
                                 <a
                                   href={getGoogleMapsHref(location.address, location.latitude, location.longitude)}
                                   target="_blank"
@@ -1677,11 +1739,9 @@ const LocationHistory = () => {
                                     if (href) {
                                       try {
                                         const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
-                                        if (!newWindow) {
-                                          alert('Popup bloqueado. Por favor, permite ventanas emergentes para este sitio o haz clic derecho en el botón y selecciona "Abrir en nueva pestaña".');
-                                        }
+                                        // Silent - let browser handle it naturally
                                       } catch (error) {
-                                        alert('No se pudo abrir el enlace. Por favor, intenta hacer clic derecho en el botón y selecciona "Abrir en nueva pestaña".');
+                                        console.log('Window.open failed, using href fallback');
                                       }
                                     }
                                   }}
@@ -1692,20 +1752,74 @@ const LocationHistory = () => {
                                     if (href) {
                                       try {
                                         const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
-                                        if (!newWindow) {
-                                          alert('Popup bloqueado. Por favor, permite ventanas emergentes para este sitio o haz clic derecho en el botón y selecciona "Abrir en nueva pestaña".');
-                                        }
+                                        // Silent - let browser handle it naturally
                                       } catch (error) {
-                                        alert('No se pudo abrir el enlace. Por favor, intenta hacer clic derecho en el botón y selecciona "Abrir en nueva pestaña".');
+                                        console.log('Window.open failed, using href fallback');
                                       }
                                     }
                                   }}
                                 >
                                   <Navigation className="h-3 w-3 mr-1" />
-                                  <span className="hidden sm:inline">Directorio</span>
-                                  <span className="sm:hidden">Directorio</span>
+                                  <span className="hidden sm:inline">Maps</span>
+                                  <span className="sm:hidden">Maps</span>
                                 </a>
                               </Button>
+                              
+                              {/* Phone and WhatsApp buttons - Show if phone number exists */}
+                              {location.phone && (
+                                <div className="flex gap-1">
+                                  <Button asChild className="bg-green-600 text-white hover:bg-green-700 flex-1 text-xs h-7">
+                                    <a
+                                      href={getDialHref(location.phone)}
+                                      aria-label={`Llamar al ${location.phone}`}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        // Let the default behavior handle the phone call
+                                      }}
+                                      onTouchEnd={(e) => {
+                                        e.stopPropagation();
+                                        // Let the default behavior handle the phone call
+                                      }}
+                                    >
+                                      <Phone className="h-3 w-3" /> 
+                                    </a>
+                                  </Button>
+                                  <Button asChild className="bg-green-500 text-white hover:bg-green-600 flex-1 text-xs h-7">
+                                    <a
+                                      href={getWhatsAppHref(location.phone)}
+                                      aria-label={`Enviar WhatsApp a ${location.phone}`}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        const href = getWhatsAppHref(location.phone);
+                                        if (href) {
+                                          try {
+                                            const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
+                                            // Silent - let browser handle it naturally
+                                          } catch (error) {
+                                            console.log('Window.open failed, using href fallback');
+                                          }
+                                        }
+                                      }}
+                                      onTouchEnd={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        const href = getWhatsAppHref(location.phone);
+                                        if (href) {
+                                          try {
+                                            const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
+                                            // Silent - let browser handle it naturally
+                                          } catch (error) {
+                                            console.log('Window.open failed, using href fallback');
+                                          }
+                                        }
+                                      }}
+                                    >
+                                      <MessageCircle className="h-3 w-3" /> 
+                                    </a>
+                                  </Button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
