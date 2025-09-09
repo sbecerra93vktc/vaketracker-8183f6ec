@@ -623,15 +623,16 @@ const LocationHistory = () => {
     return `https://wa.me/${sanitized}`;
   };
 
-  // Get Maps URL for address (with fallback to OpenStreetMap if Google is blocked)
+  // Get Maps URL for address (with production-safe fallback)
   const getGoogleMapsHref = (address: string, latitude?: number, longitude?: number) => {
     if (!address) return '';
     
-    // Check if Google Maps is accessible, if not use OpenStreetMap
-    const useOpenStreetMap = false; // Set to true if Google Maps is blocked
+    // Check if we're in production and Google Maps might be blocked
+    const isProduction = window.location.hostname !== 'localhost' && !window.location.hostname.includes('127.0.0.1');
+    const useOpenStreetMap = false; // Set to true if Google Maps is blocked in production
     
-    if (useOpenStreetMap) {
-      // Use OpenStreetMap as fallback
+    if (useOpenStreetMap && isProduction) {
+      // Use OpenStreetMap as fallback for production
       if (latitude && longitude) {
         return `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}&zoom=15`;
       }
@@ -639,9 +640,10 @@ const LocationHistory = () => {
       return `https://www.openstreetmap.org/search?query=${encodedAddress}`;
     }
     
-    // Use Google Maps (original format)
+    // Use Google Maps with production-safe format
     if (latitude && longitude) {
       const encodedAddress = encodeURIComponent(address);
+      // Use the most basic format that works in production
       return `https://www.google.com/maps/search/${encodedAddress}/@${latitude},${longitude},15z`;
     }
     
