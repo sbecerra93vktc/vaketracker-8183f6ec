@@ -623,18 +623,28 @@ const LocationHistory = () => {
     return `https://wa.me/${sanitized}`;
   };
 
-  // Get Google Maps URL for address
+  // Get Maps URL for address (with fallback to OpenStreetMap if Google is blocked)
   const getGoogleMapsHref = (address: string, latitude?: number, longitude?: number) => {
     if (!address) return '';
     
-    // Use the search format that includes both address and coordinates
+    // Check if Google Maps is accessible, if not use OpenStreetMap
+    const useOpenStreetMap = false; // Set to true if Google Maps is blocked
+    
+    if (useOpenStreetMap) {
+      // Use OpenStreetMap as fallback
+      if (latitude && longitude) {
+        return `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}&zoom=15`;
+      }
+      const encodedAddress = encodeURIComponent(address);
+      return `https://www.openstreetmap.org/search?query=${encodedAddress}`;
+    }
+    
+    // Use Google Maps (original format)
     if (latitude && longitude) {
-      // Use the search format with address and coordinates like Google Maps generates
       const encodedAddress = encodeURIComponent(address);
       return `https://www.google.com/maps/search/${encodedAddress}/@${latitude},${longitude},15z`;
     }
     
-    // For addresses without coordinates, use simple search
     const encodedAddress = encodeURIComponent(address);
     return `https://www.google.com/maps/search/${encodedAddress}`;
   };
@@ -1226,9 +1236,9 @@ const LocationHistory = () => {
                                       }
                                     }}
                                   >
-                                    <Navigation className="h-4 w-4 mr-2" />
-                                    <span className="hidden sm:inline">Abrir en Directorio</span>
-                                    <span className="sm:hidden">Directorio</span>
+                                      <Navigation className="h-4 w-4 mr-2" />
+                                      <span className="hidden sm:inline">Abrir en Mapa</span>
+                                      <span className="sm:hidden">Mapa</span>
                                   </a>
                                 </Button>
                               </div>
@@ -1511,8 +1521,8 @@ const LocationHistory = () => {
                                       }}
                                     >
                                       <Navigation className="h-3 w-3 mr-1" />
-                                      <span className="hidden sm:inline">Google Maps</span>
-                                      <span className="sm:hidden">Maps</span>
+                                      <span className="hidden sm:inline">Mapa</span>
+                                      <span className="sm:hidden">Mapa</span>
                                     </a>
                                   </Button>
                                   
@@ -1762,8 +1772,8 @@ const LocationHistory = () => {
                                   }}
                                 >
                                   <Navigation className="h-3 w-3 mr-1" />
-                                  <span className="hidden sm:inline">Maps</span>
-                                  <span className="sm:hidden">Maps</span>
+                                  <span className="hidden sm:inline">Mapa</span>
+                                  <span className="sm:hidden">Mapa</span>
                                 </a>
                               </Button>
                               
