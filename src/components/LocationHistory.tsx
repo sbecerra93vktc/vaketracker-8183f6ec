@@ -616,7 +616,7 @@ const LocationHistory = () => {
     return `tel:${sanitized}`;
   };
 
-  // Get WhatsApp URL with phone number
+  // Get WhatsApp URL with phone number (kept for compatibility)
   const getWhatsAppHref = (rawPhone?: string) => {
     if (!rawPhone) return '';
     const sanitized = String(rawPhone).replace(/[^\d+]/g, '');
@@ -631,7 +631,7 @@ const LocationHistory = () => {
     return '#';
   };
 
-  // Handle Google Maps navigation
+  // Handle Google Maps navigation with better popup blocker handling
   const handleGoogleMapsClick = (address: string, latitude?: number, longitude?: number) => {
     if (!address) return;
     
@@ -643,17 +643,31 @@ const LocationHistory = () => {
       mapsUrl = `https://maps.google.com/maps?q=${encodedAddress}`;
     }
     
-    // Open in new tab with proper error handling
-    try {
-      const newWindow = window.open(mapsUrl, '_blank', 'noopener,noreferrer');
-      if (!newWindow) {
-        // Fallback if popup is blocked
-        window.location.href = mapsUrl;
-      }
-    } catch (error) {
-      // Fallback if window.open fails
-      window.location.href = mapsUrl;
-    }
+    // Create a temporary link element to handle navigation
+    const link = document.createElement('a');
+    link.href = mapsUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Handle WhatsApp navigation with better popup blocker handling
+  const handleWhatsAppClick = (phone: string) => {
+    if (!phone) return;
+    
+    const sanitized = String(phone).replace(/[^\d+]/g, '');
+    const whatsappUrl = `https://wa.me/${sanitized}`;
+    
+    // Create a temporary link element to handle navigation
+    const link = document.createElement('a');
+    link.href = whatsappUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const formatVisitType = (visitType: string) => {
@@ -1288,11 +1302,12 @@ const LocationHistory = () => {
                                     </Button>
                                     <Button asChild className="bg-green-500 text-white hover:bg-green-600 h-10 sm:h-auto flex-1 sm:flex-none">
                                       <a
-                                        href={getWhatsAppHref(selectedActivity.phone)}
+                                        href="#"
                                         aria-label={`Enviar WhatsApp a ${selectedActivity.phone}`}
                                         onClick={(e) => {
+                                          e.preventDefault();
                                           e.stopPropagation();
-                                          // Let the href handle the navigation naturally - no preventDefault
+                                          handleWhatsAppClick(selectedActivity.phone);
                                         }}
                                         onTouchEnd={(e) => {
                                           e.stopPropagation();
@@ -1493,11 +1508,12 @@ const LocationHistory = () => {
                                       </Button>
                                       <Button asChild className="bg-green-500 text-white hover:bg-green-600 flex-1 h-8 text-xs">
                                         <a
-                                          href={getWhatsAppHref(location.phone)}
+                                          href="#"
                                           aria-label={`Enviar WhatsApp a ${location.phone}`}
                                           onClick={(e) => {
+                                            e.preventDefault();
                                             e.stopPropagation();
-                                            // Let the href handle the navigation naturally - no preventDefault
+                                            handleWhatsAppClick(location.phone);
                                           }}
                                           onTouchEnd={(e) => {
                                             e.stopPropagation();
@@ -1703,11 +1719,12 @@ const LocationHistory = () => {
                                   </Button>
                                   <Button asChild className="bg-green-500 text-white hover:bg-green-600 flex-1 text-xs h-7">
                                     <a
-                                      href={getWhatsAppHref(location.phone)}
+                                      href="#"
                                       aria-label={`Enviar WhatsApp a ${location.phone}`}
                                       onClick={(e) => {
+                                        e.preventDefault();
                                         e.stopPropagation();
-                                        // Let the href handle the navigation naturally - no preventDefault
+                                        handleWhatsAppClick(location.phone);
                                       }}
                                       onTouchEnd={(e) => {
                                         e.stopPropagation();
