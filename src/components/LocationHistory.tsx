@@ -47,6 +47,7 @@ const LocationHistory = () => {
   const [hasMore, setHasMore] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  const [filteredTotalCount, setFilteredTotalCount] = useState(0);
   const [selectedUser, setSelectedUser] = useState<string>('all');
   const [selectedDateFrom, setSelectedDateFrom] = useState<string>('');
   const [selectedDateTo, setSelectedDateTo] = useState<string>('');
@@ -338,6 +339,7 @@ const LocationHistory = () => {
         return;
       }
 
+
       setTotalCount(count || 0);
 
       // If admin, fetch user profiles separately for names
@@ -378,6 +380,8 @@ const LocationHistory = () => {
       if (reset) {
         setLocations(enrichedLocations);
         setCurrentPage(1);
+        // Set filtered count to the count returned from database (which already has filters applied)
+        setFilteredTotalCount(count || 0);
       } else {
         setLocations(prev => [...prev, ...enrichedLocations]);
         setCurrentPage(prev => prev + 1);
@@ -405,6 +409,11 @@ const LocationHistory = () => {
   const applyFilters = () => {
     let filtered = [...locations];
 
+    // User filter (client-side fallback - should be applied at database level but this ensures it works)
+    if (selectedUser !== 'all') {
+      filtered = filtered.filter(location => location.user_id === selectedUser);
+    }
+
     // Country filter (client-side for existing data)
     if (selectedCountry !== 'all') {
       filtered = filtered.filter(location => {
@@ -431,6 +440,9 @@ const LocationHistory = () => {
     }
 
     setFilteredLocations(filtered);
+    
+    // Update filtered total count to reflect filtered results
+    setFilteredTotalCount(filtered.length);
   };
 
   const handleFilterChange = () => {
@@ -886,6 +898,7 @@ const LocationHistory = () => {
                     setSelectedState('all');
                     setSelectedVisitType('all');
                     setSearchQuery('');
+                    setFilteredTotalCount(0); // Reset filtered count when clearing filters
                     if (userRole === 'admin') {
                       setActivityView('all');
                     }
@@ -1035,7 +1048,17 @@ const LocationHistory = () => {
         ) : (
           <div>
             <div className="text-sm text-muted-foreground mb-4">
-              Mostrando {filteredLocations.length > 0 ? 1 : 0}-{filteredLocations.length} ({totalCount} actividades)
+              {filteredLocations.length > 0 ? (
+                <>
+                  Mostrando {filteredLocations.length} {filteredLocations.length === 1 ? 'actividad' : 'actividades'}
+                  {filteredTotalCount !== totalCount && (
+                    <span className="ml-1">(de {filteredTotalCount} {filteredTotalCount === 1 ? 'actividad' : 'actividades'} filtradas)</span>
+                  )}
+                  <span className="ml-1">de {totalCount} total</span>
+                </>
+              ) : (
+                'No hay actividades para mostrar'
+              )}
             </div>
             {viewMode === 'list' ? (
               <div className="space-y-4">
@@ -1176,7 +1199,15 @@ const LocationHistory = () => {
                                       e.stopPropagation();
                                       const href = getGoogleMapsHref(selectedActivity.address, selectedActivity.latitude, selectedActivity.longitude);
                                       if (href) {
-                                        window.open(href, '_blank');
+                                        // Try to open in new tab
+                                        try {
+                                          const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
+                                          // Don't show error message - let the browser handle it naturally
+                                          // The href attribute will work as fallback if window.open fails
+                                        } catch (error) {
+                                          // Silent fallback - the href attribute will handle it
+                                          console.log('Window.open failed, using href fallback');
+                                        }
                                       }
                                     }}
                                     onTouchEnd={(e) => {
@@ -1184,7 +1215,12 @@ const LocationHistory = () => {
                                       e.stopPropagation();
                                       const href = getGoogleMapsHref(selectedActivity.address, selectedActivity.latitude, selectedActivity.longitude);
                                       if (href) {
-                                        window.open(href, '_blank');
+                                        try {
+                                          const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
+                                          // Silent - let browser handle it naturally
+                                        } catch (error) {
+                                          console.log('Window.open failed, using href fallback');
+                                        }
                                       }
                                     }}
                                   >
@@ -1264,7 +1300,12 @@ const LocationHistory = () => {
                                           e.stopPropagation();
                                           const href = getWhatsAppHref(selectedActivity.phone);
                                           if (href) {
-                                            window.open(href, '_blank');
+                                            try {
+                                              const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
+                                              // Silent - let browser handle it naturally
+                                            } catch (error) {
+                                              console.log('Window.open failed, using href fallback');
+                                            }
                                           }
                                         }}
                                         onTouchEnd={(e) => {
@@ -1272,7 +1313,12 @@ const LocationHistory = () => {
                                           e.stopPropagation();
                                           const href = getWhatsAppHref(selectedActivity.phone);
                                           if (href) {
-                                            window.open(href, '_blank');
+                                            try {
+                                              const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
+                                              // Silent - let browser handle it naturally
+                                            } catch (error) {
+                                              console.log('Window.open failed, using href fallback');
+                                            }
                                           }
                                         }}
                                       >
@@ -1439,7 +1485,12 @@ const LocationHistory = () => {
                                         e.stopPropagation();
                                         const href = getGoogleMapsHref(location.address, location.latitude, location.longitude);
                                         if (href) {
-                                          window.open(href, '_blank');
+                                          try {
+                                            const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
+                                            // Silent - let browser handle it naturally
+                                          } catch (error) {
+                                            console.log('Window.open failed, using href fallback');
+                                          }
                                         }
                                       }}
                                       onTouchEnd={(e) => {
@@ -1447,7 +1498,12 @@ const LocationHistory = () => {
                                         e.stopPropagation();
                                         const href = getGoogleMapsHref(location.address, location.latitude, location.longitude);
                                         if (href) {
-                                          window.open(href, '_blank');
+                                          try {
+                                            const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
+                                            // Silent - let browser handle it naturally
+                                          } catch (error) {
+                                            console.log('Window.open failed, using href fallback');
+                                          }
                                         }
                                       }}
                                     >
@@ -1619,7 +1675,14 @@ const LocationHistory = () => {
                                     e.stopPropagation();
                                     const href = getGoogleMapsHref(location.address, location.latitude, location.longitude);
                                     if (href) {
-                                      window.open(href, '_blank');
+                                      try {
+                                        const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
+                                        if (!newWindow) {
+                                          alert('Popup bloqueado. Por favor, permite ventanas emergentes para este sitio o haz clic derecho en el botón y selecciona "Abrir en nueva pestaña".');
+                                        }
+                                      } catch (error) {
+                                        alert('No se pudo abrir el enlace. Por favor, intenta hacer clic derecho en el botón y selecciona "Abrir en nueva pestaña".');
+                                      }
                                     }
                                   }}
                                   onTouchEnd={(e) => {
@@ -1627,7 +1690,14 @@ const LocationHistory = () => {
                                     e.stopPropagation();
                                     const href = getGoogleMapsHref(location.address, location.latitude, location.longitude);
                                     if (href) {
-                                      window.open(href, '_blank');
+                                      try {
+                                        const newWindow = window.open(href, '_blank', 'noopener,noreferrer');
+                                        if (!newWindow) {
+                                          alert('Popup bloqueado. Por favor, permite ventanas emergentes para este sitio o haz clic derecho en el botón y selecciona "Abrir en nueva pestaña".');
+                                        }
+                                      } catch (error) {
+                                        alert('No se pudo abrir el enlace. Por favor, intenta hacer clic derecho en el botón y selecciona "Abrir en nueva pestaña".');
+                                      }
                                     }
                                   }}
                                 >
