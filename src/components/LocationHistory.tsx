@@ -623,24 +623,11 @@ const LocationHistory = () => {
     return `https://wa.me/${sanitized}`;
   };
 
-  // Get Maps URL for address (production-safe with multiple fallbacks)
+  // Get Maps URL for address (consistent format for both localhost and production)
   const getGoogleMapsHref = (address: string, latitude?: number, longitude?: number) => {
     if (!address) return '';
     
-    // Check if we're in production
-    const isProduction = window.location.hostname !== 'localhost' && !window.location.hostname.includes('127.0.0.1');
-    
-    // For production, use the most reliable Google Maps format
-    if (isProduction) {
-      if (latitude && longitude) {
-        // Use the most basic, reliable format for production
-        return `https://www.google.com/maps?q=${latitude},${longitude}`;
-      }
-      const encodedAddress = encodeURIComponent(address);
-      return `https://www.google.com/maps/search/${encodedAddress}`;
-    }
-    
-    // For localhost, use the enhanced format
+    // Use the same enhanced format for both localhost and production
     if (latitude && longitude) {
       const encodedAddress = encodeURIComponent(address);
       return `https://www.google.com/maps/search/${encodedAddress}/@${latitude},${longitude},15z`;
