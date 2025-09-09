@@ -631,20 +631,21 @@ const LocationHistory = () => {
     return '#';
   };
 
-  // Handle Google Maps navigation with better popup blocker handling
+  // Handle Maps navigation (using OpenStreetMap to avoid Google intent issues)
   const handleGoogleMapsClick = (address: string, latitude?: number, longitude?: number) => {
-    console.log('Google Maps clicked:', { address, latitude, longitude });
+    console.log('Maps clicked:', { address, latitude, longitude });
     if (!address) return;
     
     let mapsUrl = '';
     if (latitude && longitude) {
-      mapsUrl = `https://maps.google.com/maps?q=${latitude},${longitude}&z=15`;
+      // Use OpenStreetMap which doesn't have intent issues
+      mapsUrl = `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}&zoom=15`;
     } else {
       const encodedAddress = encodeURIComponent(address);
-      mapsUrl = `https://maps.google.com/maps?q=${encodedAddress}`;
+      mapsUrl = `https://www.openstreetmap.org/search?query=${encodedAddress}`;
     }
     
-    console.log('Opening Google Maps URL:', mapsUrl);
+    console.log('Opening Maps URL:', mapsUrl);
     
     // Create a temporary link element to handle navigation
     const link = document.createElement('a');
@@ -1232,7 +1233,7 @@ const LocationHistory = () => {
                                     href={getGoogleMapsHref(selectedActivity.address, selectedActivity.latitude, selectedActivity.longitude)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    aria-label={`Abrir ${selectedActivity.address} en Google Maps`}
+                                    aria-label={`Abrir ${selectedActivity.address} en Mapa`}
                                     onClick={(e) => {
                                       e.preventDefault();
                                       e.stopPropagation();
@@ -1474,7 +1475,7 @@ const LocationHistory = () => {
                                       href={getGoogleMapsHref(location.address, location.latitude, location.longitude)}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      aria-label={`Abrir ${location.address} en Google Maps`}
+                                      aria-label={`Abrir ${location.address} en Mapa`}
                                       onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
@@ -1683,7 +1684,7 @@ const LocationHistory = () => {
                                   href={getGoogleMapsHref(location.address, location.latitude, location.longitude)}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  aria-label={`Abrir ${location.address} en Google Maps`}
+                                  aria-label={`Abrir ${location.address} en Mapa`}
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
