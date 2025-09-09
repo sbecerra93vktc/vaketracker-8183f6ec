@@ -623,19 +623,37 @@ const LocationHistory = () => {
     return `https://wa.me/${sanitized}`;
   };
 
-  // Get Maps URL for address (javascript approach to avoid intent system)
+  // Get Maps URL for address (onClick handler approach)
   const getGoogleMapsHref = (address: string, latitude?: number, longitude?: number) => {
-    if (!address) return 'javascript:;';
+    if (!address) return '#';
     
-    // Use javascript: protocol to handle navigation programmatically
+    // Return a simple hash, navigation will be handled by onClick
+    return '#';
+  };
+
+  // Handle Google Maps navigation
+  const handleGoogleMapsClick = (address: string, latitude?: number, longitude?: number) => {
+    if (!address) return;
+    
+    let mapsUrl = '';
     if (latitude && longitude) {
-      const mapsUrl = `https://maps.google.com/maps?q=${latitude},${longitude}&z=15`;
-      return `javascript:window.open('${mapsUrl}', '_blank', 'noopener,noreferrer');`;
+      mapsUrl = `https://maps.google.com/maps?q=${latitude},${longitude}&z=15`;
+    } else {
+      const encodedAddress = encodeURIComponent(address);
+      mapsUrl = `https://maps.google.com/maps?q=${encodedAddress}`;
     }
     
-    const encodedAddress = encodeURIComponent(address);
-    const mapsUrl = `https://maps.google.com/maps?q=${encodedAddress}`;
-    return `javascript:window.open('${mapsUrl}', '_blank', 'noopener,noreferrer');`;
+    // Open in new tab with proper error handling
+    try {
+      const newWindow = window.open(mapsUrl, '_blank', 'noopener,noreferrer');
+      if (!newWindow) {
+        // Fallback if popup is blocked
+        window.location.href = mapsUrl;
+      }
+    } catch (error) {
+      // Fallback if window.open fails
+      window.location.href = mapsUrl;
+    }
   };
 
   const formatVisitType = (visitType: string) => {
@@ -1196,8 +1214,9 @@ const LocationHistory = () => {
                                     rel="noopener noreferrer"
                                     aria-label={`Abrir ${selectedActivity.address} en Google Maps`}
                                     onClick={(e) => {
+                                      e.preventDefault();
                                       e.stopPropagation();
-                                      // Navigation handled by javascript: protocol in href
+                                      handleGoogleMapsClick(selectedActivity.address, selectedActivity.latitude, selectedActivity.longitude);
                                     }}
                                   >
                                       <Navigation className="h-4 w-4 mr-2" />
@@ -1440,8 +1459,9 @@ const LocationHistory = () => {
                                       rel="noopener noreferrer"
                                       aria-label={`Abrir ${location.address} en Google Maps`}
                                       onClick={(e) => {
+                                        e.preventDefault();
                                         e.stopPropagation();
-                                        // Navigation handled by javascript: protocol in href
+                                        handleGoogleMapsClick(location.address, location.latitude, location.longitude);
                                       }}
                                     >
                                       <Navigation className="h-3 w-3 mr-1" />
@@ -1651,8 +1671,9 @@ const LocationHistory = () => {
                                   rel="noopener noreferrer"
                                   aria-label={`Abrir ${location.address} en Google Maps`}
                                   onClick={(e) => {
+                                    e.preventDefault();
                                     e.stopPropagation();
-                                    // Navigation handled by javascript: protocol in href
+                                    handleGoogleMapsClick(location.address, location.latitude, location.longitude);
                                   }}
                                 >
                                   <Navigation className="h-3 w-3 mr-1" />
