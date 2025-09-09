@@ -631,30 +631,56 @@ const LocationHistory = () => {
     return '#';
   };
 
-  // Handle Maps navigation (using OpenStreetMap to avoid Google intent issues)
+  // Handle Google Maps navigation with production-specific fixes
   const handleGoogleMapsClick = (address: string, latitude?: number, longitude?: number) => {
-    console.log('Maps clicked:', { address, latitude, longitude });
+    console.log('Google Maps clicked:', { address, latitude, longitude });
     if (!address) return;
+    
+    // Detect if we're in production
+    const isProduction = window.location.hostname !== 'localhost' && !window.location.hostname.includes('127.0.0.1');
     
     let mapsUrl = '';
     if (latitude && longitude) {
-      // Use OpenStreetMap which doesn't have intent issues
-      mapsUrl = `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}&zoom=15`;
+      if (isProduction) {
+        // Use the simplest format for production that bypasses intent system
+        mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
+      } else {
+        // Use enhanced format for localhost
+        mapsUrl = `https://www.google.com/maps/search/@${latitude},${longitude},15z`;
+      }
     } else {
       const encodedAddress = encodeURIComponent(address);
-      mapsUrl = `https://www.openstreetmap.org/search?query=${encodedAddress}`;
+      mapsUrl = `https://maps.google.com/?q=${encodedAddress}`;
     }
     
-    console.log('Opening Maps URL:', mapsUrl);
+    console.log('Opening Google Maps URL:', mapsUrl);
     
-    // Create a temporary link element to handle navigation
-    const link = document.createElement('a');
-    link.href = mapsUrl;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Production-specific navigation handling
+    if (isProduction) {
+      // For production, use a more aggressive approach
+      setTimeout(() => {
+        try {
+          // Try window.open with specific parameters for production
+          const newWindow = window.open(mapsUrl, '_blank', 'noopener=yes,noreferrer=yes,width=1200,height=800');
+          if (!newWindow) {
+            // If popup blocked, navigate in same window
+            window.open(mapsUrl, '_self');
+          }
+        } catch (error) {
+          console.log('window.open failed, using location.href');
+          window.location.href = mapsUrl;
+        }
+      }, 0);
+    } else {
+      // For localhost, use the link method
+      const link = document.createElement('a');
+      link.href = mapsUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
 
   // Handle WhatsApp navigation with better popup blocker handling
@@ -1233,7 +1259,7 @@ const LocationHistory = () => {
                                     href={getGoogleMapsHref(selectedActivity.address, selectedActivity.latitude, selectedActivity.longitude)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    aria-label={`Abrir ${selectedActivity.address} en Mapa`}
+                                    aria-label={`Abrir ${selectedActivity.address} en Google Maps`}
                                     onClick={(e) => {
                                       e.preventDefault();
                                       e.stopPropagation();
@@ -1475,7 +1501,7 @@ const LocationHistory = () => {
                                       href={getGoogleMapsHref(location.address, location.latitude, location.longitude)}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      aria-label={`Abrir ${location.address} en Mapa`}
+                                      aria-label={`Abrir ${location.address} en Google Maps`}
                                       onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
@@ -1684,7 +1710,7 @@ const LocationHistory = () => {
                                   href={getGoogleMapsHref(location.address, location.latitude, location.longitude)}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  aria-label={`Abrir ${location.address} en Mapa`}
+                                  aria-label={`Abrir ${location.address} en Google Maps`}
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
