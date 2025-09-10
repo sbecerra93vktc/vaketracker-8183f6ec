@@ -767,45 +767,33 @@ const LocationHistory = () => {
     let mapsUrl = '';
     if (latitude && longitude) {
       if (isProduction) {
-        // Use the simplest format for production that bypasses intent system
-        mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
+        // Use OpenStreetMap for production to avoid Google's intent system completely
+        mapsUrl = `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}&zoom=15`;
       } else {
-        // Use enhanced format for localhost
+        // Use Google Maps for localhost
         mapsUrl = `https://www.google.com/maps/search/@${latitude},${longitude},15z`;
       }
     } else {
       const encodedAddress = encodeURIComponent(address);
-      mapsUrl = `https://maps.google.com/?q=${encodedAddress}`;
+      if (isProduction) {
+        // Use OpenStreetMap search for production
+        mapsUrl = `https://www.openstreetmap.org/search?query=${encodedAddress}`;
+      } else {
+        // Use Google Maps search for localhost
+        mapsUrl = `https://maps.google.com/?q=${encodedAddress}`;
+      }
     }
     
-    console.log('Opening Google Maps URL:', mapsUrl);
+    console.log('Opening Maps URL:', mapsUrl);
     
-    // Production-specific navigation handling
-    if (isProduction) {
-      // For production, use a more aggressive approach
-      setTimeout(() => {
-        try {
-          // Try window.open with specific parameters for production
-          const newWindow = window.open(mapsUrl, '_blank', 'noopener=yes,noreferrer=yes,width=1200,height=800');
-          if (!newWindow) {
-            // If popup blocked, navigate in same window
-            window.open(mapsUrl, '_self');
-          }
-        } catch (error) {
-          console.log('window.open failed, using location.href');
-          window.location.href = mapsUrl;
-        }
-      }, 0);
-    } else {
-      // For localhost, use the link method
-      const link = document.createElement('a');
-      link.href = mapsUrl;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
+    // Use the same reliable method for both environments
+    const link = document.createElement('a');
+    link.href = mapsUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Handle WhatsApp navigation with better popup blocker handling
@@ -814,18 +802,44 @@ const LocationHistory = () => {
     if (!phone) return;
     
     const sanitized = String(phone).replace(/[^\d+]/g, '');
-    const whatsappUrl = `https://wa.me/${sanitized}`;
     
+    // Detect if we're in production
+    const isProduction = window.location.hostname !== 'localhost' && !window.location.hostname.includes('127.0.0.1');
+    
+    // Use different approaches for different environments
+    const whatsappUrl = `https://wa.me/${sanitized}`;
     console.log('Opening WhatsApp URL:', whatsappUrl);
     
-    // Create a temporary link element to handle navigation
-    const link = document.createElement('a');
-    link.href = whatsappUrl;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    if (isProduction) {
+      // For production, try multiple fallback methods
+      try {
+        // First try: direct window.open
+        const newWindow = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+        if (!newWindow) {
+          // Second try: create link and click
+          const link = document.createElement('a');
+          link.href = whatsappUrl;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      } catch (error) {
+        console.log('WhatsApp redirect failed:', error);
+        // Final fallback: navigate in same window
+        window.location.href = whatsappUrl;
+      }
+    } else {
+      // For localhost, use the reliable link method
+      const link = document.createElement('a');
+      link.href = whatsappUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
 
   const formatVisitType = (visitType: string) => {
@@ -1389,7 +1403,7 @@ const LocationHistory = () => {
                                     href={getGoogleMapsHref(selectedActivity.address, selectedActivity.latitude, selectedActivity.longitude)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    aria-label={`Abrir ${selectedActivity.address} en Google Maps`}
+                                    aria-label={`Abrir ${selectedActivity.address} en Mapa`}
                                     onClick={(e) => {
                                       e.preventDefault();
                                       e.stopPropagation();
@@ -1631,7 +1645,7 @@ const LocationHistory = () => {
                                       href={getGoogleMapsHref(location.address, location.latitude, location.longitude)}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      aria-label={`Abrir ${location.address} en Google Maps`}
+                                      aria-label={`Abrir ${location.address} en Mapa`}
                                       onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
@@ -1840,7 +1854,7 @@ const LocationHistory = () => {
                                   href={getGoogleMapsHref(location.address, location.latitude, location.longitude)}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  aria-label={`Abrir ${location.address} en Google Maps`}
+                                  aria-label={`Abrir ${location.address} en Mapa`}
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
