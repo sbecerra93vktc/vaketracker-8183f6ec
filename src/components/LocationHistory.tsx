@@ -48,6 +48,7 @@ const LocationHistory = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [filteredTotalCount, setFilteredTotalCount] = useState(0);
+  const [allUsers, setAllUsers] = useState<{id: string, name: string}[]>([]);
   const [selectedUser, setSelectedUser] = useState<string>('all');
   const [selectedDateFrom, setSelectedDateFrom] = useState<string>('');
   const [selectedDateTo, setSelectedDateTo] = useState<string>('');
@@ -76,6 +77,40 @@ const LocationHistory = () => {
   const { toast } = useToast();
 
   const ITEMS_PER_PAGE = 10;
+
+  const fetchAllUsers = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || userRole !== 'admin') return;
+
+      // Fetch all unique user IDs from locations table
+      const { data: userIds } = await supabase
+        .from('locations')
+        .select('user_id')
+        .not('user_id', 'is', null);
+
+      if (userIds && userIds.length > 0) {
+        const uniqueUserIds = [...new Set(userIds.map(item => item.user_id))];
+        
+        // Fetch user profiles for these IDs
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name, email')
+          .in('user_id', uniqueUserIds);
+
+        if (profilesData) {
+          const users = profilesData.map(profile => ({
+            id: profile.user_id,
+            name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.email || 'Unknown User'
+          }));
+          
+          setAllUsers(users);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching all users:', error);
+    }
+  };
 
   const canDeleteActivity = (activity: Location) => {
     if (!user) return false;
@@ -255,6 +290,9 @@ const LocationHistory = () => {
 
   useEffect(() => {
     fetchLocations(true); // Reset and fetch first page
+    if (userRole === 'admin') {
+      fetchAllUsers(); // Fetch all users for the dropdown
+    }
   }, [userRole, activityView]);
 
   useEffect(() => {
@@ -358,6 +396,8 @@ const LocationHistory = () => {
       console.log('Fetch results:', {
         locationsData: locationsData?.length,
         count,
+        reset,
+        currentLocationsLength: locations.length,
         filters: {
           selectedUser,
           selectedDateFrom,
@@ -366,7 +406,9 @@ const LocationHistory = () => {
           selectedState,
           selectedVisitType,
           searchQuery,
-          activityView
+          activityView,
+          userRole,
+          isAdmin: userRole === 'admin'
         }
       });
 
@@ -1079,7 +1121,7 @@ const LocationHistory = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
-                      {getUniqueUsers().map(user => (
+                      {allUsers.map(user => (
                         <SelectItem key={user.id} value={user.id}>
                           {user.name}
                         </SelectItem>
