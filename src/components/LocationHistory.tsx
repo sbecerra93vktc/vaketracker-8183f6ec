@@ -313,7 +313,15 @@ const LocationHistory = () => {
     }
   }, [selectedCountry]);
 
-  const fetchLocations = async (reset = false) => {
+  const fetchLocations = async (reset = false, overrideFilters: {
+    selectedUser?: string;
+    selectedDateFrom?: string;
+    selectedDateTo?: string;
+    selectedVisitType?: string;
+    selectedCountry?: string;
+    selectedState?: string;
+    searchQuery?: string;
+  } = {}) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -325,6 +333,15 @@ const LocationHistory = () => {
       } else {
         setLoadingMore(true);
       }
+
+      // Use override filters if provided, otherwise use current state
+      const currentSelectedUser = overrideFilters.selectedUser !== undefined ? overrideFilters.selectedUser : selectedUser;
+      const currentSelectedDateFrom = overrideFilters.selectedDateFrom !== undefined ? overrideFilters.selectedDateFrom : selectedDateFrom;
+      const currentSelectedDateTo = overrideFilters.selectedDateTo !== undefined ? overrideFilters.selectedDateTo : selectedDateTo;
+      const currentSelectedVisitType = overrideFilters.selectedVisitType !== undefined ? overrideFilters.selectedVisitType : selectedVisitType;
+      const currentSelectedCountry = overrideFilters.selectedCountry !== undefined ? overrideFilters.selectedCountry : selectedCountry;
+      const currentSelectedState = overrideFilters.selectedState !== undefined ? overrideFilters.selectedState : selectedState;
+      const currentSearchQuery = overrideFilters.searchQuery !== undefined ? overrideFilters.searchQuery : searchQuery;
 
       // Build the base query
       let query = supabase
@@ -345,9 +362,9 @@ const LocationHistory = () => {
           console.log('Applied admin "my activities" filter:', user.id);
         } else if (activityView === 'all') {
           // Show all team activities (can filter by specific user if selected)
-          if (selectedUser !== 'all') {
-            query = query.eq('user_id', selectedUser);
-            console.log('Applied specific user filter:', selectedUser);
+          if (currentSelectedUser !== 'all') {
+            query = query.eq('user_id', currentSelectedUser);
+            console.log('Applied specific user filter:', currentSelectedUser);
           } else {
             console.log('No user filter applied - showing all team activities');
           }
@@ -356,35 +373,35 @@ const LocationHistory = () => {
       }
 
       // Filter by date range
-      if (selectedDateFrom) {
-        const fromDate = new Date(selectedDateFrom);
+      if (currentSelectedDateFrom) {
+        const fromDate = new Date(currentSelectedDateFrom);
         query = query.gte('created_at', fromDate.toISOString());
       }
 
-      if (selectedDateTo) {
-        const toDate = new Date(selectedDateTo);
+      if (currentSelectedDateTo) {
+        const toDate = new Date(currentSelectedDateTo);
         toDate.setHours(23, 59, 59, 999); // Include the entire day
         query = query.lte('created_at', toDate.toISOString());
       }
 
       // Filter by visit type
-      if (selectedVisitType !== 'all') {
-        query = query.eq('visit_type', selectedVisitType);
+      if (currentSelectedVisitType !== 'all') {
+        query = query.eq('visit_type', currentSelectedVisitType);
       }
 
       // Filter by country (server-side if available)
-      if (selectedCountry !== 'all') {
-        query = query.eq('country', selectedCountry);
+      if (currentSelectedCountry !== 'all') {
+        query = query.eq('country', currentSelectedCountry);
       }
 
       // Filter by state (server-side if available)
-      if (selectedState !== 'all') {
-        query = query.eq('state', selectedState);
+      if (currentSelectedState !== 'all') {
+        query = query.eq('state', currentSelectedState);
       }
 
       // Apply search query if present
-      if (searchQuery.trim()) {
-        query = query.or(`address.ilike.%${searchQuery}%,notes.ilike.%${searchQuery}%,visit_type.ilike.%${searchQuery}%,business_name.ilike.%${searchQuery}%`);
+      if (currentSearchQuery.trim()) {
+        query = query.or(`address.ilike.%${currentSearchQuery}%,notes.ilike.%${currentSearchQuery}%,visit_type.ilike.%${currentSearchQuery}%,business_name.ilike.%${currentSearchQuery}%`);
       }
 
       // Apply pagination
@@ -407,13 +424,13 @@ const LocationHistory = () => {
         from: reset ? 0 : locations.length,
         to: (reset ? 0 : locations.length) + ITEMS_PER_PAGE - 1,
         filters: {
-          selectedUser,
-          selectedDateFrom,
-          selectedDateTo,
-          selectedCountry,
-          selectedState,
-          selectedVisitType,
-          searchQuery,
+          selectedUser: currentSelectedUser,
+          selectedDateFrom: currentSelectedDateFrom,
+          selectedDateTo: currentSelectedDateTo,
+          selectedCountry: currentSelectedCountry,
+          selectedState: currentSelectedState,
+          selectedVisitType: currentSelectedVisitType,
+          searchQuery: currentSearchQuery,
           activityView,
           userRole,
           isAdmin: userRole === 'admin'
@@ -1148,11 +1165,11 @@ const LocationHistory = () => {
                   <Select value={selectedUser} onValueChange={(value) => {
                     console.log('User filter changed:', { value, allUsers });
                     setSelectedUser(value);
-                    // Use requestAnimationFrame to ensure state is updated
-                    requestAnimationFrame(() => {
-                      console.log('About to call handleFilterChange for user filter');
-                      handleFilterChange();
-                    });
+                    // Pass the new value directly to avoid state timing issues
+                    console.log('About to fetch with user filter:', value);
+                    setLoadingFilters(true);
+                    fetchLocations(true, { selectedUser: value });
+                    clearSelectedActivity();
                   }}>
                     <SelectTrigger className="h-9 text-sm">
                       <SelectValue placeholder="Todos" />
