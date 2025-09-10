@@ -1390,7 +1390,7 @@ const LocationHistory = () => {
                                     href={getGoogleMapsHref(selectedActivity.address, selectedActivity.latitude, selectedActivity.longitude)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    aria-label={`Abrir ${selectedActivity.address} en Mapa`}
+                                    aria-label={`Abrir ${selectedActivity.address} en Google Maps`}
                                     onClick={(e) => {
                                       e.preventDefault();
                                       e.stopPropagation();
@@ -1632,7 +1632,7 @@ const LocationHistory = () => {
                                       href={getGoogleMapsHref(location.address, location.latitude, location.longitude)}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      aria-label={`Abrir ${location.address} en Mapa`}
+                                      aria-label={`Abrir ${location.address} en Google Maps`}
                                       onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
@@ -1841,7 +1841,7 @@ const LocationHistory = () => {
                                   href={getGoogleMapsHref(location.address, location.latitude, location.longitude)}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  aria-label={`Abrir ${location.address} en Mapa`}
+                                  aria-label={`Abrir ${location.address} en Google Maps`}
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
