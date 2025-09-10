@@ -756,37 +756,24 @@ const LocationHistory = () => {
     return '#';
   };
 
-  // Handle Google Maps navigation with production-specific fixes
+  // Handle Google Maps navigation (use Google in both envs; simplify to avoid blockers)
   const handleGoogleMapsClick = (address: string, latitude?: number, longitude?: number) => {
     console.log('Google Maps clicked:', { address, latitude, longitude });
     if (!address) return;
     
-    // Detect if we're in production
-    const isProduction = window.location.hostname !== 'localhost' && !window.location.hostname.includes('127.0.0.1');
-    
     let mapsUrl = '';
     if (latitude && longitude) {
-      if (isProduction) {
-        // Use OpenStreetMap for production to avoid Google's intent system completely
-        mapsUrl = `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}&zoom=15`;
-      } else {
-        // Use Google Maps for localhost
-        mapsUrl = `https://www.google.com/maps/search/@${latitude},${longitude},15z`;
-      }
+      // Use a simple, reliable Google Maps URL format
+      mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}&z=15`;
     } else {
       const encodedAddress = encodeURIComponent(address);
-      if (isProduction) {
-        // Use OpenStreetMap search for production
-        mapsUrl = `https://www.openstreetmap.org/search?query=${encodedAddress}`;
-      } else {
-        // Use Google Maps search for localhost
-        mapsUrl = `https://maps.google.com/?q=${encodedAddress}`;
-      }
+      // Address search
+      mapsUrl = `https://maps.google.com/?q=${encodedAddress}`;
     }
     
     console.log('Opening Maps URL:', mapsUrl);
     
-    // Use the same reliable method for both environments
+    // Use a user-gesture anchored anchor click which is least likely to be blocked
     const link = document.createElement('a');
     link.href = mapsUrl;
     link.target = '_blank';
