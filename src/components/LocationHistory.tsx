@@ -258,8 +258,14 @@ const LocationHistory = () => {
   }, [userRole, activityView]);
 
   useEffect(() => {
-    applyFilters();
-  }, [locations, selectedUser, selectedDateFrom, selectedDateTo, selectedCountry, selectedState, selectedVisitType]);
+    // Only apply client-side filters if we have country/state filters that need coordinate detection
+    if (selectedCountry !== 'all' || selectedState !== 'all') {
+      applyFilters();
+    } else {
+      // If no client-side filtering needed, just use the locations as-is
+      setFilteredLocations(locations);
+    }
+  }, [locations, selectedCountry, selectedState]);
 
   // Reset state filter when country changes
   useEffect(() => {
@@ -322,9 +328,19 @@ const LocationHistory = () => {
         query = query.eq('visit_type', selectedVisitType);
       }
 
+      // Filter by country (server-side if available)
+      if (selectedCountry !== 'all') {
+        query = query.eq('country', selectedCountry);
+      }
+
+      // Filter by state (server-side if available)
+      if (selectedState !== 'all') {
+        query = query.eq('state', selectedState);
+      }
+
       // Apply search query if present
       if (searchQuery.trim()) {
-        query = query.or(`address.ilike.%${searchQuery}%,notes.ilike.%${searchQuery}%,visit_type.ilike.%${searchQuery}%`);
+        query = query.or(`address.ilike.%${searchQuery}%,notes.ilike.%${searchQuery}%,visit_type.ilike.%${searchQuery}%,business_name.ilike.%${searchQuery}%`);
       }
 
       // Apply pagination
@@ -339,6 +355,20 @@ const LocationHistory = () => {
         return;
       }
 
+      console.log('Fetch results:', {
+        locationsData: locationsData?.length,
+        count,
+        filters: {
+          selectedUser,
+          selectedDateFrom,
+          selectedDateTo,
+          selectedCountry,
+          selectedState,
+          selectedVisitType,
+          searchQuery,
+          activityView
+        }
+      });
 
       setTotalCount(count || 0);
 
@@ -409,40 +439,43 @@ const LocationHistory = () => {
   const applyFilters = () => {
     let filtered = [...locations];
 
-    // User filter (client-side fallback - should be applied at database level but this ensures it works)
-    if (selectedUser !== 'all') {
-      filtered = filtered.filter(location => location.user_id === selectedUser);
-    }
+    // Only apply client-side filters for data that might not be filtered server-side
+    // Most filters are now handled server-side, so we mainly need fallback filtering
+    // for country/state detection on existing data without those fields
 
-    // Country filter (client-side for existing data)
+    // Country filter (only for records without country field)
     if (selectedCountry !== 'all') {
       filtered = filtered.filter(location => {
-        const locationCountry = location.country || detectCountryFromCoordinates(location.latitude, location.longitude);
-        return locationCountry === selectedCountry;
+        if (location.country) {
+          return location.country === selectedCountry;
+        }
+        const detectedCountry = detectCountryFromCoordinates(location.latitude, location.longitude);
+        return detectedCountry === selectedCountry;
       });
     }
 
-    // State filter (client-side for existing data)
+    // State filter (only for records without state field)
     if (selectedState !== 'all') {
       filtered = filtered.filter(location => {
-        const locationState = location.state || detectStateFromCoordinates(
+        if (location.state) {
+          return location.state === selectedState;
+        }
+        const detectedState = detectStateFromCoordinates(
           location.latitude, 
           location.longitude, 
           location.country || detectCountryFromCoordinates(location.latitude, location.longitude)
         );
-        return locationState === selectedState;
+        return detectedState === selectedState;
       });
-    }
-
-    // Visit type filter
-    if (selectedVisitType !== 'all') {
-      filtered = filtered.filter(location => location.visit_type === selectedVisitType);
     }
 
     setFilteredLocations(filtered);
     
-    // Update filtered total count to reflect filtered results
-    setFilteredTotalCount(filtered.length);
+    // Don't override filteredTotalCount here - it should come from the database count
+    // Only update it if we're doing additional client-side filtering
+    if (selectedCountry !== 'all' || selectedState !== 'all') {
+      setFilteredTotalCount(filtered.length);
+    }
   };
 
   const handleFilterChange = () => {
