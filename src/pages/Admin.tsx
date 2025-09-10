@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { ArrowLeft } from 'lucide-react';
 
 interface Invitation {
   id: string;
@@ -59,6 +61,7 @@ const Admin = () => {
   const [validatedLoading, setValidatedLoading] = useState(false);
   const { toast } = useToast();
   const { userRole } = useAuth();
+  const navigate = useNavigate();
 
   const availablePermissions = [
     { name: 'view_team_locations', label: 'Ver actividades del equipo' },
@@ -430,7 +433,18 @@ const Admin = () => {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Panel de Administración</h1>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Volver al Dashboard
+          </Button>
+          <h1 className="text-3xl font-bold">Panel de Administración</h1>
+        </div>
       </div>
 
       <Tabs defaultValue="invitations" className="space-y-6">
