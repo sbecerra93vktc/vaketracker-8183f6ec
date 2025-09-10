@@ -104,6 +104,7 @@ const LocationHistory = () => {
             name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.email || 'Unknown User'
           }));
           
+          console.log('Fetched all users for dropdown:', users);
           setAllUsers(users);
         }
       }
@@ -335,15 +336,20 @@ const LocationHistory = () => {
       if (userRole !== 'admin') {
         // Non-admin users always see only their own activities
         query = query.eq('user_id', user.id);
+        console.log('Applied non-admin user filter:', user.id);
       } else {
         // Admin users can filter by activity view
         if (activityView === 'my') {
           // Show only admin's own activities
           query = query.eq('user_id', user.id);
+          console.log('Applied admin "my activities" filter:', user.id);
         } else if (activityView === 'all') {
           // Show all team activities (can filter by specific user if selected)
           if (selectedUser !== 'all') {
             query = query.eq('user_id', selectedUser);
+            console.log('Applied specific user filter:', selectedUser);
+          } else {
+            console.log('No user filter applied - showing all team activities');
           }
           // If no specific user selected, show all team activities
         }
@@ -398,6 +404,8 @@ const LocationHistory = () => {
         count,
         reset,
         currentLocationsLength: locations.length,
+        from: reset ? 0 : locations.length,
+        to: (reset ? 0 : locations.length) + ITEMS_PER_PAGE - 1,
         filters: {
           selectedUser,
           selectedDateFrom,
@@ -409,7 +417,11 @@ const LocationHistory = () => {
           activityView,
           userRole,
           isAdmin: userRole === 'admin'
-        }
+        },
+        actualResults: locationsData?.map(loc => ({ 
+          user_id: loc.user_id, 
+          address: loc.address?.substring(0, 50) + '...'
+        }))
       });
 
       setTotalCount(count || 0);
@@ -481,6 +493,17 @@ const LocationHistory = () => {
   const applyFilters = () => {
     let filtered = [...locations];
 
+    console.log('Client-side applyFilters called with:', {
+      selectedCountry,
+      selectedState,
+      locationsCount: locations.length,
+      sampleLocations: locations.slice(0, 3).map(loc => ({
+        user_id: loc.user_id,
+        user_name: loc.user_name,
+        address: loc.address?.substring(0, 30)
+      }))
+    });
+
     // Only apply client-side filters for data that might not be filtered server-side
     // Most filters are now handled server-side, so we mainly need fallback filtering
     // for country/state detection on existing data without those fields
@@ -510,6 +533,15 @@ const LocationHistory = () => {
         return detectedState === selectedState;
       });
     }
+
+    console.log('After client-side filtering:', {
+      filteredCount: filtered.length,
+      sampleFiltered: filtered.slice(0, 3).map(loc => ({
+        user_id: loc.user_id,
+        user_name: loc.user_name,
+        address: loc.address?.substring(0, 30)
+      }))
+    });
 
     setFilteredLocations(filtered);
     
@@ -1113,6 +1145,7 @@ const LocationHistory = () => {
                 <div className="space-y-1">
                   <Label htmlFor="user-filter" className="text-xs font-medium">Usuario</Label>
                   <Select value={selectedUser} onValueChange={(value) => {
+                    console.log('User filter changed:', { value, allUsers });
                     setSelectedUser(value);
                     setTimeout(handleFilterChange, 100);
                   }}>
