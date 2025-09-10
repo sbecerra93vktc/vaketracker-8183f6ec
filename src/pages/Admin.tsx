@@ -432,19 +432,17 @@ const Admin = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/')}
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Volver al Dashboard
-          </Button>
-          <h1 className="text-3xl font-bold">Panel de Administración</h1>
-        </div>
+      <div className="space-y-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate('/')}
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Volver al Dashboard
+        </Button>
+        <h1 className="text-3xl font-bold">Panel de Administración</h1>
       </div>
 
       <Tabs defaultValue="invitations" className="space-y-6">
