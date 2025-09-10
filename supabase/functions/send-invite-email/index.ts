@@ -29,8 +29,8 @@ serve(async (req) => {
       );
     }
 
-    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-    const FROM_EMAIL = Deno.env.get('INVITES_FROM_EMAIL') || 'no-reply@yourdomain.com';
+    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || 're_4Xck74cC_6qgFRnRmCNQFnByitkfijzfx';
+    const FROM_EMAIL = Deno.env.get('INVITES_FROM_EMAIL') || 'no-reply@baketracker.space';
 
     if (!RESEND_API_KEY) {
       return new Response(
