@@ -553,6 +553,7 @@ const LocationHistory = () => {
   };
 
   const handleFilterChange = () => {
+    console.log('handleFilterChange called - will fetch fresh data');
     // Reset and fetch with new filters
     setLoadingFilters(true);
     fetchLocations(true);
@@ -1147,7 +1148,11 @@ const LocationHistory = () => {
                   <Select value={selectedUser} onValueChange={(value) => {
                     console.log('User filter changed:', { value, allUsers });
                     setSelectedUser(value);
-                    setTimeout(handleFilterChange, 100);
+                    // Use requestAnimationFrame to ensure state is updated
+                    requestAnimationFrame(() => {
+                      console.log('About to call handleFilterChange for user filter');
+                      handleFilterChange();
+                    });
                   }}>
                     <SelectTrigger className="h-9 text-sm">
                       <SelectValue placeholder="Todos" />
